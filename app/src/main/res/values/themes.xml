@@ -1,8 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.UnPawse" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    <!--
+      Base application theme. The real UI is drawn by Jetpack Compose (see UnPawseTheme);
+      this XML theme only governs the pre-Compose window (splash background, no action bar).
+      Parented on a platform theme so we don't depend on the Material Components (Views) library.
+    -->
+    <style name="Base.Theme.UnPawse" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/warm_white</item>
     </style>
 
     <style name="Theme.UnPawse" parent="Base.Theme.UnPawse" />
