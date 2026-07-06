@@ -12,8 +12,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.unpawse.data.SampleData
 import com.example.unpawse.ui.block.BlockOverlayScreen
-import com.example.unpawse.ui.camera.CameraScreen
-import com.example.unpawse.ui.gallery.GalleryScreen
+import com.example.unpawse.ui.camera.CameraRoute
+import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeScreen
 import com.example.unpawse.ui.settings.SettingsScreen
 import com.example.unpawse.ui.stats.StatsScreen
@@ -48,10 +48,10 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.CAMERA) {
-            CameraScreen(
-                state = SampleData.cameraState,
+            CameraRoute(
                 onClose = { navController.navigateToTab(TopLevelDestination.HOME) },
                 onOpenGallery = { navController.navigateToTab(TopLevelDestination.GALLERY) },
+                onOpenSettings = { navController.navigateToTab(TopLevelDestination.SETTINGS) },
             )
         }
 
@@ -60,7 +60,7 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.GALLERY) {
-            GalleryScreen(state = SampleData.galleryState)
+            GalleryRoute()
         }
 
         composable(Routes.SETTINGS) {
