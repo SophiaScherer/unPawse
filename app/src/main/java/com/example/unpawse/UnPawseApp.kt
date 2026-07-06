@@ -26,8 +26,9 @@ fun UnPawseApp() {
     // null = follow the system; the Settings dark-mode toggle sets an explicit override.
     // Session-scoped only — no persistence yet (that arrives with the settings data layer).
     var darkThemeOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    val darkMode = darkThemeOverride ?: isSystemInDarkTheme()
 
-    UnPawseTheme(darkTheme = darkThemeOverride ?: isSystemInDarkTheme()) {
+    UnPawseTheme(darkTheme = darkMode) {
         val navController = rememberNavController()
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route
@@ -47,6 +48,8 @@ fun UnPawseApp() {
         ) { innerPadding ->
             UnPawseNavHost(
                 navController = navController,
+                darkMode = darkMode,
+                onToggleDarkMode = { darkThemeOverride = it },
                 modifier = Modifier.padding(innerPadding),
             )
         }

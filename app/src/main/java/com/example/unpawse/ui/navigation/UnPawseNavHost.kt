@@ -1,28 +1,35 @@
 package com.example.unpawse.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.unpawse.data.SampleData
+import com.example.unpawse.ui.block.BlockOverlayScreen
+import com.example.unpawse.ui.camera.CameraScreen
+import com.example.unpawse.ui.gallery.GalleryScreen
+import com.example.unpawse.ui.home.HomeScreen
+import com.example.unpawse.ui.settings.SettingsScreen
+import com.example.unpawse.ui.stats.StatsScreen
 
 /**
- * Central navigation graph. Each destination is fed its UI state + navigation callbacks here — this
- * is the seam where `SampleData.xxxState` gets swapped for a ViewModel later without touching the
- * screen composables.
+ * Central navigation graph. Each destination is fed its UI state (from [SampleData]) plus the
+ * navigation callbacks here — this is the seam where a ViewModel replaces `SampleData.xxxState`
+ * later without touching the screen composables.
  *
- * Screens are placeholders for now; Phases 5–6 replace each [PlaceholderScreen] with the real one.
+ * [darkMode] / [onToggleDarkMode] are threaded down from [com.example.unpawse.UnPawseApp] so the
+ * Settings switch actually flips the app theme.
  */
 @Composable
 fun UnPawseNavHost(
     navController: NavHostController,
+    darkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -31,23 +38,57 @@ fun UnPawseNavHost(
         modifier = modifier,
     ) {
         composable(Routes.HOME) {
-            PlaceholderScreen(
-                title = "Home",
-                // Temporary hook so the Block Overlay is reachable for review (per plan);
-                // rewire to the real limit-reached trigger once backend exists.
-                onAction = { navController.navigate(Routes.BLOCK) },
-                actionLabel = "Open Block Overlay",
+            HomeScreen(
+                state = SampleData.homeState,
+                // Temporary review hook (per plan): the Pause Protection card opens the Block
+                // Overlay. Rewire to the real limit-reached trigger once backend logic exists.
+                onPauseProtection = { navController.navigate(Routes.BLOCK) },
             )
         }
-        composable(Routes.CAMERA) { PlaceholderScreen(title = "Camera") }
-        composable(Routes.STATS) { PlaceholderScreen(title = "Stats") }
-        composable(Routes.GALLERY) { PlaceholderScreen(title = "Gallery") }
-        composable(Routes.SETTINGS) { PlaceholderScreen(title = "Settings") }
+
+        composable(Routes.CAMERA) {
+            CameraScreen(
+                state = SampleData.cameraState,
+                onClose = { navController.navigateToTab(TopLevelDestination.HOME) },
+                onOpenGallery = { navController.navigateToTab(TopLevelDestination.GALLERY) },
+            )
+        }
+
+        composable(Routes.STATS) {
+            StatsScreen(state = SampleData.statsState)
+        }
+
+        composable(Routes.GALLERY) {
+            GalleryScreen(state = SampleData.galleryState)
+        }
+
+        composable(Routes.SETTINGS) {
+            // Control state is remembered here so the switches/slider visibly respond. Dark mode is
+            // the exception — it lives in UnPawseApp so it can drive the whole theme.
+            var requireLivePhoto by rememberSaveable { mutableStateOf(SampleData.settingsState.requireLivePhoto) }
+            var dailySummary by rememberSaveable { mutableStateOf(SampleData.settingsState.dailySummaryEnabled) }
+            var sensitivity by rememberSaveable { mutableStateOf(SampleData.settingsState.sensitivity) }
+
+            SettingsScreen(
+                state = SampleData.settingsState.copy(
+                    darkMode = darkMode,
+                    requireLivePhoto = requireLivePhoto,
+                    dailySummaryEnabled = dailySummary,
+                    sensitivity = sensitivity,
+                ),
+                onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
+                onToggleDarkMode = onToggleDarkMode,
+                onToggleLivePhoto = { requireLivePhoto = it },
+                onToggleDailySummary = { dailySummary = it },
+                onSensitivityChange = { sensitivity = it },
+            )
+        }
+
         composable(Routes.BLOCK) {
-            PlaceholderScreen(
-                title = "Block Overlay",
-                onAction = { navController.popBackStack() },
-                actionLabel = "Back",
+            BlockOverlayScreen(
+                state = SampleData.blockState,
+                onOpenCamera = { navController.navigateToTab(TopLevelDestination.CAMERA) },
+                onExit = { navController.popBackStack() },
             )
         }
     }
@@ -61,23 +102,5 @@ fun NavHostController.navigateToTab(destination: TopLevelDestination) {
         }
         launchSingleTop = true
         restoreState = true
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(
-    title: String,
-    modifier: Modifier = Modifier,
-    onAction: (() -> Unit)? = null,
-    actionLabel: String? = null,
-) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = title, style = MaterialTheme.typography.headlineMedium)
-        if (onAction != null && actionLabel != null) {
-            androidx.compose.material3.TextButton(
-                onClick = onAction,
-                modifier = Modifier.padding(top = 64.dp),
-            ) { Text(actionLabel) }
-        }
     }
 }
