@@ -317,10 +317,18 @@ private fun ActivityItem.toTimelineEntry(): TimelineEntry = when (kind) {
     )
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1400)
+@Preview(name = "Home", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1400)
 @Composable
 private fun HomeScreenPreview() {
     UnPawseTheme {
+        HomeScreen(state = HomeUiState.sample())
+    }
+}
+
+@Preview(name = "Home · dark", showBackground = true, backgroundColor = 0xFF171213, heightDp = 1400)
+@Composable
+private fun HomeScreenDarkPreview() {
+    UnPawseTheme(darkTheme = true) {
         HomeScreen(state = HomeUiState.sample())
     }
 }

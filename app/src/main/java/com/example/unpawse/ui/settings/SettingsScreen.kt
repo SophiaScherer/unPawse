@@ -247,22 +247,32 @@ private fun IconTile(icon: ImageVector) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1800)
+/** Interactive preview body: the toggles/slider actually respond so the controls can be eyeballed. */
+@Composable
+private fun SettingsScreenPreviewContent(startDark: Boolean) {
+    var dark by remember { mutableStateOf(startDark) }
+    var live by remember { mutableStateOf(false) }
+    var summary by remember { mutableStateOf(false) }
+    var sensitivity by remember { mutableFloatStateOf(0.65f) }
+    SettingsScreen(
+        state = SettingsUiState.sample(darkMode = dark).copy(
+            requireLivePhoto = live, dailySummaryEnabled = summary, sensitivity = sensitivity,
+        ),
+        onToggleDarkMode = { dark = it },
+        onToggleLivePhoto = { live = it },
+        onToggleDailySummary = { summary = it },
+        onSensitivityChange = { sensitivity = it },
+    )
+}
+
+@Preview(name = "Settings", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1800)
 @Composable
 private fun SettingsScreenPreview() {
-    UnPawseTheme {
-        var dark by remember { mutableStateOf(false) }
-        var live by remember { mutableStateOf(false) }
-        var summary by remember { mutableStateOf(false) }
-        var sensitivity by remember { mutableFloatStateOf(0.65f) }
-        SettingsScreen(
-            state = SettingsUiState.sample(darkMode = dark).copy(
-                requireLivePhoto = live, dailySummaryEnabled = summary, sensitivity = sensitivity,
-            ),
-            onToggleDarkMode = { dark = it },
-            onToggleLivePhoto = { live = it },
-            onToggleDailySummary = { summary = it },
-            onSensitivityChange = { sensitivity = it },
-        )
-    }
+    UnPawseTheme { SettingsScreenPreviewContent(startDark = false) }
+}
+
+@Preview(name = "Settings · dark", showBackground = true, backgroundColor = 0xFF171213, heightDp = 1800)
+@Composable
+private fun SettingsScreenDarkPreview() {
+    UnPawseTheme(darkTheme = true) { SettingsScreenPreviewContent(startDark = true) }
 }

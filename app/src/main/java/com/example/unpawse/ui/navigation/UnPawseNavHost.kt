@@ -2,6 +2,7 @@ package com.example.unpawse.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -67,7 +68,7 @@ fun UnPawseNavHost(
             // the exception — it lives in UnPawseApp so it can drive the whole theme.
             var requireLivePhoto by rememberSaveable { mutableStateOf(SampleData.settingsState.requireLivePhoto) }
             var dailySummary by rememberSaveable { mutableStateOf(SampleData.settingsState.dailySummaryEnabled) }
-            var sensitivity by rememberSaveable { mutableStateOf(SampleData.settingsState.sensitivity) }
+            var sensitivity by rememberSaveable { mutableFloatStateOf(SampleData.settingsState.sensitivity) }
 
             SettingsScreen(
                 state = SampleData.settingsState.copy(
