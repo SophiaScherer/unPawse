@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.camera
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -72,6 +73,7 @@ class CameraViewModel(
                     _events.send(CameraEvent.NotACat(result.confidence))
                 }
             } catch (t: Throwable) {
+                Log.w(TAG, "Capture/analysis failed", t)
                 _uiState.update { it.copy(hintText = ERROR_HINT) }
                 _events.send(CameraEvent.Error)
             } finally {
@@ -85,6 +87,8 @@ class CameraViewModel(
     }
 
     companion object {
+        private const val TAG = "CameraViewModel"
+
         private const val ANALYZING_HINT = "Checking for a cat..."
         private const val SAVED_HINT = "Purrfect! Saved to your gallery."
         private const val NOT_CAT_HINT = "Hmm, that's not a cat — try again."

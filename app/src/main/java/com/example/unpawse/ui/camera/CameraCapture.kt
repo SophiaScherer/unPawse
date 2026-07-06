@@ -32,10 +32,12 @@ class CapturedImage(
  * the same bytes are correct both for storage (Coil) and for ML Kit — no reliance on EXIF handling.
  * The heavy decode/rotate/encode runs on [Dispatchers.IO]; the ImageProxy is read briefly and closed.
  */
-suspend fun LifecycleCameraController.captureImage(context: Context): CapturedImage =
-    withContext(Dispatchers.IO) {
-        val (raw, rotationDegrees) = awaitRawCapture(context)
+suspend fun LifecycleCameraController.captureImage(context: Context): CapturedImage {
+    // CameraController.takePicture is @MainThread and asserts the calling thread, so fire the
+    // shutter on Main; only the heavy decode/rotate/encode below runs on IO.
+    val (raw, rotationDegrees) = withContext(Dispatchers.Main) { awaitRawCapture(context) }
 
+    return withContext(Dispatchers.IO) {
         var bitmap = BitmapFactory.decodeByteArray(raw, 0, raw.size)
         if (rotationDegrees != 0) {
             val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
@@ -49,6 +51,7 @@ suspend fun LifecycleCameraController.captureImage(context: Context): CapturedIm
         // Rotation is already applied, so hand ML Kit an upright bitmap (0°).
         CapturedImage(jpegBytes = jpeg, inputImage = InputImage.fromBitmap(bitmap, 0))
     }
+}
 
 /** Fires the shutter and hands back the raw JPEG bytes + rotation, releasing the proxy immediately. */
 private suspend fun LifecycleCameraController.awaitRawCapture(context: Context): Pair<ByteArray, Int> =
