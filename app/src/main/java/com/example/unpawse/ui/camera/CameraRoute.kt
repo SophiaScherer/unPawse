@@ -45,12 +45,12 @@ fun CameraRoute(
         if (!permission.granted) permission.request()
     }
 
-    // A confirmed cat lands in the gallery — take the user there to see it. Other events just leave
-    // the updated hint text on screen.
+    // Capture outcomes surface through the hint text in [state], and we deliberately keep the user
+    // on the camera after a save so they can keep snapping (the Gallery button is right there).
+    // Draining the event stream here leaves room to add transient feedback (haptics/snackbar) later
+    // without touching the ViewModel.
     LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            if (event is CameraEvent.Saved) onOpenGallery()
-        }
+        viewModel.events.collect { /* stay on the camera; hint text already reflects the outcome */ }
     }
 
     if (permission.granted) {
