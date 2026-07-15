@@ -2,11 +2,10 @@ package com.example.unpawse.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -16,6 +15,7 @@ import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeScreen
 import com.example.unpawse.ui.settings.SettingsScreen
+import com.example.unpawse.ui.settings.SettingsViewModel
 import com.example.unpawse.ui.stats.StatsScreen
 
 /**
@@ -64,24 +64,20 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.SETTINGS) {
-            // Control state is remembered here so the switches/slider visibly respond. Dark mode is
-            // the exception — it lives in UnPawseApp so it can drive the whole theme.
-            var requireLivePhoto by rememberSaveable { mutableStateOf(SampleData.settingsState.requireLivePhoto) }
-            var dailySummary by rememberSaveable { mutableStateOf(SampleData.settingsState.dailySummaryEnabled) }
-            var sensitivity by rememberSaveable { mutableFloatStateOf(SampleData.settingsState.sensitivity) }
+            // Persisted settings come from the SettingsViewModel; dark mode is the exception — it
+            // lives in UnPawseApp so it can drive the whole theme, and is overlaid here for display.
+            val context = LocalContext.current
+            val settingsViewModel: SettingsViewModel =
+                viewModel(factory = SettingsViewModel.factory(context))
+            val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
 
             SettingsScreen(
-                state = SampleData.settingsState.copy(
-                    darkMode = darkMode,
-                    requireLivePhoto = requireLivePhoto,
-                    dailySummaryEnabled = dailySummary,
-                    sensitivity = sensitivity,
-                ),
+                state = settingsState.copy(darkMode = darkMode),
                 onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
                 onToggleDarkMode = onToggleDarkMode,
-                onToggleLivePhoto = { requireLivePhoto = it },
-                onToggleDailySummary = { dailySummary = it },
-                onSensitivityChange = { sensitivity = it },
+                onToggleLivePhoto = settingsViewModel::setRequireLivePhoto,
+                onToggleDailySummary = settingsViewModel::setDailySummary,
+                onSensitivityChange = settingsViewModel::setSensitivity,
             )
         }
 

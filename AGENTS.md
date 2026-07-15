@@ -4,24 +4,32 @@
 
 ## Overview
 
-**unPawse** is a cat-themed **screen-time manager**: when an app's daily time limit is reached, the user must photograph their cat (verified on-device) to earn more time. The app currently implements the **full UI** for six screens from a design mockup, driven by hardcoded sample data. **No backend/business logic exists yet** — screens are stateless and rendered from `UiState` data classes, leaving a clean seam for ViewModels/repositories.
+**unPawse** is a cat-themed **screen-time manager**: when an app's daily time limit is reached, the user must photograph their cat (verified on-device) to earn more time. The app implements the **full UI** for six screens from a design mockup, and now has a **real capture pipeline** (CameraX + on-device ML cat detection + Room-backed persistence) plus an **app-scoped dependency container** and **DataStore settings persistence**.
+
+The app is mid-transition from "UI shell driven by sample data" to "functioning blocker." The **Camera** and **Gallery** screens are live (real ViewModels + repositories); **Home**, **Stats**, and **Block** still render from `data/SampleData.kt`; **Settings** now reads/writes persisted values through `SettingsRepository` (with several labels still static). Screens stay stateless `XxxScreen(state, callbacks)`, so swapping sample data for a ViewModel never touches the screen. See the roadmap in `.claude/plans/` for the phased build (data layer → app picker → foreground detection → block trigger → reward loop → live Home/Stats).
 
 The design system ("Warm Minimalist") centers on a blush-pink (`#F5B6C8`) / plum (`#815060`) Material 3 palette over a warm-white surface, Inter-style typography, 24dp rounded cards, pill buttons, and a "squishy" 98%-press-scale feel. Source tokens live in the mockup's `DESIGN.md`.
 
 ## Tech Stack
 
 - **Language:** Kotlin
-- **UI toolkit:** **Jetpack Compose + Material 3** (`androidx.compose.material3`). The old Views/XML scaffold has been removed. _(Resolves the former open decision.)_
+- **UI toolkit:** **Jetpack Compose + Material 3** (`androidx.compose.material3`). The old Views/XML scaffold has been removed.
 - **Build system:** Gradle (Kotlin DSL), version catalog at `gradle/libs.versions.toml`.
 - **Android Gradle Plugin:** 9.2.1 — **applies Kotlin itself** (built-in). There is intentionally **no** `org.jetbrains.kotlin.android` plugin.
-- **Compose compiler:** `org.jetbrains.kotlin.plugin.compose` at **2.2.20**, which must exactly match AGP 9.2.1's built-in Kotlin version. This matched on the first try (verified via `compileDebugKotlin`). If it ever mismatches, the build fails fast and states the required version — update `kotlin` in the catalog. Fallback: apply explicit KGP to opt out of built-in Kotlin.
+- **Compose compiler:** `org.jetbrains.kotlin.plugin.compose` at **2.2.20**, which must exactly match AGP 9.2.1's built-in Kotlin version. If it ever mismatches, the build fails fast and states the required version — update `kotlin` in the catalog. Fallback: apply explicit KGP to opt out of built-in Kotlin.
+- **KSP:** `com.google.devtools.ksp` at `2.2.20-2.0.2` (Room's annotation processor) — **must track the `kotlin` version**.
 - **compileSdk / targetSdk:** 36 · **minSdk:** 26 · **Java compatibility:** 11
 
 ### Key dependencies (all via the version catalog)
 - Compose **BOM** `2025.12.01` → `ui`, `ui-graphics`, `ui-tooling(-preview)`, `material3`
 - `material-icons-extended` **pinned 1.7.8** (it left the Compose BOM)
-- `activity-compose`, `navigation-compose`
+- `activity-compose`, `navigation-compose`, `lifecycle-{viewmodel,runtime}-compose`
 - `androidx.core:core-ktx` **pinned 1.17.0** (1.18+ require compileSdk 37; we compile against 36)
+- **Room** `2.7.1` (`runtime` + `ktx`, compiler via `ksp`) — capture metadata store
+- **CameraX** `1.4.2` (`core`, `camera2`, `lifecycle`, `view`) — capture pipeline
+- **ML Kit** `image-labeling 17.0.9` — on-device "Cat" label + confidence; bundled model, no network
+- **Coil 3** `3.1.0` — `AsyncImage` for local capture files
+- **DataStore** `datastore-preferences 1.1.7` — persists scalar settings toggles
 - Testing: JUnit4, AndroidX Test (`ext.junit`), Espresso, Compose UI test
 
 > Removed from the original scaffold: appcompat, Material Components (Views), constraintlayout, activity-ktx.
@@ -31,44 +39,62 @@ The design system ("Warm Minimalist") centers on a blush-pink (`#F5B6C8`) / plum
 ```
 app/src/main/java/com/example/unpawse/
 ├── MainActivity.kt            # ComponentActivity → enableEdgeToEdge() → setContent { UnPawseApp() }
-├── UnPawseApp.kt              # Root: theme + dark-mode override + Scaffold(bottom bar) + NavHost
+├── UnPawseApp.kt              # Root: theme + persisted dark-mode + Scaffold(bottom bar) + NavHost
+├── UnPawseApplication.kt      # Application: builds & holds the AppContainer; Context.appContainer()
 ├── data/
-│   └── SampleData.kt          # Central hardcoded UiState instances (the ViewModel injection seam)
+│   ├── AppContainer.kt        # App-scoped manual-DI graph (interface + DefaultAppContainer)
+│   ├── SampleData.kt          # Hardcoded UiState for the still-static screens (Home/Stats/Block)
+│   ├── capture/               # Capture, CaptureEntity(+toDomain), CaptureDao, CaptureDatabase,
+│   │                          #   CaptureRepository, PhotoStorage
+│   └── settings/              # SettingsRepository (Preferences DataStore)
+├── ml/                        # CatDetector (ML Kit) + DetectionResult; classify()/sensitivity map
 └── ui/
     ├── theme/                 # Color, Theme (light + provisional dark), Type, Shape, Dimens
     ├── navigation/            # Routes, TopLevelDestination, UnPawseNavHost, UnPawseBottomBar
     ├── components/            # Stateless reusable UI (cards, charts, chips, timeline, settings rows…)
-    ├── home/  · stats/ · gallery/ · settings/ · camera/ · block/
-    │                          # Each: XxxScreen(state, callbacks) + XxxUiState(+ .sample()) + @Preview
+    ├── home/ · stats/ · block/        # Static: XxxScreen(state, callbacks) + XxxUiState(.sample())
+    ├── settings/              # SettingsScreen + SettingsUiState + SettingsViewModel (persisted)
+    ├── camera/                # CameraScreen/Route/ViewModel + CameraX preview/capture/permission
+    └── gallery/               # GalleryScreen/Route/ViewModel/UiState + GalleryMapper
 ```
 
 - **Application ID / namespace:** `com.example.unpawse` _(placeholder — likely to change before release)._
-- **Entry point:** `MainActivity` → `UnPawseApp()`.
+- **Entry point:** `MainActivity` → `UnPawseApp()`; process entry `UnPawseApplication`.
 
 ## Architecture & Conventions
 
-- **UI state:** every screen is a stateless `XxxScreen(state: XxxUiState, …callbacks)`. Concrete mockup data lives in each `XxxUiState.sample()`; `data/SampleData.kt` names them in one place. The `NavHost` injects `SampleData.xxxState` into each screen — replace with `viewModel.uiState.collectAsStateWithLifecycle()` later **without touching the screens**.
-- **Navigation:** single-activity, `navigation-compose` with **plain string routes** (`Routes`), deliberately **not** kotlinx-serialization type-safe routes (avoids a second compiler-plugin/version-matching dependency). Tabs use `popUpTo(start){saveState}; launchSingleTop; restoreState`. The **Block Overlay** is a normal destination (no bottom bar) temporarily reachable from Home's "Pause Protection" card — rewire to the real limit-reached trigger when backend exists.
-- **Theme:** `UnPawseTheme(darkTheme, content)` maps all `DESIGN.md` tokens to a `lightColorScheme`; no dynamic color (blush-pink brand identity is intentional). The **dark scheme is provisional** (derived from fixed/inverse tokens) — refine against a real dark mockup. The Settings dark-mode toggle **actually flips the theme** but is **session-only** (`rememberSaveable` in `UnPawseApp`, no persistence yet).
-- **Typography:** the type scale (sizes/weights/line-heights) matches `DESIGN.md`, but the family is currently the **platform sans-serif**, not Inter. Downloadable Google Fonts needs the GMS provider certificates and bundling needs the OFL TTFs — neither was added in the UI pass. To switch to Inter: drop the four OFL TTFs into `res/font/` and replace `AppFontFamily` in `ui/theme/Type.kt`.
-- **Icons:** `material-icons-extended` — the ~40 mockup symbols map nearly 1:1; R8 strips the unused ones. Notable substitutes: `Shield` (Pause Protection), `GridView` (Gallery / AutoAwesomeMosaic), `LocalCafe`, `PhoneAndroid`.
-- **Images:** **no mockup photos are committed.** `CatPhotoPlaceholder` renders seeded warm gradients + a faint paw; `InitialsAvatar` stands in for profile photos. Swap for a real image loader (e.g. Coil `AsyncImage`) later.
-- **Camera:** `CameraScreen` is a **static placeholder viewfinder** (warm gradient) with the real overlay controls — **no CameraX, no permissions** yet.
+- **Dependency injection: manual, app-scoped.** `UnPawseApplication` builds a single `AppContainer` (`data/AppContainer.kt`) that owns the Room `CaptureDatabase` singleton, the shared `CaptureRepository`/`PhotoStorage`, the `SettingsRepository`, and derived app-wide state (e.g. `catDetectorMinConfidence`). ViewModel `factory(context)` methods read dependencies from it via `context.appContainer()` — they no longer rebuild the graph each time. `AppContainer` is an interface (`DefaultAppContainer` is the production impl) so tests can supply fakes. This is deliberately **not** Hilt/Koin — it keeps the "no extra compiler plugins" stance; the container is the seam a framework would later replace.
+- **Data layer / repositories.** Each store follows the `CaptureRepository` pattern: one class exposes `Flow`s + `suspend` writers so callers never touch Room/DataStore directly. Room stack lives per-feature package: `@Entity` + a separate domain model + an `internal fun …toDomain()` mapper + `@Dao` returning `Flow`, behind `XxxDatabase.getInstance()`. New persisted data (per-app limits, daily usage) should mirror `data/capture/`.
+- **UI state:** every screen is a stateless `XxxScreen(state: XxxUiState, …callbacks)` with an `XxxUiState.sample()` for `@Preview`. **Live** screens add a stateful `XxxRoute` that owns a `ViewModel` (built by `XxxViewModel.factory(context)`) and collects `uiState` with `collectAsStateWithLifecycle()` (see Camera/Gallery/Settings). **Static** screens (Home/Stats/Block) are still wired to `SampleData.xxxState` in the `NavHost` — replace with a Route/ViewModel later without touching the screen. Keep non-trivial mapping logic in pure, testable objects (e.g. `GalleryMapper.toGallerySections`, `classify`, `sensitivityToMinConfidence`).
+- **Settings persistence.** `SettingsRepository` (Preferences DataStore) persists dark-mode override, cat-detection sensitivity, require-live-photo, and daily-summary. `SettingsViewModel` exposes them as `SettingsUiState` (still-static labels come from `SettingsUiState.sample()` until later phases make them dynamic). **Dark mode is special:** it lives in `UnPawseApp` (resolves a `null` override against `isSystemInDarkTheme()`) so it can drive the whole theme, and persists through the same repository. Sensitivity feeds `CatDetector` via `AppContainer.catDetectorMinConfidence` (a `StateFlow` mapped by `sensitivityToMinConfidence`), so a settings change takes effect without recreating the camera pipeline.
+- **Camera / detection.** `CameraViewModel` runs the pipeline *take photo → classify → save-if-cat*; the CameraX controller stays lifecycle-bound in the composable (`CameraRoute` passes a suspend capture lambda in). `CameraEvent` (`Saved` / `NotACat` / `Error`) is a one-shot `Channel`; `CameraRoute` currently **drains it without acting** (hint text already reflects the outcome) — this is the seam for the reward loop (credit minutes + dismiss block on `Saved`). `CatDetector` wraps all ML behind one class; `classify` is a pure gate. Captures persist as app-internal JPEGs via `PhotoStorage` (no media permission).
+- **Navigation:** single-activity, `navigation-compose` with **plain string routes** (`Routes`), deliberately **not** kotlinx-serialization type-safe routes (avoids a second compiler-plugin/version-matching dependency). Tabs use `popUpTo(start){saveState}; launchSingleTop; restoreState`. The **Block Overlay** is a normal destination (no bottom bar) temporarily reachable from Home's "Pause Protection" card — this stays as a debug/preview entry; the real limit-reached trigger is being built (see Open Decisions + roadmap).
+- **Theme:** `UnPawseTheme(darkTheme, content)` maps all `DESIGN.md` tokens to a `lightColorScheme`; no dynamic color (blush-pink brand identity is intentional). The **dark scheme is provisional** (derived from fixed/inverse tokens) — refine against a real dark mockup.
+- **Typography:** the type scale matches `DESIGN.md`, but the family is currently the **platform sans-serif**, not Inter. To switch to Inter: drop the four OFL TTFs into `res/font/` and replace `AppFontFamily` in `ui/theme/Type.kt`.
+- **Icons:** `material-icons-extended` — the ~40 mockup symbols map nearly 1:1; R8 strips the unused ones. Notable substitutes: `Shield` (Pause Protection), `GridView` (Gallery), `LocalCafe`, `PhoneAndroid`.
 - **Insets:** `enableEdgeToEdge()`; `Scaffold` inner padding is applied as lazy-list `contentPadding` so content scrolls under the bars; Camera consumes only the status-bar inset; Block uses `safeDrawingPadding()`.
 - Add new dependencies via the version catalog and reference them as `libs.*`. Package everything under `com.example.unpawse`.
 
 ## Current State
 
-- All six screens (Home, Stats, Gallery, Settings, Camera, Block Overlay) are implemented and reachable; bottom-nav tabs + the Block route work; the dark-mode toggle flips the theme live.
+- All six screens (Home, Stats, Gallery, Settings, Camera, Block Overlay) are implemented and reachable; bottom-nav tabs + the Block route work; the dark-mode toggle flips the theme live **and persists**.
+- **Camera** captures real photos, verifies them on-device (ML Kit), and stores verified cats; **Gallery** streams them from Room via Coil. **Settings** toggles/sensitivity persist through DataStore.
 - Custom Canvas visuals: circular progress ring, smooth line chart, donut chart, mini bar chart, activity timeline.
-- `:app:assembleDebug` and `:app:lintDebug` both pass. Remaining lint items are **warnings only** and intentional: `OldTargetApi` (targetSdk 36) and "newer version available" notices for the deliberately-pinned versions (compileSdk 37, core-ktx 1.19, compose-bom, nav-compose, kotlin plugin — pinned for the AGP-9 toolchain and compileSdk-36 constraint).
-- No data layer, DI, networking, persistence, or tests beyond the template placeholders.
+- `:app:assembleDebug`, `:app:lintDebug`, and `:app:compileDebugKotlin` pass. Remaining lint items are **warnings only** and intentional: `OldTargetApi` (targetSdk 36) and "newer version available" notices for deliberately-pinned versions (compileSdk 37, core-ktx, compose-bom, nav-compose, kotlin plugin — pinned for the AGP-9 toolchain and compileSdk-36 constraint).
+- **Not yet built:** per-app limits + usage tracking, an app picker, foreground-app detection, the real limit-reached block trigger, the capture→earn-time reward loop, and live Home/Stats. Real unit tests are still absent despite several classes being written to be testable (`classify`, `sensitivityToMinConfidence`, `toGallerySections`).
 
 ## Open Decisions (record outcomes here once resolved)
 
-- **Dependency injection:** Hilt / Koin / manual — not chosen.
-- **Data/persistence:** Room, DataStore, remote API — not chosen (dark-mode + settings are session-only until this lands).
-- **Camera/detection:** CameraX + on-device cat verification — not implemented.
+- **Foreground-app detection — `UsageStatsManager` polling vs. `AccessibilityService`.** Needed to know which app is in the foreground and enforce limits. Trade-offs:
+  - *`UsageStatsManager` (poll `queryEvents` ~1s from a foreground Service):* lighter, more familiar permission (`PACKAGE_USAGE_STATS`, granted via a Settings redirect); ~1s detection latency; needs `SYSTEM_ALERT_WINDOW` to draw the block over the offending app; a foreground service + notification; generally smoother Play Store review.
+  - *`AccessibilityService` (listen for `TYPE_WINDOW_STATE_CHANGED`):* near-instant detection and can redirect without `SYSTEM_ALERT_WINDOW`; but a heavier permission ask, stricter Play Store review/justification, and more privacy scrutiny.
+  - **Status: undecided** — to be chosen at the start of the foreground-detection phase and recorded here.
 - **Fonts:** whether to bundle Inter TTFs vs. downloadable Google Fonts vs. keep platform sans-serif.
 - **Dark color scheme:** currently provisional/derived; needs a real dark mockup.
 - **Final application ID** (replace the `com.example` placeholder).
+
+### Resolved
+- **Dependency injection:** manual, **app-scoped `AppContainer`** on a custom `Application` (not Hilt/Koin) — preserves the no-extra-compiler-plugins stance.
+- **Data/persistence:** **Room** for structured/relational data (captures; per-app limits + usage next) and **Preferences DataStore** for scalar settings. (No remote API.)
+- **Camera/detection:** **implemented** — CameraX capture + ML Kit on-device cat verification behind `CatDetector`.
+- **UI toolkit:** Jetpack Compose + Material 3 (Views/XML removed).

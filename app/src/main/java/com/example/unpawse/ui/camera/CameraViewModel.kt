@@ -7,9 +7,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.unpawse.data.capture.CaptureDatabase
+import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
-import com.example.unpawse.data.capture.PhotoStorage
 import com.example.unpawse.ml.CatDetector
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -94,13 +93,15 @@ class CameraViewModel(
         private const val NOT_CAT_HINT = "Hmm, that's not a cat — try again."
         private const val ERROR_HINT = "Couldn't take that shot — try again."
 
-        /** Manual-DI factory: builds the repository off the singleton DB; the VM owns its detector. */
+        /**
+         * Manual-DI factory: pulls shared dependencies from the [AppContainer]. The VM owns its
+         * detector, gated by the app-wide (settings-backed) min-confidence flow.
+         */
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                val appContext = context.applicationContext
-                val database = CaptureDatabase.getInstance(appContext)
-                val repository = CaptureRepository(database.captureDao(), PhotoStorage(appContext))
-                CameraViewModel(repository, CatDetector())
+                val container = context.appContainer()
+                val detector = CatDetector(minConfidence = { container.catDetectorMinConfidence.value })
+                CameraViewModel(container.captureRepository, detector)
             }
         }
     }
