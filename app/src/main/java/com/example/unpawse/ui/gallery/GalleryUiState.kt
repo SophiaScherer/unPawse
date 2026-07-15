@@ -7,13 +7,23 @@ data class GalleryUiState(
     val sections: List<GallerySection>,
 ) {
     companion object {
+        /** Filters are decorative for now (wiring is out of scope); shared by [sample] and [empty]. */
+        val defaultFilters = listOf(
+            GalleryFilter("This Week", selected = true),
+            GalleryFilter("Month"),
+            GalleryFilter("Favorites"),
+        )
+
+        /** Empty real-data state: no captures yet. Used as the ViewModel's initial value. */
+        fun empty() = GalleryUiState(
+            searchPlaceholder = "Search captures...",
+            filters = defaultFilters,
+            sections = emptyList(),
+        )
+
         fun sample() = GalleryUiState(
             searchPlaceholder = "Search captures...",
-            filters = listOf(
-                GalleryFilter("This Week", selected = true),
-                GalleryFilter("Month"),
-                GalleryFilter("Favorites"),
-            ),
+            filters = defaultFilters,
             sections = listOf(
                 GallerySection(
                     title = "Today",
@@ -43,7 +53,8 @@ data class GallerySection(val title: String, val items: List<CaptureItem>)
 /**
  * A single captured photo card. [aiConfidence] is null for bonus/streak captures (no AI badge);
  * [isBonus] switches the footer to the pink "streak bonus" treatment. [aspectRatio] varies the
- * placeholder height to produce the staggered masonry look.
+ * card height to produce the staggered masonry look. [imagePath] is the absolute path to a real
+ * captured JPEG; when null (sample/preview data) the card falls back to [CatPhotoPlaceholder].
  */
 data class CaptureItem(
     val id: String,
@@ -53,4 +64,5 @@ data class CaptureItem(
     val caption: String,
     val aspectRatio: Float,
     val isBonus: Boolean = false,
+    val imagePath: String? = null,
 )

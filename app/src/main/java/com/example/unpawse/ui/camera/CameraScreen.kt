@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.FlipCameraAndroid
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.GridView
@@ -37,13 +38,19 @@ import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.squishy
 
 /**
- * UI state for the camera capture screen. This is a static placeholder — no CameraX / permissions
- * in this pass. When the real viewfinder lands, the gradient background becomes the camera preview
- * and [flashOn] / detection state get wired up.
+ * UI state for the camera capture screen. [CameraScreen] stays stateless and preview-able; the live
+ * viewfinder, permissions and detection are driven by `CameraViewModel`/`CameraRoute`, which pass a
+ * real preview into the [CameraScreen] `background` slot.
+ *
+ * @param flashOn drives both the flash mode and the flash icon.
+ * @param lensFacing which camera the flip control selected.
+ * @param isCapturing true while a shot is being taken + classified (debounces the shutter).
  */
 data class CameraUiState(
     val hintText: String = "Find your cat to continue.",
     val flashOn: Boolean = false,
+    val lensFacing: LensFacing = LensFacing.BACK,
+    val isCapturing: Boolean = false,
 ) {
     companion object {
         fun sample() = CameraUiState()
@@ -54,6 +61,9 @@ data class CameraUiState(
 fun CameraScreen(
     state: CameraUiState,
     modifier: Modifier = Modifier,
+    // Fills the whole screen behind the controls. Defaults to a warm gradient so @Preview and the
+    // no-camera case look right; CameraRoute passes the live CameraPreview here.
+    background: @Composable () -> Unit = { CameraViewfinderBackdrop() },
     onClose: () -> Unit = {},
     onToggleFlash: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -61,16 +71,9 @@ fun CameraScreen(
     onCapture: () -> Unit = {},
     onFlipCamera: () -> Unit = {},
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                // Warm, softly-blurred "viewfinder" stand-in for the camera feed.
-                Brush.verticalGradient(
-                    listOf(Color(0xFFD8C4B0), Color(0xFFB89B84), Color(0xFF8C7360)),
-                ),
-            ),
-    ) {
+    Box(modifier = modifier.fillMaxSize()) {
+        background()
+
         // Top controls.
         Row(
             modifier = Modifier
@@ -82,7 +85,8 @@ fun CameraScreen(
         ) {
             TranslucentCircleButton(Icons.Filled.Close, "Close", onClose)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TranslucentCircleButton(Icons.Filled.FlashOff, "Flash", onToggleFlash)
+                val flashIcon = if (state.flashOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff
+                TranslucentCircleButton(flashIcon, "Flash", onToggleFlash)
                 TranslucentCircleButton(Icons.Filled.Settings, "Settings", onOpenSettings)
             }
         }
@@ -124,6 +128,20 @@ fun CameraScreen(
             TranslucentCircleButton(Icons.Filled.FlipCameraAndroid, "Flip camera", onFlipCamera)
         }
     }
+}
+
+/** Warm gradient stand-in for the live feed — used by previews and the pre-permission state. */
+@Composable
+private fun CameraViewfinderBackdrop() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFFD8C4B0), Color(0xFFB89B84), Color(0xFF8C7360)),
+                ),
+            ),
+    )
 }
 
 @Composable

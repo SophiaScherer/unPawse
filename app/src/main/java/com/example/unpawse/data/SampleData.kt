@@ -1,8 +1,6 @@
 package com.example.unpawse.data
 
 import com.example.unpawse.ui.block.BlockUiState
-import com.example.unpawse.ui.camera.CameraUiState
-import com.example.unpawse.ui.gallery.GalleryUiState
 import com.example.unpawse.ui.home.HomeUiState
 import com.example.unpawse.ui.settings.SettingsUiState
 import com.example.unpawse.ui.stats.StatsUiState
@@ -16,12 +14,13 @@ import com.example.unpawse.ui.stats.StatsUiState
  *
  * The concrete mockup strings/numbers live in each screen's `XxxUiState.sample()` factory; this
  * object just names them in one place so callers don't reach into UI packages for sample data.
+ *
+ * Camera and Gallery no longer appear here — they now render from real ViewModels (CameraRoute /
+ * GalleryRoute); their `.sample()` factories remain for `@Preview` use.
  */
 object SampleData {
     val homeState: HomeUiState = HomeUiState.sample()
     val statsState: StatsUiState = StatsUiState.sample()
-    val galleryState: GalleryUiState = GalleryUiState.sample()
     val settingsState: SettingsUiState = SettingsUiState.sample()
-    val cameraState: CameraUiState = CameraUiState.sample()
     val blockState: BlockUiState = BlockUiState.sample()
 }

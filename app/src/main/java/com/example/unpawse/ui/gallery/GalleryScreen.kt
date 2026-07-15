@@ -28,9 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.example.unpawse.ui.components.AiBadge
 import com.example.unpawse.ui.components.CatPhotoPlaceholder
 import com.example.unpawse.ui.components.EarnedChip
@@ -38,6 +40,7 @@ import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
+import java.io.File
 
 @Composable
 fun GalleryScreen(
@@ -156,12 +159,19 @@ private fun CaptureCard(capture: CaptureItem, onClick: () -> Unit) {
         contentPadding = 0.dp,
     ) {
         Box {
-            CatPhotoPlaceholder(
-                seed = capture.id.hashCode(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(capture.aspectRatio),
-            )
+            val imageModifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(capture.aspectRatio)
+            if (capture.imagePath != null) {
+                AsyncImage(
+                    model = File(capture.imagePath),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = imageModifier,
+                )
+            } else {
+                CatPhotoPlaceholder(seed = capture.id.hashCode(), modifier = imageModifier)
+            }
             capture.aiConfidence?.let { confidence ->
                 AiBadge(
                     confidenceText = "%.1f%% AI".format(confidence),
