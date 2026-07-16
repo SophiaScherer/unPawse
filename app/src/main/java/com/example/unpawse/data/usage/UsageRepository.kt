@@ -27,6 +27,17 @@ class UsageRepository(
     fun observeTodayUsage(): Flow<List<DailyUsage>> =
         dao.observeUsageForDate(todayKey()).map { rows -> rows.map(DailyUsageEntity::toDomain) }
 
+    /**
+     * Usage over the last [days] days, today inclusive — the history behind the Stats charts.
+     * Days with no usage simply have no row; callers fill the gaps with zero.
+     */
+    fun observeRecentUsage(days: Long): Flow<List<DailyUsage>> {
+        val end = today()
+        val start = end.minusDays(days - 1)
+        return dao.observeUsageBetween(start.toString(), end.toString())
+            .map { rows -> rows.map(DailyUsageEntity::toDomain) }
+    }
+
     /** Adds (or updates) a monitored app and its daily limit. */
     suspend fun setLimit(
         packageName: String,

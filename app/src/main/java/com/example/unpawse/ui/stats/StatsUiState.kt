@@ -12,6 +12,11 @@ data class StatsUiState(
     val trendLabel: String,
     val trendBars: List<Float>,
     val productivePercent: Int,
+    /**
+     * Caption under [productivePercent] in the donut. State-driven because there's no app-category
+     * data to back the mockup's literal "Productive" — the real number we can show is budget left.
+     */
+    val productiveLabel: String,
     val breakdown: List<UsageCategory>,
     val longestStreak: String,
     val unlocks: String,
@@ -30,6 +35,7 @@ data class StatsUiState(
             trendLabel = "-5.2h",
             trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f),
             productivePercent = 75,
+            productiveLabel = "Budget left",
             breakdown = listOf(
                 UsageCategory("Social Media", "1h 12m", UsageColor.SOCIAL),
                 UsageCategory("Productivity", "45m", UsageColor.PRODUCTIVITY),

@@ -11,22 +11,22 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.unpawse.data.SampleData
+import com.example.unpawse.service.OverlayPermission
+import com.example.unpawse.service.UsageAccess
+import com.example.unpawse.service.UsageMonitorController
 import com.example.unpawse.ui.apppicker.AppPickerRoute
 import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
-import com.example.unpawse.ui.home.HomeScreen
-import com.example.unpawse.service.OverlayPermission
-import com.example.unpawse.service.UsageAccess
-import com.example.unpawse.service.UsageMonitorController
+import com.example.unpawse.ui.home.HomeRoute
 import com.example.unpawse.ui.settings.SettingsScreen
 import com.example.unpawse.ui.settings.SettingsViewModel
-import com.example.unpawse.ui.stats.StatsScreen
+import com.example.unpawse.ui.stats.StatsRoute
 
 /**
- * Central navigation graph. Each destination is fed its UI state (from [SampleData]) plus the
- * navigation callbacks here — this is the seam where a ViewModel replaces `SampleData.xxxState`
- * later without touching the screen composables.
+ * Central navigation graph. Every destination now renders from a real ViewModel via its `XxxRoute`,
+ * except the Block Overlay — which is only reachable here as a design/debug entry (in production the
+ * service draws it over the offending app), so it still uses [SampleData].
  *
  * [darkMode] / [onToggleDarkMode] are threaded down from [com.example.unpawse.UnPawseApp] so the
  * Settings switch actually flips the app theme.
@@ -44,8 +44,7 @@ fun UnPawseNavHost(
         modifier = modifier,
     ) {
         composable(Routes.HOME) {
-            HomeScreen(
-                state = SampleData.homeState,
+            HomeRoute(
                 // Design/debug entry only. The real trigger is UsageMonitorService, which draws the
                 // block as a system overlay over the offending app; this in-app route just lets the
                 // screen be reviewed without burning through a real limit.
@@ -62,7 +61,7 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.STATS) {
-            StatsScreen(state = SampleData.statsState)
+            StatsRoute()
         }
 
         composable(Routes.GALLERY) {

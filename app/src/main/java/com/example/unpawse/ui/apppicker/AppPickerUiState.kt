@@ -42,20 +42,6 @@ const val LIMIT_STEP_MINUTES = 15
 const val MIN_LIMIT_MINUTES = 15
 const val MAX_LIMIT_MINUTES = 480
 
-/**
- * Formats a daily limit compactly for the stepper ("45m", "2h", "1h 30m"). Pure so it's unit-tested
- * without a device.
- */
-fun formatLimit(minutes: Int): String {
-    val hours = minutes / 60
-    val mins = minutes % 60
-    return when {
-        hours == 0 -> "${mins}m"
-        mins == 0 -> "${hours}h"
-        else -> "${hours}h ${mins}m"
-    }
-}
-
 /** Clamps a stepper adjustment to the allowed band. */
 fun adjustLimit(current: Int, deltaSteps: Int): Int =
     (current + deltaSteps * LIMIT_STEP_MINUTES).coerceIn(MIN_LIMIT_MINUTES, MAX_LIMIT_MINUTES)

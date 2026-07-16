@@ -27,7 +27,7 @@ import com.example.unpawse.appContainer
 /**
  * Stateful wrapper around [CameraScreen]. Owns the [CameraViewModel], the camera permission, and the
  * CameraX controller, and reacts to one-shot [CameraEvent]s. Keeps [CameraScreen] itself pure and
- * preview-able; this is the seam the NavHost wires in place of `SampleData.cameraState`.
+ * preview-able; this is what the NavHost wires in.
  */
 @Composable
 fun CameraRoute(

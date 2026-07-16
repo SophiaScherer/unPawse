@@ -38,6 +38,13 @@ abstract class UsageDao {
     @Query("SELECT * FROM daily_usage WHERE date = :date")
     abstract fun observeUsageForDate(date: String): Flow<List<DailyUsageEntity>>
 
+    /**
+     * Usage across a closed date range. Dates are ISO-8601 (`yyyy-MM-dd`), which sorts
+     * lexicographically in the same order as chronologically — so `BETWEEN` works directly.
+     */
+    @Query("SELECT * FROM daily_usage WHERE date BETWEEN :startDate AND :endDate")
+    abstract fun observeUsageBetween(startDate: String, endDate: String): Flow<List<DailyUsageEntity>>
+
     @Query("SELECT * FROM daily_usage WHERE packageName = :packageName AND date = :date LIMIT 1")
     abstract suspend fun usageFor(packageName: String, date: String): DailyUsageEntity?
 

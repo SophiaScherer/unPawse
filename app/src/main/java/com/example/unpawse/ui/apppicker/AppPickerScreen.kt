@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.PawCard
+import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 
@@ -221,7 +222,7 @@ private fun LimitStepper(minutes: Int, onChange: (Int) -> Unit) {
             onClick = { onChange(adjustLimit(minutes, -1)) },
         )
         Text(
-            text = formatLimit(minutes),
+            text = formatMinutes(minutes),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
