@@ -2,26 +2,31 @@ package com.example.unpawse.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.unpawse.data.SampleData
+import com.example.unpawse.service.OverlayPermission
+import com.example.unpawse.service.UsageAccess
+import com.example.unpawse.service.UsageMonitorController
+import com.example.unpawse.ui.apppicker.AppPickerRoute
 import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
-import com.example.unpawse.ui.home.HomeScreen
+import com.example.unpawse.ui.home.HomeRoute
 import com.example.unpawse.ui.settings.SettingsScreen
-import com.example.unpawse.ui.stats.StatsScreen
+import com.example.unpawse.ui.settings.SettingsViewModel
+import com.example.unpawse.ui.stats.StatsRoute
 
 /**
- * Central navigation graph. Each destination is fed its UI state (from [SampleData]) plus the
- * navigation callbacks here — this is the seam where a ViewModel replaces `SampleData.xxxState`
- * later without touching the screen composables.
+ * Central navigation graph. Every destination now renders from a real ViewModel via its `XxxRoute`,
+ * except the Block Overlay — which is only reachable here as a design/debug entry (in production the
+ * service draws it over the offending app), so it still uses [SampleData].
  *
  * [darkMode] / [onToggleDarkMode] are threaded down from [com.example.unpawse.UnPawseApp] so the
  * Settings switch actually flips the app theme.
@@ -39,10 +44,10 @@ fun UnPawseNavHost(
         modifier = modifier,
     ) {
         composable(Routes.HOME) {
-            HomeScreen(
-                state = SampleData.homeState,
-                // Temporary review hook (per plan): the Pause Protection card opens the Block
-                // Overlay. Rewire to the real limit-reached trigger once backend logic exists.
+            HomeRoute(
+                // Design/debug entry only. The real trigger is UsageMonitorService, which draws the
+                // block as a system overlay over the offending app; this in-app route just lets the
+                // screen be reviewed without burning through a real limit.
                 onPauseProtection = { navController.navigate(Routes.BLOCK) },
             )
         }
@@ -56,7 +61,7 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.STATS) {
-            StatsScreen(state = SampleData.statsState)
+            StatsRoute()
         }
 
         composable(Routes.GALLERY) {
@@ -64,25 +69,42 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.SETTINGS) {
-            // Control state is remembered here so the switches/slider visibly respond. Dark mode is
-            // the exception — it lives in UnPawseApp so it can drive the whole theme.
-            var requireLivePhoto by rememberSaveable { mutableStateOf(SampleData.settingsState.requireLivePhoto) }
-            var dailySummary by rememberSaveable { mutableStateOf(SampleData.settingsState.dailySummaryEnabled) }
-            var sensitivity by rememberSaveable { mutableFloatStateOf(SampleData.settingsState.sensitivity) }
+            // Persisted settings come from the SettingsViewModel; dark mode is the exception — it
+            // lives in UnPawseApp so it can drive the whole theme, and is overlaid here for display.
+            val context = LocalContext.current
+            val settingsViewModel: SettingsViewModel =
+                viewModel(factory = SettingsViewModel.factory(context))
+            val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+
+            // Usage access is granted in system Settings, so we only learn about it on the way
+            // back. Re-check on resume, and start monitoring the moment it's available.
+            LifecycleResumeEffect(Unit) {
+                settingsViewModel.refreshPermissions()
+                UsageMonitorController.startIfPermitted(context)
+                onPauseOrDispose { }
+            }
 
             SettingsScreen(
-                state = SampleData.settingsState.copy(
-                    darkMode = darkMode,
-                    requireLivePhoto = requireLivePhoto,
-                    dailySummaryEnabled = dailySummary,
-                    sensitivity = sensitivity,
-                ),
+                state = settingsState.copy(darkMode = darkMode),
                 onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
                 onToggleDarkMode = onToggleDarkMode,
-                onToggleLivePhoto = { requireLivePhoto = it },
-                onToggleDailySummary = { dailySummary = it },
-                onSensitivityChange = { sensitivity = it },
+                onToggleLivePhoto = settingsViewModel::setRequireLivePhoto,
+                onToggleDailySummary = settingsViewModel::setDailySummary,
+                onSensitivityChange = settingsViewModel::setSensitivity,
+                onRowClick = { rowId ->
+                    // Only these rows lead anywhere so far; the rest stay inert.
+                    when (rowId) {
+                        SettingsRowIds.APP_LIMITS -> navController.navigate(Routes.APP_PICKER)
+                        SettingsRowIds.USAGE_ACCESS -> context.startActivity(UsageAccess.settingsIntent(context))
+                        SettingsRowIds.OVERLAY_ACCESS ->
+                            context.startActivity(OverlayPermission.settingsIntent(context))
+                    }
+                },
             )
+        }
+
+        composable(Routes.APP_PICKER) {
+            AppPickerRoute(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.BLOCK) {

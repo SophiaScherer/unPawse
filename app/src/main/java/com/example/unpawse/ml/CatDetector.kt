@@ -17,11 +17,13 @@ import kotlin.coroutines.resumeWithException
  * uncertain; the gating decision (is it a cat?) is applied separately against [minConfidence] so the
  * app's threshold is independent of the model's recall floor.
  *
- * @param minConfidence the confidence a "Cat" label must reach to count as a cat. Defaults to
- * [DEFAULT_MIN_CONFIDENCE]; a future settings-backed value can be injected here (see plan piece 8).
+ * @param minConfidence supplies the confidence a "Cat" label must reach to count as a cat, read
+ * fresh on each [analyze]. Backed by the Settings sensitivity slider via
+ * [com.example.unpawse.data.AppContainer.catDetectorMinConfidence]; defaults to
+ * [DEFAULT_MIN_CONFIDENCE] so the detector still works standalone (e.g. in tests).
  */
 class CatDetector(
-    private val minConfidence: Float = DEFAULT_MIN_CONFIDENCE,
+    private val minConfidence: () -> Float = { DEFAULT_MIN_CONFIDENCE },
     private val labeler: ImageLabeler = defaultLabeler(),
 ) {
     /** Labels [image] and returns whether it's a cat plus the raw confidence. */
@@ -29,7 +31,7 @@ class CatDetector(
         val catConfidence = labeler.process(image).await()
             .firstOrNull { it.text.equals(CAT_LABEL, ignoreCase = true) }
             ?.confidence ?: 0f
-        return classify(catConfidence, minConfidence)
+        return classify(catConfidence, minConfidence())
     }
 
     /** Releases the underlying detector. Call from the owner's onCleared/dispose. */
@@ -59,6 +61,20 @@ class CatDetector(
  */
 internal fun classify(catConfidence: Float, minConfidence: Float): DetectionResult =
     DetectionResult(isCat = catConfidence >= minConfidence, confidence = catConfidence)
+
+/**
+ * Maps the Settings "sensitivity" slider (`0f`..`1f`) to the [CatDetector] confidence gate. Higher
+ * sensitivity means the app accepts a cat more readily, i.e. a *lower* gate. Kept as a pure function
+ * (and clamped to a sane band) so the mapping is unit-testable and easy to tune. The default slider
+ * value (0.65) maps close to [CatDetector.DEFAULT_MIN_CONFIDENCE], preserving prior behaviour.
+ */
+fun sensitivityToMinConfidence(sensitivity: Float): Float {
+    val clamped = sensitivity.coerceIn(0f, 1f)
+    return (MAX_GATE - (MAX_GATE - MIN_GATE) * clamped)
+}
+
+private const val MIN_GATE = 0.5f
+private const val MAX_GATE = 0.9f
 
 /** Bridges a Play-services [Task] to a coroutine without pulling in kotlinx-coroutines-play-services. */
 private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont ->

@@ -9,7 +9,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
  * Stateful wrapper around [GalleryScreen]: owns the [GalleryViewModel] and streams real captures in.
- * This is what the NavHost renders in place of `SampleData.galleryState`.
+ * This is what the NavHost renders; [GalleryUiState.sample] survives for `@Preview` only.
  */
 @Composable
 fun GalleryRoute(modifier: Modifier = Modifier) {

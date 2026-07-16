@@ -73,6 +73,9 @@ dependencies {
     // Coil — image loading for captured photos
     implementation(libs.coil.compose)
 
+    // DataStore — persistence for scalar settings toggles
+    implementation(libs.androidx.datastore.preferences)
+
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 

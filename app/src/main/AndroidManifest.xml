@@ -8,7 +8,37 @@
         android:name="android.hardware.camera.any"
         android:required="false" />
 
+    <!--
+      Foreground-app detection (see AGENTS.md "Resolved"): we poll UsageStatsManager instead of
+      running an AccessibilityService. PACKAGE_USAGE_STATS is an app-op with no runtime dialog — the
+      user grants it in system Settings, so tools:ignore silences the "protected permission" check.
+      The foreground service must keep running while the user is inside the app being watched.
+    -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Draws the block over the app whose limit was reached. Also what lets the service launch the
+         camera from the background. Granted via a system Settings toggle, not a runtime dialog. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!--
+      Android 11+ package visibility. The app picker only ever offers launchable apps, so we declare
+      the LAUNCHER intent rather than requesting QUERY_ALL_PACKAGES — the narrower ask, and one that
+      avoids Play Store sensitive-permission review.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
+        android:name=".UnPawseApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -27,6 +57,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          "specialUse" is the honest type for screen-time monitoring: it isn't dataSync/mediaPlayback
+          or any other predefined category. Shipping on Play with this type requires justifying the
+          subtype below in the console.
+        -->
+        <service
+            android:name=".service.UsageMonitorService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="screen_time_monitoring" />
+        </service>
     </application>
 
 </manifest>

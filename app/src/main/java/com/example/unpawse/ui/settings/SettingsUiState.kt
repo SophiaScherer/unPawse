@@ -7,6 +7,10 @@ package com.example.unpawse.ui.settings
 data class SettingsUiState(
     val dailyLimitLabel: String,
     val appLimitsSummary: String,
+    /** Whether the user has granted usage access — without it nothing can be monitored at all. */
+    val usageAccessGranted: Boolean,
+    /** Whether we can draw over other apps — without it a reached limit can't be blocked. */
+    val overlayAccessGranted: Boolean,
     val breakDurationLabel: String,
     val sensitivity: Float,
     val requireLivePhoto: Boolean,
@@ -21,6 +25,8 @@ data class SettingsUiState(
         fun sample(darkMode: Boolean = false) = SettingsUiState(
             dailyLimitLabel = "2 hours 30 minutes",
             appLimitsSummary = "Instagram, TikTok, 3 others",
+            usageAccessGranted = true,
+            overlayAccessGranted = true,
             breakDurationLabel = "15 minutes every hour",
             sensitivity = 0.65f,
             requireLivePhoto = false,

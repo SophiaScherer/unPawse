@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.CatPhotoPlaceholder
 import com.example.unpawse.ui.theme.UnPawseTheme
 
-/** Copy for the "Time for a Break" overlay. Static in this UI pass. */
+/** Copy for the "Time for a Break" overlay. */
 data class BlockUiState(
     val appName: String = "this app",
     val headline: String = "Time for a Break 🐱",
@@ -45,6 +45,13 @@ data class BlockUiState(
 ) {
     companion object {
         fun sample() = BlockUiState()
+
+        /** The real thing: names the app whose limit was actually hit. */
+        fun forApp(appName: String) = BlockUiState(
+            appName = appName,
+            subtitle = "You've reached today's limit for $appName.",
+            body = "To keep using $appName, go find your cat and take a picture.",
+        )
     }
 }
 

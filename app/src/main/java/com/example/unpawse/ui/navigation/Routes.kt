@@ -24,6 +24,20 @@ object Routes {
     const val GALLERY = "gallery"
     const val SETTINGS = "settings"
     const val BLOCK = "block"
+
+    /** Settings sub-screen: choose monitored apps and their daily limits. */
+    const val APP_PICKER = "app_picker"
+}
+
+/** Row ids emitted by `SettingsScreen.onRowClick`; only the wired ones are listed. */
+object SettingsRowIds {
+    const val APP_LIMITS = "app_limits"
+
+    /** Opens system Settings — usage access is an app-op, not a runtime permission. */
+    const val USAGE_ACCESS = "usage_access"
+
+    /** Opens system Settings — "display over other apps" is likewise not a runtime permission. */
+    const val OVERLAY_ACCESS = "overlay_access"
 }
 
 /**

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
@@ -81,6 +82,50 @@ fun SettingsScreen(
         item {
             SectionLabel(text = "Screen Time", uppercase = true)
             SettingsGroup {
+                // Nothing can be monitored without usage access, so surface it first and loudly
+                // when it's missing.
+                SettingsRow(
+                    title = "Screen time access",
+                    subtitle = if (state.usageAccessGranted) {
+                        "Granted — limits are being watched"
+                    } else {
+                        "Required — tap to allow unPawse to see your app usage"
+                    },
+                    leadingIcon = if (state.usageAccessGranted) Icons.Filled.Shield else Icons.Filled.Warning,
+                    iconTint = if (state.usageAccessGranted) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    iconBackground = if (state.usageAccessGranted) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    },
+                    onClick = { onRowClick("usage_access") },
+                    trailing = { Chevron() },
+                )
+                SettingsRow(
+                    title = "Display over other apps",
+                    subtitle = if (state.overlayAccessGranted) {
+                        "Granted — breaks can interrupt you"
+                    } else {
+                        "Required — without it a reached limit can't block"
+                    },
+                    leadingIcon = if (state.overlayAccessGranted) Icons.Filled.Shield else Icons.Filled.Warning,
+                    iconTint = if (state.overlayAccessGranted) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    iconBackground = if (state.overlayAccessGranted) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    },
+                    onClick = { onRowClick("overlay_access") },
+                    trailing = { Chevron() },
+                )
                 SettingsRow(
                     title = "Daily limit", subtitle = state.dailyLimitLabel,
                     leadingIcon = Icons.Filled.Timer,

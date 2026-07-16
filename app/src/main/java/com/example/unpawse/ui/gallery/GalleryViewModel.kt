@@ -6,9 +6,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.unpawse.data.capture.CaptureDatabase
+import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
-import com.example.unpawse.data.capture.PhotoStorage
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -35,13 +34,10 @@ class GalleryViewModel(repository: CaptureRepository) : ViewModel() {
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L
 
-        /** Manual-DI factory mirroring CameraViewModel; both share the singleton DB/repository. */
+        /** Manual-DI factory mirroring CameraViewModel; both share the container's repository. */
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                val appContext = context.applicationContext
-                val database = CaptureDatabase.getInstance(appContext)
-                val repository = CaptureRepository(database.captureDao(), PhotoStorage(appContext))
-                GalleryViewModel(repository)
+                GalleryViewModel(context.appContainer().captureRepository)
             }
         }
     }

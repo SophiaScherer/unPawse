@@ -188,7 +188,7 @@ private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("${state.productivePercent}%", style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Productive", style = MaterialTheme.typography.bodyMedium,
+                    Text(state.productiveLabel, style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
