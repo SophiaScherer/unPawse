@@ -1,15 +1,12 @@
 package com.example.unpawse.service
 
-import com.example.unpawse.data.usage.DailyUsageEntity
-import com.example.unpawse.data.usage.MonitoredAppEntity
-import com.example.unpawse.data.usage.UsageDao
+import com.example.unpawse.data.usage.FakeUsageDao
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -140,39 +137,3 @@ class UsageTrackerTest {
     }
 }
 
-/** Minimal in-memory [UsageDao]; the `@Transaction` accrual helpers are inherited unchanged. */
-private class FakeUsageDao : UsageDao() {
-    private val apps = mutableMapOf<String, MonitoredAppEntity>()
-    private val usage = mutableMapOf<Pair<String, String>, DailyUsageEntity>()
-
-    override fun observeMonitoredApps(): Flow<List<MonitoredAppEntity>> = flowOf(apps.values.toList())
-    override suspend fun monitoredApp(packageName: String) = apps[packageName]
-    override suspend fun upsertMonitoredApp(app: MonitoredAppEntity) { apps[app.packageName] = app }
-
-    override suspend fun setEnabled(packageName: String, enabled: Boolean) {
-        apps[packageName]?.let { apps[packageName] = it.copy(enabled = enabled) }
-    }
-
-    override suspend fun removeMonitoredApp(packageName: String) { apps.remove(packageName) }
-
-    override fun observeUsageForDate(date: String): Flow<List<DailyUsageEntity>> =
-        flowOf(usage.values.filter { it.date == date })
-
-    override suspend fun usageFor(packageName: String, date: String) = usage[packageName to date]
-
-    override suspend fun insertUsageIfAbsent(row: DailyUsageEntity) {
-        usage.putIfAbsent(row.packageName to row.date, row)
-    }
-
-    override suspend fun addUsedSeconds(packageName: String, date: String, seconds: Long) {
-        usage[packageName to date]?.let {
-            usage[packageName to date] = it.copy(usedSeconds = it.usedSeconds + seconds)
-        }
-    }
-
-    override suspend fun addEarnedSeconds(packageName: String, date: String, seconds: Long) {
-        usage[packageName to date]?.let {
-            usage[packageName to date] = it.copy(earnedSeconds = it.earnedSeconds + seconds)
-        }
-    }
-}
