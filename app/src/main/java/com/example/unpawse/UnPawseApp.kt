@@ -10,9 +10,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.unpawse.service.UsageMonitorController
 import com.example.unpawse.ui.navigation.Routes
 import kotlinx.coroutines.launch
 import com.example.unpawse.ui.navigation.UnPawseBottomBar
@@ -36,6 +38,15 @@ fun UnPawseApp(initialRoute: String? = null) {
     val scope = rememberCoroutineScope()
     val darkThemeOverride by settings.darkModeOverride.collectAsStateWithLifecycle(initialValue = null)
     val darkMode = darkThemeOverride ?: isSystemInDarkTheme()
+
+    // Monitoring starts here, at the root, rather than from any one screen: usage access is granted
+    // in system Settings, so we only learn about it on the way back — and the user may well come
+    // back to Home, not to the screen that sent them out. Bound to the Activity lifecycle, so this
+    // re-fires on every resume; startIfPermitted is idempotent and refuses without usage access.
+    LifecycleResumeEffect(Unit) {
+        UsageMonitorController.startIfPermitted(context)
+        onPauseOrDispose { }
+    }
 
     UnPawseTheme(darkTheme = darkMode) {
         val navController = rememberNavController()

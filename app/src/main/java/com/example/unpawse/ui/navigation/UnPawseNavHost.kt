@@ -13,7 +13,6 @@ import androidx.navigation.compose.composable
 import com.example.unpawse.data.SampleData
 import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
-import com.example.unpawse.service.UsageMonitorController
 import com.example.unpawse.ui.apppicker.AppPickerRoute
 import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
@@ -76,11 +75,11 @@ fun UnPawseNavHost(
                 viewModel(factory = SettingsViewModel.factory(context))
             val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
 
-            // Usage access is granted in system Settings, so we only learn about it on the way
-            // back. Re-check on resume, and start monitoring the moment it's available.
+            // The permission chips read state that only changes while the user is away in system
+            // Settings, so re-read it on the way back. Starting the monitor is not this screen's
+            // job — UnPawseApp does it app-wide on every resume.
             LifecycleResumeEffect(Unit) {
                 settingsViewModel.refreshPermissions()
-                UsageMonitorController.startIfPermitted(context)
                 onPauseOrDispose { }
             }
 
