@@ -1,26 +1,16 @@
 package com.example.unpawse.data
 
 import com.example.unpawse.ui.block.BlockUiState
-import com.example.unpawse.ui.home.HomeUiState
-import com.example.unpawse.ui.settings.SettingsUiState
-import com.example.unpawse.ui.stats.StatsUiState
 
 /**
- * Single source of hardcoded screen state for this UI-only build. The NavHost injects these into
- * the stateless screens — the exact seam where a ViewModel goes later:
+ * The last hardcoded screen state in the running app.
  *
- *   composable(HOME) { HomeScreen(state = SampleData.homeState, ...) }
- *   // becomes → val state by viewModel.uiState.collectAsStateWithLifecycle()
- *
- * The concrete mockup strings/numbers live in each screen's `XxxUiState.sample()` factory; this
- * object just names them in one place so callers don't reach into UI packages for sample data.
- *
- * Camera and Gallery no longer appear here — they now render from real ViewModels (CameraRoute /
- * GalleryRoute); their `.sample()` factories remain for `@Preview` use.
+ * Home, Stats, Settings, Camera and Gallery all render from real ViewModels now (`XxxRoute` +
+ * repositories); their `.sample()` factories survive for `@Preview` only. What remains is the Block
+ * Overlay's **in-app design/debug entry** from Home's "Pause Protection" card, which has no real
+ * blocked app to describe. The production block doesn't come through here at all — the service draws
+ * it over the offending app with `BlockUiState.forApp(realLabel)`.
  */
 object SampleData {
-    val homeState: HomeUiState = HomeUiState.sample()
-    val statsState: StatsUiState = StatsUiState.sample()
-    val settingsState: SettingsUiState = SettingsUiState.sample()
     val blockState: BlockUiState = BlockUiState.sample()
 }

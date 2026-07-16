@@ -35,6 +35,9 @@ internal class FakeUsageDao : UsageDao() {
     override fun observeUsageForDate(date: String): Flow<List<DailyUsageEntity>> =
         flowOf(usage.values.filter { it.date == date })
 
+    override fun observeUsageBetween(startDate: String, endDate: String): Flow<List<DailyUsageEntity>> =
+        flowOf(usage.values.filter { it.date >= startDate && it.date <= endDate })
+
     override suspend fun usageFor(packageName: String, date: String): DailyUsageEntity? =
         usage[packageName to date]
 
