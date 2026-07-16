@@ -10,6 +10,9 @@ import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.ml.sensitivityToMinConfidence
+import com.example.unpawse.service.ForegroundAppMonitor
+import com.example.unpawse.service.UsageStatsForegroundAppMonitor
+import com.example.unpawse.service.UsageTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +33,13 @@ interface AppContainer {
     val settingsRepository: SettingsRepository
     val usageRepository: UsageRepository
     val installedAppsProvider: InstalledAppsProvider
+    val foregroundAppMonitor: ForegroundAppMonitor
+
+    /**
+     * Singleton so `UsageMonitorService` can drive it while the UI observes
+     * [UsageTracker.limitReached] — both sides must share one instance.
+     */
+    val usageTracker: UsageTracker
 
     /**
      * The [CatDetector] confidence gate, derived live from the Settings sensitivity slider. Held
@@ -63,6 +73,14 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val installedAppsProvider: InstalledAppsProvider by lazy {
         PackageManagerInstalledAppsProvider(appContext)
+    }
+
+    override val foregroundAppMonitor: ForegroundAppMonitor by lazy {
+        UsageStatsForegroundAppMonitor(appContext)
+    }
+
+    override val usageTracker: UsageTracker by lazy {
+        UsageTracker(usageRepository, foregroundAppMonitor)
     }
 
     override val catDetectorMinConfidence: StateFlow<Float> by lazy {

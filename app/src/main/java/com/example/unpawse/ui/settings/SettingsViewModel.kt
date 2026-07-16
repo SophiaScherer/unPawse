@@ -9,6 +9,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
+import com.example.unpawse.service.UsageAccess
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -27,25 +29,39 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val settings: SettingsRepository,
     usageRepository: UsageRepository,
+    private val usageAccessGranted: () -> Boolean,
 ) : ViewModel() {
+
+    /**
+     * Usage access is an app-op toggled in system Settings, so there's nothing to observe — we
+     * re-read it whenever the screen resumes (see [refreshUsageAccess]).
+     */
+    private val usageAccess = MutableStateFlow(usageAccessGranted())
 
     val uiState: StateFlow<SettingsUiState> = combine(
         settings.sensitivity,
         settings.requireLivePhoto,
         settings.dailySummaryEnabled,
         usageRepository.observeMonitoredApps(),
-    ) { sensitivity, requireLivePhoto, dailySummary, monitoredApps ->
+        usageAccess,
+    ) { sensitivity, requireLivePhoto, dailySummary, monitoredApps, accessGranted ->
         SettingsUiState.sample().copy(
             sensitivity = sensitivity,
             requireLivePhoto = requireLivePhoto,
             dailySummaryEnabled = dailySummary,
             appLimitsSummary = monitoredAppsSummary(monitoredApps),
+            usageAccessGranted = accessGranted,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
         initialValue = SettingsUiState.sample(),
     )
+
+    /** Re-reads the usage-access app-op; call when the screen resumes (e.g. back from Settings). */
+    fun refreshUsageAccess() {
+        usageAccess.value = usageAccessGranted()
+    }
 
     fun setSensitivity(value: Float) = viewModelScope.launch { settings.setSensitivity(value) }
 
@@ -60,7 +76,12 @@ class SettingsViewModel(
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = context.appContainer()
-                SettingsViewModel(container.settingsRepository, container.usageRepository)
+                val appContext = context.applicationContext
+                SettingsViewModel(
+                    settings = container.settingsRepository,
+                    usageRepository = container.usageRepository,
+                    usageAccessGranted = { UsageAccess.isGranted(appContext) },
+                )
             }
         }
     }

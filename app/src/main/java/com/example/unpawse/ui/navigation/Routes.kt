@@ -32,6 +32,9 @@ object Routes {
 /** Row ids emitted by `SettingsScreen.onRowClick`; only the wired ones are listed. */
 object SettingsRowIds {
     const val APP_LIMITS = "app_limits"
+
+    /** Opens system Settings — usage access is an app-op, not a runtime permission. */
+    const val USAGE_ACCESS = "usage_access"
 }
 
 /**

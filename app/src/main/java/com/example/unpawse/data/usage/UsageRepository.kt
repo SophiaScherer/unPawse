@@ -61,6 +61,10 @@ class UsageRepository(
         return remainingMinutes(app.dailyLimitMinutes, usage.used, usage.earned)
     }
 
+    /** Whether [packageName] is being watched right now — the monitor's per-tick gate. */
+    suspend fun isMonitoredAndEnabled(packageName: String): Boolean =
+        enabledApp(packageName) != null
+
     /** True when a monitored, enabled app has spent its budget for today. */
     suspend fun isLimitReached(packageName: String): Boolean {
         val app = enabledApp(packageName) ?: return false

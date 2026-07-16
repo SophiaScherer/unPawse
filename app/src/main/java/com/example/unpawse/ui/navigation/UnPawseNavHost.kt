@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -15,6 +16,8 @@ import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeScreen
+import com.example.unpawse.service.UsageAccess
+import com.example.unpawse.service.UsageMonitorController
 import com.example.unpawse.ui.settings.SettingsScreen
 import com.example.unpawse.ui.settings.SettingsViewModel
 import com.example.unpawse.ui.stats.StatsScreen
@@ -72,6 +75,14 @@ fun UnPawseNavHost(
                 viewModel(factory = SettingsViewModel.factory(context))
             val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
 
+            // Usage access is granted in system Settings, so we only learn about it on the way
+            // back. Re-check on resume, and start monitoring the moment it's available.
+            LifecycleResumeEffect(Unit) {
+                settingsViewModel.refreshUsageAccess()
+                UsageMonitorController.startIfPermitted(context)
+                onPauseOrDispose { }
+            }
+
             SettingsScreen(
                 state = settingsState.copy(darkMode = darkMode),
                 onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
@@ -80,8 +91,11 @@ fun UnPawseNavHost(
                 onToggleDailySummary = settingsViewModel::setDailySummary,
                 onSensitivityChange = settingsViewModel::setSensitivity,
                 onRowClick = { rowId ->
-                    // Only the app-limits row has a destination so far; the rest stay inert.
-                    if (rowId == SettingsRowIds.APP_LIMITS) navController.navigate(Routes.APP_PICKER)
+                    // Only these rows lead anywhere so far; the rest stay inert.
+                    when (rowId) {
+                        SettingsRowIds.APP_LIMITS -> navController.navigate(Routes.APP_PICKER)
+                        SettingsRowIds.USAGE_ACCESS -> context.startActivity(UsageAccess.settingsIntent(context))
+                    }
                 },
             )
         }
