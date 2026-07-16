@@ -103,7 +103,9 @@ fun UnPawseTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
+            // Null when this theme is hosted outside an Activity — the block overlay renders in a
+            // Service-owned window, which has no Activity window whose system bars we could tint.
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
             // Icons in the status/nav bars should contrast the warm background.
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !darkTheme

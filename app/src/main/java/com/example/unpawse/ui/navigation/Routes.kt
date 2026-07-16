@@ -35,6 +35,9 @@ object SettingsRowIds {
 
     /** Opens system Settings — usage access is an app-op, not a runtime permission. */
     const val USAGE_ACCESS = "usage_access"
+
+    /** Opens system Settings — "display over other apps" is likewise not a runtime permission. */
+    const val OVERLAY_ACCESS = "overlay_access"
 }
 
 /**

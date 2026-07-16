@@ -16,6 +16,7 @@ import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeScreen
+import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
 import com.example.unpawse.service.UsageMonitorController
 import com.example.unpawse.ui.settings.SettingsScreen
@@ -45,8 +46,9 @@ fun UnPawseNavHost(
         composable(Routes.HOME) {
             HomeScreen(
                 state = SampleData.homeState,
-                // Temporary review hook (per plan): the Pause Protection card opens the Block
-                // Overlay. Rewire to the real limit-reached trigger once backend logic exists.
+                // Design/debug entry only. The real trigger is UsageMonitorService, which draws the
+                // block as a system overlay over the offending app; this in-app route just lets the
+                // screen be reviewed without burning through a real limit.
                 onPauseProtection = { navController.navigate(Routes.BLOCK) },
             )
         }
@@ -78,7 +80,7 @@ fun UnPawseNavHost(
             // Usage access is granted in system Settings, so we only learn about it on the way
             // back. Re-check on resume, and start monitoring the moment it's available.
             LifecycleResumeEffect(Unit) {
-                settingsViewModel.refreshUsageAccess()
+                settingsViewModel.refreshPermissions()
                 UsageMonitorController.startIfPermitted(context)
                 onPauseOrDispose { }
             }
@@ -95,6 +97,8 @@ fun UnPawseNavHost(
                     when (rowId) {
                         SettingsRowIds.APP_LIMITS -> navController.navigate(Routes.APP_PICKER)
                         SettingsRowIds.USAGE_ACCESS -> context.startActivity(UsageAccess.settingsIntent(context))
+                        SettingsRowIds.OVERLAY_ACCESS ->
+                            context.startActivity(OverlayPermission.settingsIntent(context))
                     }
                 },
             )

@@ -10,6 +10,7 @@ import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.ml.sensitivityToMinConfidence
+import com.example.unpawse.service.BlockOverlayController
 import com.example.unpawse.service.ForegroundAppMonitor
 import com.example.unpawse.service.UsageStatsForegroundAppMonitor
 import com.example.unpawse.service.UsageTracker
@@ -40,6 +41,12 @@ interface AppContainer {
      * [UsageTracker.limitReached] — both sides must share one instance.
      */
     val usageTracker: UsageTracker
+
+    /**
+     * Singleton so the service can raise the block and the reward loop can later dismiss it.
+     * Main-thread only.
+     */
+    val blockOverlayController: BlockOverlayController
 
     /**
      * The [CatDetector] confidence gate, derived live from the Settings sensitivity slider. Held
@@ -81,6 +88,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val usageTracker: UsageTracker by lazy {
         UsageTracker(usageRepository, foregroundAppMonitor)
+    }
+
+    override val blockOverlayController: BlockOverlayController by lazy {
+        BlockOverlayController(appContext)
     }
 
     override val catDetectorMinConfidence: StateFlow<Float> by lazy {

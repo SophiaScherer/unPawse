@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
+import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,27 +31,29 @@ class SettingsViewModel(
     private val settings: SettingsRepository,
     usageRepository: UsageRepository,
     private val usageAccessGranted: () -> Boolean,
+    private val overlayAccessGranted: () -> Boolean,
 ) : ViewModel() {
 
     /**
-     * Usage access is an app-op toggled in system Settings, so there's nothing to observe — we
-     * re-read it whenever the screen resumes (see [refreshUsageAccess]).
+     * Both permissions are system-Settings toggles rather than runtime dialogs, so there's nothing
+     * to observe — we re-read them whenever the screen resumes (see [refreshPermissions]).
      */
-    private val usageAccess = MutableStateFlow(usageAccessGranted())
+    private val permissions = MutableStateFlow(readPermissions())
 
     val uiState: StateFlow<SettingsUiState> = combine(
         settings.sensitivity,
         settings.requireLivePhoto,
         settings.dailySummaryEnabled,
         usageRepository.observeMonitoredApps(),
-        usageAccess,
-    ) { sensitivity, requireLivePhoto, dailySummary, monitoredApps, accessGranted ->
+        permissions,
+    ) { sensitivity, requireLivePhoto, dailySummary, monitoredApps, permissionState ->
         SettingsUiState.sample().copy(
             sensitivity = sensitivity,
             requireLivePhoto = requireLivePhoto,
             dailySummaryEnabled = dailySummary,
             appLimitsSummary = monitoredAppsSummary(monitoredApps),
-            usageAccessGranted = accessGranted,
+            usageAccessGranted = permissionState.usageAccess,
+            overlayAccessGranted = permissionState.overlayAccess,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -58,10 +61,14 @@ class SettingsViewModel(
         initialValue = SettingsUiState.sample(),
     )
 
-    /** Re-reads the usage-access app-op; call when the screen resumes (e.g. back from Settings). */
-    fun refreshUsageAccess() {
-        usageAccess.value = usageAccessGranted()
+    /** Re-reads both special permissions; call when the screen resumes (e.g. back from Settings). */
+    fun refreshPermissions() {
+        permissions.value = readPermissions()
     }
+
+    private fun readPermissions() = PermissionState(usageAccessGranted(), overlayAccessGranted())
+
+    private data class PermissionState(val usageAccess: Boolean, val overlayAccess: Boolean)
 
     fun setSensitivity(value: Float) = viewModelScope.launch { settings.setSensitivity(value) }
 
@@ -81,6 +88,7 @@ class SettingsViewModel(
                     settings = container.settingsRepository,
                     usageRepository = container.usageRepository,
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
+                    overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
                 )
             }
         }

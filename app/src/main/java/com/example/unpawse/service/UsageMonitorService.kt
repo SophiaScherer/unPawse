@@ -12,12 +12,14 @@ import android.util.Log
 import com.example.unpawse.MainActivity
 import com.example.unpawse.R
 import com.example.unpawse.appContainer
+import com.example.unpawse.ui.block.BlockUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Foreground service that drives [UsageTracker] for as long as monitoring is on. It has to be a
@@ -41,6 +43,7 @@ class UsageMonitorService : Service() {
         if (trackerJob?.isActive != true) {
             val tracker = appContainer().usageTracker
             trackerJob = scope.launch {
+                launch { observeLimitReached() }
                 runCatching { tracker.run() }
                     .onFailure { Log.w(TAG, "Usage tracking stopped", it) }
             }
@@ -53,6 +56,54 @@ class UsageMonitorService : Service() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * Raises the block overlay when a monitored app runs out of budget. The tracker signals once per
+     * breach, so there's no debouncing to do here.
+     */
+    private suspend fun observeLimitReached() {
+        val container = appContainer()
+        container.usageTracker.limitReached.collect { packageName ->
+            val label = container.usageRepository.appLabel(packageName) ?: packageName
+            // WindowManager.addView is main-thread only.
+            withContext(Dispatchers.Main) {
+                container.blockOverlayController.show(
+                    packageName = packageName,
+                    state = BlockUiState.forApp(label),
+                    onOpenCamera = { onOpenCamera(container.blockOverlayController) },
+                    onExit = { onExit(container.blockOverlayController) },
+                )
+            }
+        }
+    }
+
+    /**
+     * The overlay sits above *every* app including our own, so it must come down before we bring
+     * the camera up — otherwise the user would be staring at the block on top of the viewfinder.
+     */
+    private fun onOpenCamera(controller: BlockOverlayController) {
+        controller.hide()
+        startActivity(
+            Intent(this, MainActivity::class.java).apply {
+                putExtra(MainActivity.EXTRA_OPEN_CAMERA, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+        )
+    }
+
+    /**
+     * Send the user home rather than back into the blocked app. Returning to it re-triggers the
+     * block anyway (the tracker re-arms on a foreground change), so the limit still holds.
+     */
+    private fun onExit(controller: BlockOverlayController) {
+        controller.hide()
+        startActivity(
+            Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
     }
 
     private fun buildNotification(): Notification {

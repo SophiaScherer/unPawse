@@ -65,6 +65,10 @@ class UsageRepository(
     suspend fun isMonitoredAndEnabled(packageName: String): Boolean =
         enabledApp(packageName) != null
 
+    /** The stored display name for a monitored app, or null if it isn't one. */
+    suspend fun appLabel(packageName: String): String? =
+        dao.monitoredApp(packageName)?.appLabel
+
     /** True when a monitored, enabled app has spent its budget for today. */
     suspend fun isLimitReached(packageName: String): Boolean {
         val app = enabledApp(packageName) ?: return false

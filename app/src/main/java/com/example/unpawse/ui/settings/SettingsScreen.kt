@@ -106,6 +106,27 @@ fun SettingsScreen(
                     trailing = { Chevron() },
                 )
                 SettingsRow(
+                    title = "Display over other apps",
+                    subtitle = if (state.overlayAccessGranted) {
+                        "Granted — breaks can interrupt you"
+                    } else {
+                        "Required — without it a reached limit can't block"
+                    },
+                    leadingIcon = if (state.overlayAccessGranted) Icons.Filled.Shield else Icons.Filled.Warning,
+                    iconTint = if (state.overlayAccessGranted) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    iconBackground = if (state.overlayAccessGranted) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    },
+                    onClick = { onRowClick("overlay_access") },
+                    trailing = { Chevron() },
+                )
+                SettingsRow(
                     title = "Daily limit", subtitle = state.dailyLimitLabel,
                     leadingIcon = Icons.Filled.Timer,
                     iconTint = MaterialTheme.colorScheme.primary,

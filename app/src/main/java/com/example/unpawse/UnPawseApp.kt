@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -20,11 +21,14 @@ import com.example.unpawse.ui.navigation.navigateToTab
 import com.example.unpawse.ui.theme.UnPawseTheme
 
 /**
- * Root composable: owns the theme, the session-scoped dark-mode override, and the app scaffold
+ * Root composable: owns the theme, the persisted dark-mode override, and the app scaffold
  * (bottom navigation + nav host).
+ *
+ * [initialRoute] lets a launch intent deep-link somewhere other than Home (the block overlay uses
+ * it to open the camera); null keeps the normal Home start.
  */
 @Composable
-fun UnPawseApp() {
+fun UnPawseApp(initialRoute: String? = null) {
     // Dark mode is a persisted override: null = follow the system, an explicit value = user choice.
     // Stored in DataStore via the SettingsRepository so it survives process death.
     val context = LocalContext.current
@@ -37,6 +41,11 @@ fun UnPawseApp() {
         val navController = rememberNavController()
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route
+
+        // Honour a deep-link once per launch intent; keyed so a recomposition doesn't re-navigate.
+        LaunchedEffect(initialRoute) {
+            if (initialRoute != null) navController.navigate(initialRoute)
+        }
 
         // The Block Overlay is a full-screen takeover — no bottom bar.
         val showBottomBar = currentRoute != Routes.BLOCK

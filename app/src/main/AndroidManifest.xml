@@ -21,6 +21,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Draws the block over the app whose limit was reached. Also what lets the service launch the
+         camera from the background. Granted via a system Settings toggle, not a runtime dialog. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <!--
       Android 11+ package visibility. The app picker only ever offers launchable apps, so we declare
       the LAUNCHER intent rather than requesting QUERY_ALL_PACKAGES — the narrower ask, and one that
