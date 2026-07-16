@@ -5,6 +5,7 @@ import com.example.unpawse.data.capture.CaptureDatabase
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.PhotoStorage
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.ml.sensitivityToMinConfidence
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.stateIn
 interface AppContainer {
     val captureRepository: CaptureRepository
     val settingsRepository: SettingsRepository
+    val usageRepository: UsageRepository
 
     /**
      * The [CatDetector] confidence gate, derived live from the Settings sensitivity slider. Held
@@ -50,6 +52,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val settingsRepository: SettingsRepository by lazy {
         SettingsRepository(appContext)
+    }
+
+    override val usageRepository: UsageRepository by lazy {
+        UsageRepository(database.usageDao())
     }
 
     override val catDetectorMinConfidence: StateFlow<Float> by lazy {
