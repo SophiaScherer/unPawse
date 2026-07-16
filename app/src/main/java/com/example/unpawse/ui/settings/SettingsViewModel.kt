@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,20 +21,25 @@ import kotlinx.coroutines.launch
  *
  * Dark mode is intentionally *not* owned here — it is resolved against the system theme and drives
  * the whole app from `UnPawseApp`, which persists its own override through the same repository. The
- * still-static labels (daily limit, app-limits summary, break duration, confidence, etc.) come from
+ * remaining static labels (daily limit, break duration, confidence, etc.) come from
  * [SettingsUiState.sample] for now; later phases replace them with real data.
  */
-class SettingsViewModel(private val settings: SettingsRepository) : ViewModel() {
+class SettingsViewModel(
+    private val settings: SettingsRepository,
+    usageRepository: UsageRepository,
+) : ViewModel() {
 
     val uiState: StateFlow<SettingsUiState> = combine(
         settings.sensitivity,
         settings.requireLivePhoto,
         settings.dailySummaryEnabled,
-    ) { sensitivity, requireLivePhoto, dailySummary ->
+        usageRepository.observeMonitoredApps(),
+    ) { sensitivity, requireLivePhoto, dailySummary, monitoredApps ->
         SettingsUiState.sample().copy(
             sensitivity = sensitivity,
             requireLivePhoto = requireLivePhoto,
             dailySummaryEnabled = dailySummary,
+            appLimitsSummary = monitoredAppsSummary(monitoredApps),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -52,7 +58,10 @@ class SettingsViewModel(private val settings: SettingsRepository) : ViewModel() 
         private const val STOP_TIMEOUT_MILLIS = 5_000L
 
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
-            initializer { SettingsViewModel(context.appContainer().settingsRepository) }
+            initializer {
+                val container = context.appContainer()
+                SettingsViewModel(container.settingsRepository, container.usageRepository)
+            }
         }
     }
 }

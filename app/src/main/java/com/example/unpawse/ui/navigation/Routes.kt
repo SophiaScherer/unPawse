@@ -24,6 +24,14 @@ object Routes {
     const val GALLERY = "gallery"
     const val SETTINGS = "settings"
     const val BLOCK = "block"
+
+    /** Settings sub-screen: choose monitored apps and their daily limits. */
+    const val APP_PICKER = "app_picker"
+}
+
+/** Row ids emitted by `SettingsScreen.onRowClick`; only the wired ones are listed. */
+object SettingsRowIds {
+    const val APP_LIMITS = "app_limits"
 }
 
 /**

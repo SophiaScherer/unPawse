@@ -10,6 +10,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.unpawse.data.SampleData
+import com.example.unpawse.ui.apppicker.AppPickerRoute
 import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
@@ -78,7 +79,15 @@ fun UnPawseNavHost(
                 onToggleLivePhoto = settingsViewModel::setRequireLivePhoto,
                 onToggleDailySummary = settingsViewModel::setDailySummary,
                 onSensitivityChange = settingsViewModel::setSensitivity,
+                onRowClick = { rowId ->
+                    // Only the app-limits row has a destination so far; the rest stay inert.
+                    if (rowId == SettingsRowIds.APP_LIMITS) navController.navigate(Routes.APP_PICKER)
+                },
             )
+        }
+
+        composable(Routes.APP_PICKER) {
+            AppPickerRoute(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.BLOCK) {

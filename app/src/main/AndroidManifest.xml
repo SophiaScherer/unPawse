@@ -8,6 +8,18 @@
         android:name="android.hardware.camera.any"
         android:required="false" />
 
+    <!--
+      Android 11+ package visibility. The app picker only ever offers launchable apps, so we declare
+      the LAUNCHER intent rather than requesting QUERY_ALL_PACKAGES — the narrower ask, and one that
+      avoids Play Store sensitive-permission review.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".UnPawseApplication"
         android:allowBackup="true"

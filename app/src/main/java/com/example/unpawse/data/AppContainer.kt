@@ -1,6 +1,8 @@
 package com.example.unpawse.data
 
 import android.content.Context
+import com.example.unpawse.data.apps.InstalledAppsProvider
+import com.example.unpawse.data.apps.PackageManagerInstalledAppsProvider
 import com.example.unpawse.data.capture.CaptureDatabase
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.PhotoStorage
@@ -27,6 +29,7 @@ interface AppContainer {
     val captureRepository: CaptureRepository
     val settingsRepository: SettingsRepository
     val usageRepository: UsageRepository
+    val installedAppsProvider: InstalledAppsProvider
 
     /**
      * The [CatDetector] confidence gate, derived live from the Settings sensitivity slider. Held
@@ -56,6 +59,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val usageRepository: UsageRepository by lazy {
         UsageRepository(database.usageDao())
+    }
+
+    override val installedAppsProvider: InstalledAppsProvider by lazy {
+        PackageManagerInstalledAppsProvider(appContext)
     }
 
     override val catDetectorMinConfidence: StateFlow<Float> by lazy {
