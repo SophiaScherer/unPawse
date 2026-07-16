@@ -11,6 +11,7 @@ import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.ml.sensitivityToMinConfidence
 import com.example.unpawse.service.BlockOverlayController
+import com.example.unpawse.service.BlockSession
 import com.example.unpawse.service.ForegroundAppMonitor
 import com.example.unpawse.service.UsageStatsForegroundAppMonitor
 import com.example.unpawse.service.UsageTracker
@@ -47,6 +48,12 @@ interface AppContainer {
      * Main-thread only.
      */
     val blockOverlayController: BlockOverlayController
+
+    /**
+     * Which app the user owes a cat photo for. Shared so the service can arm it and the camera can
+     * settle it.
+     */
+    val blockSession: BlockSession
 
     /**
      * The [CatDetector] confidence gate, derived live from the Settings sensitivity slider. Held
@@ -93,6 +100,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val blockOverlayController: BlockOverlayController by lazy {
         BlockOverlayController(appContext)
     }
+
+    override val blockSession: BlockSession by lazy { BlockSession() }
 
     override val catDetectorMinConfidence: StateFlow<Float> by lazy {
         settingsRepository.sensitivity

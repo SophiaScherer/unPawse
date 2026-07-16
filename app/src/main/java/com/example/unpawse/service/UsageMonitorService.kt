@@ -12,6 +12,7 @@ import android.util.Log
 import com.example.unpawse.MainActivity
 import com.example.unpawse.R
 import com.example.unpawse.appContainer
+import com.example.unpawse.data.AppContainer
 import com.example.unpawse.ui.block.BlockUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +45,7 @@ class UsageMonitorService : Service() {
             val tracker = appContainer().usageTracker
             trackerJob = scope.launch {
                 launch { observeLimitReached() }
+                launch { dismissBlockWhenUserLeaves() }
                 runCatching { tracker.run() }
                     .onFailure { Log.w(TAG, "Usage tracking stopped", it) }
             }
@@ -66,14 +68,33 @@ class UsageMonitorService : Service() {
         val container = appContainer()
         container.usageTracker.limitReached.collect { packageName ->
             val label = container.usageRepository.appLabel(packageName) ?: packageName
+            // Arm the debt before showing, so the camera knows what it's earning back for.
+            container.blockSession.start(packageName)
             // WindowManager.addView is main-thread only.
             withContext(Dispatchers.Main) {
                 container.blockOverlayController.show(
                     packageName = packageName,
                     state = BlockUiState.forApp(label),
                     onOpenCamera = { onOpenCamera(container.blockOverlayController) },
-                    onExit = { onExit(container.blockOverlayController) },
+                    onExit = { onExit(container) },
                 )
+            }
+        }
+    }
+
+    /**
+     * Takes the overlay down once the user is no longer in the blocked app.
+     *
+     * An overlay window outlives app switches by design, so without this a home-gesture (or any
+     * other exit that isn't our "Exit App" button) would leave the block stranded on top of the
+     * launcher. Returning to the app re-blocks via the tracker, so nothing is lost by hiding it.
+     */
+    private suspend fun dismissBlockWhenUserLeaves() {
+        val container = appContainer()
+        container.usageTracker.foregroundApp.collect { current ->
+            val blocked = container.blockOverlayController.blockedPackage ?: return@collect
+            if (current != null && current != blocked) {
+                withContext(Dispatchers.Main) { container.blockOverlayController.hide() }
             }
         }
     }
@@ -95,9 +116,13 @@ class UsageMonitorService : Service() {
     /**
      * Send the user home rather than back into the blocked app. Returning to it re-triggers the
      * block anyway (the tracker re-arms on a foreground change), so the limit still holds.
+     *
+     * Walking away also disarms the session: a cat photographed later, on a whim, shouldn't
+     * silently pay off a block the user already abandoned.
      */
-    private fun onExit(controller: BlockOverlayController) {
-        controller.hide()
+    private fun onExit(container: AppContainer) {
+        container.blockOverlayController.hide()
+        container.blockSession.clear()
         startActivity(
             Intent(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_HOME)

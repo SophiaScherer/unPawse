@@ -2,8 +2,11 @@ package com.example.unpawse.service
 
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -23,6 +26,15 @@ class UsageTracker(
     /** Package names that have just hit their limit. Fires once per breach, not once per tick. */
     val limitReached: SharedFlow<String> = _limitReached.asSharedFlow()
 
+    private val _foregroundApp = MutableStateFlow<String?>(null)
+
+    /**
+     * The app currently in front, republished from the monitor so other components can observe it
+     * without starting a second poller (the monitor's flow is cold — collecting it twice would poll
+     * twice).
+     */
+    val foregroundApp: StateFlow<String?> = _foregroundApp.asStateFlow()
+
     /**
      * Collects foreground ticks until cancelled, crediting the time *between* ticks to whichever
      * app was in front for that interval. Runs inside [UsageMonitorService].
@@ -35,6 +47,7 @@ class UsageTracker(
         var signalledFor: String? = null
 
         monitor.foregroundApp().collect { currentPackage ->
+            _foregroundApp.value = currentPackage
             val tick = now()
             val elapsed = accrualMillis(tick - previousTick, MAX_TICK.inWholeMilliseconds)
             previousTick = tick

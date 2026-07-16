@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.unpawse.appContainer
 
 /**
  * Stateful wrapper around [CameraScreen]. Owns the [CameraViewModel], the camera permission, and the
@@ -45,12 +46,16 @@ fun CameraRoute(
         if (!permission.granted) permission.request()
     }
 
-    // Capture outcomes surface through the hint text in [state], and we deliberately keep the user
-    // on the camera after a save so they can keep snapping (the Gallery button is right there).
-    // Draining the event stream here leaves room to add transient feedback (haptics/snackbar) later
-    // without touching the ViewModel.
+    // Capture outcomes surface through the hint text in [state], so we deliberately keep the user on
+    // the camera after a save rather than yanking them elsewhere. The one thing worth acting on is a
+    // capture that paid off a block: the crediting itself happens in the ViewModel, but the overlay
+    // is a window this side owns, so take it down here.
     LaunchedEffect(Unit) {
-        viewModel.events.collect { /* stay on the camera; hint text already reflects the outcome */ }
+        viewModel.events.collect { event ->
+            if (event is CameraEvent.Saved && event.earned != null) {
+                context.appContainer().blockOverlayController.hide()
+            }
+        }
     }
 
     if (permission.granted) {
