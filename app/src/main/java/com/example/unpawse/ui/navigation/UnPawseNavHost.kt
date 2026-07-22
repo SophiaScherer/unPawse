@@ -44,10 +44,8 @@ fun UnPawseNavHost(
     ) {
         composable(Routes.HOME) {
             HomeRoute(
-                // Both quick actions concern the same editor — the App Picker owns app selection and
-                // per-app daily limits.
+                // "Edit Limits" opens the App Picker, which owns app selection and per-app limits.
                 onEditLimits = { navController.navigate(Routes.APP_PICKER) },
-                onManageApps = { navController.navigate(Routes.APP_PICKER) },
             )
         }
 

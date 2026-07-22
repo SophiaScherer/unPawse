@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.EditCalendar
@@ -68,7 +67,6 @@ fun HomeScreen(
     focus: FocusCardState = FocusCardState.Inactive,
     modifier: Modifier = Modifier,
     onEditLimits: () -> Unit = {},
-    onManageApps: () -> Unit = {},
     onStartFocus: (Int) -> Unit = {},
     onStopFocus: () -> Unit = {},
 ) {
@@ -114,7 +112,7 @@ fun HomeScreen(
         item {
             SectionLabel(text = "Quick Actions")
             Spacer(Modifier.height(8.dp))
-            QuickActionsRow(onEditLimits, onManageApps, onStartFocus = { showFocusPicker = true })
+            QuickActionsRow(onEditLimits, onStartFocus = { showFocusPicker = true })
         }
 
         item { RecentActivityCard(state.activities) }
@@ -267,12 +265,10 @@ private fun IconTile(icon: ImageVector, tint: Color, background: Color) {
 @Composable
 private fun QuickActionsRow(
     onEditLimits: () -> Unit,
-    onManageApps: () -> Unit,
     onStartFocus: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         QuickAction(Icons.Filled.EditCalendar, "Edit Limits", onEditLimits, Modifier.weight(1f))
-        QuickAction(Icons.Filled.Apps, "Manage Apps", onManageApps, Modifier.weight(1f))
         QuickAction(
             Icons.Filled.Bolt,
             "Start Focus",
