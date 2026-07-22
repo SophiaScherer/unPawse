@@ -16,6 +16,12 @@ private val TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a")
 /** Shown in the greeting/avatar when the user hasn't set a name yet. */
 private const val DEFAULT_DISPLAY_NAME = "friend"
 
+/** A streak worth celebrating on the banner. */
+private const val STREAK_CELEBRATION_DAYS = 3
+
+/** Below this much remaining budget, the banner switches to an "almost there" nudge. */
+private const val LOW_REMAINING_SECONDS = 15 * 60L
+
 /** Time-of-day greeting for the Home header. Pure, so it's unit-testable without a clock. */
 internal fun greetingFor(time: LocalTime): String = when (time.hour) {
     in 5..11 -> "Good morning,"
@@ -51,6 +57,13 @@ internal fun toHomeUiState(
 
     val captureDates = captures.map { it.capturedAt.toLocalDate(zone) }.toSet()
     val capturesToday = captures.filter { it.capturedAt.toLocalDate(zone) == today }
+    val streakDays = currentStreakDays(captureDates, today)
+
+    val banner = buildBanner(
+        streakDays = streakDays,
+        remainingSeconds = remainingSeconds,
+        budgetSeconds = budgetSeconds,
+    )
 
     return HomeUiState.sample().copy(
         greeting = greetingFor(time),
@@ -60,10 +73,47 @@ internal fun toHomeUiState(
         // Guard against a zero budget (nothing monitored) rather than dividing by zero.
         progressFraction = if (budgetSeconds == 0L) 0f else (usedSeconds.toFloat() / budgetSeconds).coerceIn(0f, 1f),
         remainingLabel = formatSeconds(remainingSeconds),
-        streakDays = currentStreakDays(captureDates, today),
+        streakDays = streakDays,
         catCount = capturesToday.size,
         pausedAppsCount = enabled.size,
         activities = buildActivities(enabled, usageByPackage, capturesToday, zone),
+        bannerTitle = banner.title,
+        bannerBody = banner.body,
+    )
+}
+
+/** The Home banner's two lines. */
+internal data class HomeBanner(val title: String, val body: String)
+
+/**
+ * Copy for the celebratory Home banner, derived from real metrics — never an invented number.
+ * Ranked most-noteworthy first: setup guidance when nothing is monitored, then a streak celebration,
+ * then budget-based nudges. Kept pure so each branch is unit-testable.
+ */
+internal fun buildBanner(
+    streakDays: Int,
+    remainingSeconds: Long,
+    budgetSeconds: Long,
+): HomeBanner = when {
+    budgetSeconds == 0L -> HomeBanner(
+        title = "Welcome to unPawse!",
+        body = "Add app limits in Settings to start tracking your screen time.",
+    )
+    streakDays >= STREAK_CELEBRATION_DAYS -> HomeBanner(
+        title = "🔥 $streakDays-day streak!",
+        body = "Photograph your cat today to keep it going.",
+    )
+    remainingSeconds <= 0L -> HomeBanner(
+        title = "Limit reached",
+        body = "Photograph your cat to earn more screen time.",
+    )
+    remainingSeconds < LOW_REMAINING_SECONDS -> HomeBanner(
+        title = "Almost there",
+        body = "Only ${formatSeconds(remainingSeconds)} of screen time left today.",
+    )
+    else -> HomeBanner(
+        title = "Looking sharp today!",
+        body = "You still have ${formatSeconds(remainingSeconds)} of screen time left.",
     )
 }
 

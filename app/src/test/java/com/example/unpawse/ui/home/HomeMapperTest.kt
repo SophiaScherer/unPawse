@@ -143,6 +143,37 @@ class HomeMapperTest {
     }
 
     @Test
+    fun `banner guides setup when nothing is monitored`() {
+        val banner = buildBanner(streakDays = 0, remainingSeconds = 0, budgetSeconds = 0)
+        assertEquals("Welcome to unPawse!", banner.title)
+    }
+
+    @Test
+    fun `banner celebrates a streak of three or more`() {
+        val banner = buildBanner(streakDays = 5, remainingSeconds = 3600, budgetSeconds = 7200)
+        assertEquals("🔥 5-day streak!", banner.title)
+    }
+
+    @Test
+    fun `banner nudges when the budget is spent`() {
+        val banner = buildBanner(streakDays = 0, remainingSeconds = 0, budgetSeconds = 7200)
+        assertEquals("Limit reached", banner.title)
+    }
+
+    @Test
+    fun `banner warns when little time is left`() {
+        val banner = buildBanner(streakDays = 0, remainingSeconds = 5 * 60, budgetSeconds = 7200)
+        assertEquals("Almost there", banner.title)
+        assertEquals("Only 5m of screen time left today.", banner.body)
+    }
+
+    @Test
+    fun `banner is upbeat with plenty of budget left`() {
+        val banner = buildBanner(streakDays = 1, remainingSeconds = 3600, budgetSeconds = 7200)
+        assertEquals("Looking sharp today!", banner.title)
+    }
+
+    @Test
     fun `greeting follows the time of day`() {
         assertEquals("Good morning,", greetingFor(LocalTime.of(6, 0)))
         assertEquals("Good afternoon,", greetingFor(LocalTime.of(13, 0)))
