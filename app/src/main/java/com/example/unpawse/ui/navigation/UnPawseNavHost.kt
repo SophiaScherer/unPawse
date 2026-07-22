@@ -48,6 +48,10 @@ fun UnPawseNavHost(
                 // block as a system overlay over the offending app; this in-app route just lets the
                 // screen be reviewed without burning through a real limit.
                 onPauseProtection = { navController.navigate(Routes.BLOCK) },
+                // Both quick actions concern the same editor — the App Picker owns app selection and
+                // per-app daily limits.
+                onEditLimits = { navController.navigate(Routes.APP_PICKER) },
+                onManageApps = { navController.navigate(Routes.APP_PICKER) },
             )
         }
 
