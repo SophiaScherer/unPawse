@@ -21,6 +21,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      Monitoring must come back by itself after a reboot: a screen-time blocker that silently stops
+      enforcing is worse than none, because the user still believes they're covered.
+
+      BOOT_COMPLETED only, and deliberately NOT LOCKED_BOOT_COMPLETED. The latter is delivered solely
+      to android:directBootAware components, and ours can't be: the Room DB and the settings DataStore
+      both live in credential-protected storage, which is unreadable until the user first unlocks.
+      Nothing is lost by waiting — no app can be used on a locked device, so there is no screen time
+      to track before the unlock that BOOT_COMPLETED already follows on FBE devices.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!-- Draws the block over the app whose limit was reached. Also what lets the service launch the
          camera from the background. Granted via a system Settings toggle, not a runtime dialog. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -71,6 +83,20 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="screen_time_monitoring" />
         </service>
+
+        <!--
+          exported="true" is required despite the app never being the sender: BOOT_COMPLETED comes
+          from the system, which counts as external. The receiver itself re-checks the action, and
+          starting monitoring is not a privileged operation.
+        -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

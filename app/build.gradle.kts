@@ -76,6 +76,9 @@ dependencies {
     // DataStore — persistence for scalar settings toggles
     implementation(libs.androidx.datastore.preferences)
 
+    // WorkManager — periodic backstop that re-arms monitoring if the service is ever killed
+    implementation(libs.androidx.work.runtime.ktx)
+
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 

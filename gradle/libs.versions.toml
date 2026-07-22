@@ -16,6 +16,7 @@ room = "2.7.1"                  # capture metadata store (entity + DAO Flow)
 ksp = "2.2.20-2.0.2"            # Room's annotation processor; MUST track kotlin (2.2.20) — see note above
 coil = "3.1.0"                  # AsyncImage for local capture files in the Gallery
 datastore = "1.1.7"             # Preferences DataStore — persists scalar settings toggles
+work = "2.10.1"                 # WorkManager — periodic backstop that re-arms the usage monitor
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -59,6 +60,9 @@ coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref 
 
 # Preferences DataStore — persistence for scalar settings (dark mode, sensitivity, toggles)
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+# WorkManager — periodic self-heal that re-calls UsageMonitorController.startIfPermitted
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

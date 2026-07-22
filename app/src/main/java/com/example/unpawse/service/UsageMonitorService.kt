@@ -169,16 +169,34 @@ class UsageMonitorService : Service() {
 }
 
 /**
- * Starts/stops [UsageMonitorService], refusing to start without usage access (the service would run
- * blind, burning a notification slot while `queryEvents` returned nothing).
+ * Starts/stops [UsageMonitorService], refusing to start when it isn't allowed to: without usage
+ * access (the service would run blind, burning a notification slot while `queryEvents` returned
+ * nothing), or when the platform forbids the start outright.
+ *
+ * This is the single entry point every trigger routes through — the root resume effect in
+ * [com.example.unpawse.UnPawseApp], process start in [com.example.unpawse.UnPawseApplication], and
+ * [BootReceiver] — so both refusals are enforced here rather than re-implemented at each call site.
+ * New triggers should call this and add nothing of their own.
  */
 object UsageMonitorController {
+
+    private const val TAG = "UsageMonitorController"
 
     /** Starts monitoring if permitted. Returns whether it started. Safe to call repeatedly. */
     fun startIfPermitted(context: Context): Boolean {
         if (!UsageAccess.isGranted(context)) return false
-        context.startForegroundService(Intent(context, UsageMonitorService::class.java))
-        return true
+        return try {
+            context.startForegroundService(Intent(context, UsageMonitorService::class.java))
+            true
+        } catch (e: IllegalStateException) {
+            // Android 12+ throws ForegroundServiceStartNotAllowedException (an IllegalStateException,
+            // so this needs no SDK_INT branch) when a background process starts a foreground service.
+            // Reachable from every trigger that can run with no UI up — a START_STICKY revival, a
+            // boot broadcast — and it would take the process down. Skipping is safe: whichever
+            // trigger fires next from an allowed state starts us, and the caller sees `false`.
+            Log.w(TAG, "Foreground start not allowed from the current process state", e)
+            false
+        }
     }
 
     fun stop(context: Context) {
