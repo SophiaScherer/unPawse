@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -39,6 +40,12 @@ class SettingsRepository(context: Context) {
     /** The user's display name for the Home greeting/avatar; blank until they set one. */
     val userName: Flow<String> = dataStore.data.map { it[Keys.USER_NAME] ?: DEFAULT_USER_NAME }
 
+    /**
+     * Epoch-millis end time of the active focus session, or null when none is running. Persisted so
+     * a focus session survives process death (the enforcement service is restored from it on start).
+     */
+    val focusEndMillis: Flow<Long?> = dataStore.data.map { it[Keys.FOCUS_END_MILLIS] }
+
     suspend fun setDarkModeOverride(enabled: Boolean) =
         edit { it[Keys.DARK_MODE_OVERRIDE] = enabled }
 
@@ -50,6 +57,11 @@ class SettingsRepository(context: Context) {
 
     suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
 
+    /** Persists (or, with null, clears) the active focus session's end time. */
+    suspend fun setFocusEndMillis(value: Long?) = edit {
+        if (value == null) it.remove(Keys.FOCUS_END_MILLIS) else it[Keys.FOCUS_END_MILLIS] = value
+    }
+
     private suspend fun edit(transform: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         dataStore.edit(transform)
     }
@@ -60,6 +72,7 @@ class SettingsRepository(context: Context) {
         val REQUIRE_LIVE_PHOTO = booleanPreferencesKey("require_live_photo")
         val DAILY_SUMMARY = booleanPreferencesKey("daily_summary")
         val USER_NAME = stringPreferencesKey("user_name")
+        val FOCUS_END_MILLIS = longPreferencesKey("focus_end_millis")
     }
 
     companion object {

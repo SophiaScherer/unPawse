@@ -55,8 +55,10 @@ class UsageTrackerTest {
         }
     }
 
+    private val focusSession = FocusSession(now = { clockMillis })
+
     private fun tracker(ticks: List<String?>) =
-        UsageTracker(repo, monitorOf(ticks), now = { clockMillis })
+        UsageTracker(repo, monitorOf(ticks), now = { clockMillis }, focusSession = focusSession)
 
     private suspend fun usedSecondsFor(pkg: String) = dao.usageFor(pkg, today.toString())?.usedSeconds
 
@@ -109,7 +111,7 @@ class UsageTrackerTest {
         tracker.run()
         collector.cancel()
 
-        assertEquals(listOf("com.ig"), signals)
+        assertEquals(listOf(BlockEvent("com.ig", BlockReason.LIMIT)), signals)
     }
 
     @Test
@@ -122,17 +124,45 @@ class UsageTrackerTest {
         tracker.run()
         collector.cancel()
 
-        assertEquals(listOf("com.ig", "com.ig"), signals)
+        assertEquals(listOf(BlockEvent("com.ig", BlockReason.LIMIT), BlockEvent("com.ig", BlockReason.LIMIT)), signals)
+    }
+
+    @Test
+    fun `a focus session hard-blocks a monitored app that is under its limit`() = runBlocking {
+        // Well under a 10-minute limit, so only a focus session can trigger a block.
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        focusSession.start(durationMinutes = 30)
+        val tracker = tracker(List(3) { "com.ig" })
+
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(listOf(BlockEvent("com.ig", BlockReason.FOCUS)), signals)
+    }
+
+    @Test
+    fun `focus takes precedence over an exhausted limit`() = runBlocking {
+        // Over budget (would normally be a LIMIT block) but focus is running → escape-less FOCUS block.
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+        focusSession.start(durationMinutes = 30)
+        val tracker = tracker(List(3) { "com.ig" })
+
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(listOf(BlockEvent("com.ig", BlockReason.FOCUS)), signals)
     }
 
     /**
-     * Subscribes to [UsageTracker.limitReached] on [Dispatchers.Unconfined] so each emission is
+     * Subscribes to [UsageTracker.blockRequired] on [Dispatchers.Unconfined] so each emission is
      * handled inline at the emit point. The fake DAO never really suspends, so `run()` would
      * otherwise finish without ever yielding to a normally-dispatched collector.
      */
-    private fun CoroutineScope.collectSignals(tracker: UsageTracker): Pair<List<String>, Job> {
-        val signals = mutableListOf<String>()
-        val job = launch(Dispatchers.Unconfined) { tracker.limitReached.collect { signals.add(it) } }
+    private fun CoroutineScope.collectSignals(tracker: UsageTracker): Pair<List<BlockEvent>, Job> {
+        val signals = mutableListOf<BlockEvent>()
+        val job = launch(Dispatchers.Unconfined) { tracker.blockRequired.collect { signals.add(it) } }
         return signals to job
     }
 }

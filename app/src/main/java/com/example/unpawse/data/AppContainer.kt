@@ -12,6 +12,7 @@ import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.ml.sensitivityToMinConfidence
 import com.example.unpawse.service.BlockOverlayController
 import com.example.unpawse.service.BlockSession
+import com.example.unpawse.service.FocusSession
 import com.example.unpawse.service.ForegroundAppMonitor
 import com.example.unpawse.service.UsageStatsForegroundAppMonitor
 import com.example.unpawse.service.UsageTracker
@@ -20,8 +21,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Application-scoped dependency graph. Owns the single instances of the database, repositories, and
@@ -39,7 +43,7 @@ interface AppContainer {
 
     /**
      * Singleton so `UsageMonitorService` can drive it while the UI observes
-     * [UsageTracker.limitReached] — both sides must share one instance.
+     * [UsageTracker.blockRequired] — both sides must share one instance.
      */
     val usageTracker: UsageTracker
 
@@ -54,6 +58,12 @@ interface AppContainer {
      * settle it.
      */
     val blockSession: BlockSession
+
+    /**
+     * The running focus session (if any). Shared so the Home UI can start/stop/observe it while the
+     * enforcement service reads it to hard-block monitored apps.
+     */
+    val focusSession: FocusSession
 
     /**
      * The [CatDetector] confidence gate, derived live from the Settings sensitivity slider. Held
@@ -94,7 +104,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val usageTracker: UsageTracker by lazy {
-        UsageTracker(usageRepository, foregroundAppMonitor)
+        UsageTracker(usageRepository, foregroundAppMonitor, focusSession = focusSession)
     }
 
     override val blockOverlayController: BlockOverlayController by lazy {
@@ -102,6 +112,17 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val blockSession: BlockSession by lazy { BlockSession() }
+
+    override val focusSession: FocusSession by lazy { FocusSession() }
+
+    init {
+        // Restore a focus session that was mid-run when the process died, then keep DataStore in sync
+        // with every start/stop so the next process can restore it too.
+        appScope.launch {
+            focusSession.restore(settingsRepository.focusEndMillis.first())
+            focusSession.endTimeMillis.collect { settingsRepository.setFocusEndMillis(it) }
+        }
+    }
 
     override val catDetectorMinConfidence: StateFlow<Float> by lazy {
         settingsRepository.sensitivity

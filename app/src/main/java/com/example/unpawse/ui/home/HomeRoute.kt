@@ -20,11 +20,15 @@ fun HomeRoute(
     val context = LocalContext.current
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val focus by viewModel.focus.collectAsStateWithLifecycle()
 
     HomeScreen(
         state = state,
+        focus = focus,
         modifier = modifier,
         onEditLimits = onEditLimits,
         onManageApps = onManageApps,
+        onStartFocus = viewModel::startFocus,
+        onStopFocus = viewModel::stopFocus,
     )
 }

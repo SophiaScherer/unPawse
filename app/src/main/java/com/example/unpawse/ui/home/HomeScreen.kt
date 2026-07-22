@@ -26,10 +26,17 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +55,9 @@ import com.example.unpawse.ui.components.TimelineEntry
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 
+/** Focus-session lengths offered by the duration picker, in minutes. */
+private val FOCUS_DURATION_OPTIONS = listOf(15, 30, 60)
+
 /**
  * Home dashboard. Stateless: it renders [state] and reports intents through the callbacks. The
  * callbacks default to no-ops so previews and not-yet-wired hosts compile cleanly.
@@ -55,11 +65,25 @@ import com.example.unpawse.ui.theme.UnPawseTheme
 @Composable
 fun HomeScreen(
     state: HomeUiState,
+    focus: FocusCardState = FocusCardState.Inactive,
     modifier: Modifier = Modifier,
     onEditLimits: () -> Unit = {},
     onManageApps: () -> Unit = {},
-    onStartFocus: () -> Unit = {},
+    onStartFocus: (Int) -> Unit = {},
+    onStopFocus: () -> Unit = {},
 ) {
+    // Ephemeral: the duration picker shown by both "Start Focus" and the Focus card.
+    var showFocusPicker by remember { mutableStateOf(false) }
+    if (showFocusPicker) {
+        FocusDurationDialog(
+            onSelect = { minutes ->
+                onStartFocus(minutes)
+                showFocusPicker = false
+            },
+            onDismiss = { showFocusPicker = false },
+        )
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -82,7 +106,7 @@ fun HomeScreen(
 
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
-                NextBreakCard(state.nextBreakCountdown, Modifier.weight(1f))
+                FocusCard(focus, onStart = { showFocusPicker = true }, onStop = onStopFocus, Modifier.weight(1f))
                 PauseProtectionCard(state.pausedAppsCount, Modifier.weight(1f))
             }
         }
@@ -90,7 +114,7 @@ fun HomeScreen(
         item {
             SectionLabel(text = "Quick Actions")
             Spacer(Modifier.height(8.dp))
-            QuickActionsRow(onEditLimits, onManageApps, onStartFocus)
+            QuickActionsRow(onEditLimits, onManageApps, onStartFocus = { showFocusPicker = true })
         }
 
         item { RecentActivityCard(state.activities) }
@@ -139,18 +163,67 @@ private fun ScreenTimeCard(state: HomeUiState) {
 }
 
 @Composable
-private fun NextBreakCard(countdown: String, modifier: Modifier = Modifier) {
-    PawCard(modifier = modifier) {
+private fun FocusCard(
+    focus: FocusCardState,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Inactive: tapping the card starts a session. Active: it shows the countdown + a Stop button.
+    PawCard(modifier = modifier, onClick = if (focus.active) null else onStart) {
         IconTile(Icons.Filled.Timer, MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.secondaryContainer)
         Spacer(Modifier.height(12.dp))
-        Text("Next Break In", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            countdown,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.secondary,
-        )
+        Text("Focus", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (focus.active) {
+            Text(
+                focus.remainingLabel,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            TextButton(onClick = onStop, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                Text("Stop", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+        } else {
+            Text(
+                "Start a session",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
+}
+
+/** Duration picker for a new focus session. */
+@Composable
+private fun FocusDurationDialog(onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Start a focus session") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Every monitored app is paused until the timer ends.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FOCUS_DURATION_OPTIONS.forEach { minutes ->
+                        Button(
+                            onClick = { onSelect(minutes) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                        ) {
+                            Text("${minutes}m")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

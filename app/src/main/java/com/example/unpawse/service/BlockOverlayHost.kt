@@ -106,6 +106,10 @@ class BlockOverlayController(private val context: Context) {
     var blockedPackage: String? = null
         private set
 
+    /** Why the current overlay is up (limit vs. focus), or null when nothing is showing. */
+    var blockReason: BlockReason? = null
+        private set
+
     val isShowing: Boolean get() = host != null
 
     /**
@@ -115,6 +119,7 @@ class BlockOverlayController(private val context: Context) {
      */
     fun show(
         packageName: String,
+        reason: BlockReason,
         state: BlockUiState,
         onOpenCamera: () -> Unit,
         onExit: () -> Unit,
@@ -123,11 +128,13 @@ class BlockOverlayController(private val context: Context) {
 
         host = BlockOverlayHost(context).apply { show(state, onOpenCamera, onExit) }
         blockedPackage = packageName
+        blockReason = reason
     }
 
     fun hide() {
         host?.dismiss()
         host = null
         blockedPackage = null
+        blockReason = null
     }
 }

@@ -14,7 +14,6 @@ data class HomeUiState(
     val remainingLabel: String,
     val streakDays: Int,
     val catCount: Int,
-    val nextBreakCountdown: String,
     val pausedAppsCount: Int,
     val activities: List<ActivityItem>,
     val bannerTitle: String,
@@ -30,7 +29,6 @@ data class HomeUiState(
             remainingLabel = "45m",
             streakDays = 12,
             catCount = 8,
-            nextBreakCountdown = "14:02",
             pausedAppsCount = 12,
             activities = listOf(
                 ActivityItem(ActivityKind.VERIFIED, "Instagram Verified", "Calico cat detected. +5m usage.", "10:45 AM"),
@@ -40,6 +38,33 @@ data class HomeUiState(
             bannerTitle = "Looking sharp today!",
             bannerBody = "You're in the top 5% of mindful users this week.",
         )
+    }
+}
+
+/**
+ * Live state of the Home "Focus" card (which replaces the mockup's placeholder next-break countdown).
+ * Driven off [com.example.unpawse.service.FocusSession] with a per-second ticker in the ViewModel.
+ */
+data class FocusCardState(
+    val active: Boolean,
+    /** Remaining time as a countdown ("14:02"), empty when no session is running. */
+    val remainingLabel: String,
+) {
+    companion object {
+        val Inactive = FocusCardState(active = false, remainingLabel = "")
+    }
+}
+
+/** Countdown copy for a focus session: "M:SS", or "H:MM:SS" past an hour. */
+internal fun formatCountdown(remainingMillis: Long): String {
+    val totalSeconds = (remainingMillis / 1000).coerceAtLeast(0)
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%d:%02d".format(minutes, seconds)
     }
 }
 
