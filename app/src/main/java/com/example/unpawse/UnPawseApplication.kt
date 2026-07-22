@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import com.example.unpawse.data.AppContainer
 import com.example.unpawse.data.DefaultAppContainer
+import com.example.unpawse.service.MonitorHealthWorker
+import com.example.unpawse.service.UsageMonitorController
 
 /**
  * Process entry point. Builds the app-scoped [AppContainer] once and holds it for the whole
@@ -18,6 +20,16 @@ class UnPawseApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = DefaultAppContainer(this)
+
+        // Cover process starts that never resume the UI — a launch straight into the camera from the
+        // block overlay, or the system recreating us after a kill. UnPawseApp's resume effect misses
+        // those. Must follow the container build: the service reads usageTracker off it on start.
+        UsageMonitorController.startIfPermitted(this)
+
+        // Defense in depth: a 15-minute periodic re-arm, in case START_STICKY and the boot receiver
+        // are both defeated by an aggressive OEM battery manager. KEEP policy makes this idempotent
+        // across the many process starts that reach here.
+        MonitorHealthWorker.schedule(this)
     }
 }
 
