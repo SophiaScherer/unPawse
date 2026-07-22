@@ -40,17 +40,27 @@ class SettingsViewModel(
      */
     private val permissions = MutableStateFlow(readPermissions())
 
-    val uiState: StateFlow<SettingsUiState> = combine(
+    // `combine` has typed overloads up to five flows; there are six sources, so the four
+    // repository-backed scalar settings are pre-combined into one holder.
+    private val settingsValues = combine(
         settings.sensitivity,
         settings.requireLivePhoto,
         settings.dailySummaryEnabled,
+        settings.userName,
+    ) { sensitivity, requireLivePhoto, dailySummary, userName ->
+        SettingsValues(sensitivity, requireLivePhoto, dailySummary, userName)
+    }
+
+    val uiState: StateFlow<SettingsUiState> = combine(
+        settingsValues,
         usageRepository.observeMonitoredApps(),
         permissions,
-    ) { sensitivity, requireLivePhoto, dailySummary, monitoredApps, permissionState ->
+    ) { values, monitoredApps, permissionState ->
         SettingsUiState.sample().copy(
-            sensitivity = sensitivity,
-            requireLivePhoto = requireLivePhoto,
-            dailySummaryEnabled = dailySummary,
+            sensitivity = values.sensitivity,
+            requireLivePhoto = values.requireLivePhoto,
+            dailySummaryEnabled = values.dailySummary,
+            userName = values.userName,
             appLimitsSummary = monitoredAppsSummary(monitoredApps),
             usageAccessGranted = permissionState.usageAccess,
             overlayAccessGranted = permissionState.overlayAccess,
@@ -70,12 +80,22 @@ class SettingsViewModel(
 
     private data class PermissionState(val usageAccess: Boolean, val overlayAccess: Boolean)
 
+    private data class SettingsValues(
+        val sensitivity: Float,
+        val requireLivePhoto: Boolean,
+        val dailySummary: Boolean,
+        val userName: String,
+    )
+
     fun setSensitivity(value: Float) = viewModelScope.launch { settings.setSensitivity(value) }
 
     fun setRequireLivePhoto(value: Boolean) =
         viewModelScope.launch { settings.setRequireLivePhoto(value) }
 
     fun setDailySummary(value: Boolean) = viewModelScope.launch { settings.setDailySummary(value) }
+
+    /** Trimmed so trailing spaces don't produce a blank-looking name that still counts as "set". */
+    fun setUserName(value: String) = viewModelScope.launch { settings.setUserName(value.trim()) }
 
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L

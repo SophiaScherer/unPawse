@@ -5,6 +5,8 @@ package com.example.unpawse.ui.settings
  * driven by the values here plus callbacks on [SettingsScreen]; the hosting layer owns the state.
  */
 data class SettingsUiState(
+    /** The user's display name; blank means "not set yet" (the UI shows a fallback). */
+    val userName: String,
     val dailyLimitLabel: String,
     val appLimitsSummary: String,
     /** Whether the user has granted usage access — without it nothing can be monitored at all. */
@@ -23,6 +25,7 @@ data class SettingsUiState(
 ) {
     companion object {
         fun sample(darkMode: Boolean = false) = SettingsUiState(
+            userName = "Sophia",
             dailyLimitLabel = "2 hours 30 minutes",
             appLimitsSummary = "Instagram, TikTok, 3 others",
             usageAccessGranted = true,

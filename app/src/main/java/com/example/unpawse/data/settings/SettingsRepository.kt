@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -35,6 +36,9 @@ class SettingsRepository(context: Context) {
     val dailySummaryEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.DAILY_SUMMARY] ?: DEFAULT_DAILY_SUMMARY }
 
+    /** The user's display name for the Home greeting/avatar; blank until they set one. */
+    val userName: Flow<String> = dataStore.data.map { it[Keys.USER_NAME] ?: DEFAULT_USER_NAME }
+
     suspend fun setDarkModeOverride(enabled: Boolean) =
         edit { it[Keys.DARK_MODE_OVERRIDE] = enabled }
 
@@ -43,6 +47,8 @@ class SettingsRepository(context: Context) {
     suspend fun setRequireLivePhoto(value: Boolean) = edit { it[Keys.REQUIRE_LIVE_PHOTO] = value }
 
     suspend fun setDailySummary(value: Boolean) = edit { it[Keys.DAILY_SUMMARY] = value }
+
+    suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
 
     private suspend fun edit(transform: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         dataStore.edit(transform)
@@ -53,6 +59,7 @@ class SettingsRepository(context: Context) {
         val SENSITIVITY = floatPreferencesKey("sensitivity")
         val REQUIRE_LIVE_PHOTO = booleanPreferencesKey("require_live_photo")
         val DAILY_SUMMARY = booleanPreferencesKey("daily_summary")
+        val USER_NAME = stringPreferencesKey("user_name")
     }
 
     companion object {
@@ -60,5 +67,8 @@ class SettingsRepository(context: Context) {
         const val DEFAULT_SENSITIVITY = 0.65f
         const val DEFAULT_REQUIRE_LIVE_PHOTO = false
         const val DEFAULT_DAILY_SUMMARY = false
+
+        /** Blank means "no name set yet"; the UI substitutes a friendly fallback. */
+        const val DEFAULT_USER_NAME = ""
     }
 }

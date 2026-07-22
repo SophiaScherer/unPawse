@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,14 +19,16 @@ import kotlinx.coroutines.flow.stateIn
 class HomeViewModel(
     usageRepository: UsageRepository,
     captureRepository: CaptureRepository,
+    settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     val uiState: StateFlow<HomeUiState> = combine(
         usageRepository.observeMonitoredApps(),
         usageRepository.observeTodayUsage(),
         captureRepository.observeCaptures(),
-    ) { monitoredApps, todayUsage, captures ->
-        toHomeUiState(monitoredApps, todayUsage, captures)
+        settingsRepository.userName,
+    ) { monitoredApps, todayUsage, captures, userName ->
+        toHomeUiState(monitoredApps, todayUsage, captures, userName)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
@@ -38,7 +41,11 @@ class HomeViewModel(
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = context.appContainer()
-                HomeViewModel(container.usageRepository, container.captureRepository)
+                HomeViewModel(
+                    container.usageRepository,
+                    container.captureRepository,
+                    container.settingsRepository,
+                )
             }
         }
     }

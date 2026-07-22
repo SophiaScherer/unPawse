@@ -90,6 +90,7 @@ fun UnPawseNavHost(
                 onToggleLivePhoto = settingsViewModel::setRequireLivePhoto,
                 onToggleDailySummary = settingsViewModel::setDailySummary,
                 onSensitivityChange = settingsViewModel::setSensitivity,
+                onNameChange = settingsViewModel::setUserName,
                 onRowClick = { rowId ->
                     // Only these rows lead anywhere so far; the rest stay inert.
                     when (rowId) {

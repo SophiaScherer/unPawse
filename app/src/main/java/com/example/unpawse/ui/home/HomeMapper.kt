@@ -7,26 +7,40 @@ import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.format.formatSeconds
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a")
 
+/** Shown in the greeting/avatar when the user hasn't set a name yet. */
+private const val DEFAULT_DISPLAY_NAME = "friend"
+
+/** Time-of-day greeting for the Home header. Pure, so it's unit-testable without a clock. */
+internal fun greetingFor(time: LocalTime): String = when (time.hour) {
+    in 5..11 -> "Good morning,"
+    in 12..16 -> "Good afternoon,"
+    else -> "Good evening,"
+}
+
 /**
  * Builds [HomeUiState] from today's usage + the capture history. Pure and parameterised on
  * [today]/[zone] so it's unit-testable without a clock (same shape as `GalleryMapper`).
  *
- * Not everything on Home has data behind it yet — see [HomeUiState.sample] for the fields still
- * carrying placeholder copy (greeting/user, next-break countdown, banner). Those are copy rather
- * than metrics, so a placeholder is honest enough; the numbers are all real.
+ * The greeting and the profile (name/avatar) are now real: the greeting follows the time of day and
+ * the name comes from the persisted setting (blank falls back to a friendly default). Next-break
+ * countdown and banner are still placeholder copy — see [HomeUiState.sample].
  */
 internal fun toHomeUiState(
     monitoredApps: List<MonitoredApp>,
     todayUsage: List<DailyUsage>,
     captures: List<Capture>,
+    userName: String,
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
+    time: LocalTime = LocalTime.now(zone),
 ): HomeUiState {
+    val displayName = userName.ifBlank { DEFAULT_DISPLAY_NAME }
     val enabled = monitoredApps.filter { it.enabled }
     val usageByPackage = todayUsage.associateBy { it.packageName }
 
@@ -39,6 +53,9 @@ internal fun toHomeUiState(
     val capturesToday = captures.filter { it.capturedAt.toLocalDate(zone) == today }
 
     return HomeUiState.sample().copy(
+        greeting = greetingFor(time),
+        userName = displayName,
+        avatarInitial = displayName.first().uppercaseChar(),
         screenTimeUsedLabel = formatSeconds(usedSeconds),
         // Guard against a zero budget (nothing monitored) rather than dividing by zero.
         progressFraction = if (budgetSeconds == 0L) 0f else (usedSeconds.toFloat() / budgetSeconds).coerceIn(0f, 1f),
