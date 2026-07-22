@@ -44,10 +44,6 @@ fun UnPawseNavHost(
     ) {
         composable(Routes.HOME) {
             HomeRoute(
-                // Design/debug entry only. The real trigger is UsageMonitorService, which draws the
-                // block as a system overlay over the offending app; this in-app route just lets the
-                // screen be reviewed without burning through a real limit.
-                onPauseProtection = { navController.navigate(Routes.BLOCK) },
                 // Both quick actions concern the same editor — the App Picker owns app selection and
                 // per-app daily limits.
                 onEditLimits = { navController.navigate(Routes.APP_PICKER) },

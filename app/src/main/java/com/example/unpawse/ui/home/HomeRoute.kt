@@ -13,7 +13,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  */
 @Composable
 fun HomeRoute(
-    onPauseProtection: () -> Unit,
     onEditLimits: () -> Unit,
     onManageApps: () -> Unit,
     modifier: Modifier = Modifier,
@@ -25,7 +24,6 @@ fun HomeRoute(
     HomeScreen(
         state = state,
         modifier = modifier,
-        onPauseProtection = onPauseProtection,
         onEditLimits = onEditLimits,
         onManageApps = onManageApps,
     )

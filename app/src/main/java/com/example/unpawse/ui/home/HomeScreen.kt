@@ -56,7 +56,6 @@ import com.example.unpawse.ui.theme.UnPawseTheme
 fun HomeScreen(
     state: HomeUiState,
     modifier: Modifier = Modifier,
-    onPauseProtection: () -> Unit = {},
     onEditLimits: () -> Unit = {},
     onManageApps: () -> Unit = {},
     onStartFocus: () -> Unit = {},
@@ -84,7 +83,7 @@ fun HomeScreen(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 NextBreakCard(state.nextBreakCountdown, Modifier.weight(1f))
-                PauseProtectionCard(state.pausedAppsCount, onPauseProtection, Modifier.weight(1f))
+                PauseProtectionCard(state.pausedAppsCount, Modifier.weight(1f))
             }
         }
 
@@ -155,8 +154,9 @@ private fun NextBreakCard(countdown: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PauseProtectionCard(appsActive: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    PawCard(modifier = modifier, onClick = onClick) {
+private fun PauseProtectionCard(appsActive: Int, modifier: Modifier = Modifier) {
+    // Informational only: it reports how many apps are actively protected; it is not a control.
+    PawCard(modifier = modifier) {
         IconTile(Icons.Filled.Shield, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         Spacer(Modifier.height(12.dp))
         Text("Pause Protection", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
