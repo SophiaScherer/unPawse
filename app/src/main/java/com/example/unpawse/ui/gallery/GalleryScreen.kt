@@ -27,6 +27,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,8 +55,17 @@ fun GalleryScreen(
     modifier: Modifier = Modifier,
     onFilterSelected: (GalleryFilter) -> Unit = {},
     onSearchQueryChange: (String) -> Unit = {},
-    onCaptureClick: (CaptureItem) -> Unit = {},
+    onToggleFavorite: (CaptureItem) -> Unit = {},
+    onShare: (CaptureItem) -> Unit = {},
+    onDelete: (CaptureItem) -> Unit = {},
 ) {
+    // Which card's action sheet is open. Re-derived from state each recomposition so the sheet
+    // reflects live favorite state and auto-dismisses if the item leaves the current filter/grid.
+    var selectedId by remember { mutableStateOf<String?>(null) }
+    val selected = selectedId?.let { id ->
+        state.sections.firstNotNullOfOrNull { section -> section.items.firstOrNull { it.id == id } }
+    }
+
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
         modifier = modifier.fillMaxWidth(),
@@ -87,9 +100,22 @@ fun GalleryScreen(
                 )
             }
             items(section.items, key = { it.id }) { capture ->
-                CaptureCard(capture, onClick = { onCaptureClick(capture) })
+                CaptureCard(capture, onClick = { selectedId = capture.id })
             }
         }
+    }
+
+    selected?.let { capture ->
+        CaptureActionsSheet(
+            capture = capture,
+            onDismiss = { selectedId = null },
+            onToggleFavorite = onToggleFavorite,
+            onShare = onShare,
+            onDelete = { item ->
+                onDelete(item)
+                selectedId = null
+            },
+        )
     }
 }
 

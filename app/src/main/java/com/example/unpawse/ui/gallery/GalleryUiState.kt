@@ -72,4 +72,5 @@ data class CaptureItem(
     val aspectRatio: Float,
     val isBonus: Boolean = false,
     val imagePath: String? = null,
+    val isFavorite: Boolean = false,
 )

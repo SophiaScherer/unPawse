@@ -85,6 +85,21 @@
         </service>
 
         <!--
+          Lets the user share a capture out to other apps. The JPEGs are app-internal (not
+          world-readable), so an ACTION_SEND needs a FileProvider content URI granted per-share.
+          Authority matches the one built in shareCapture(). Paths are declared in res/xml/file_paths.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!--
           exported="true" is required despite the app never being the sender: BOOT_COMPLETED comes
           from the system, which counts as external. The receiver itself re-checks the action, and
           starting monitoring is not a privileged operation.

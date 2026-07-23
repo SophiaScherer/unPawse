@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -21,7 +22,7 @@ import java.time.ZoneId
  * applying the user's selected filter chip and search query. Filter/search are held as their own
  * flows and combined with the capture stream so a change re-derives the sections without a re-query.
  */
-class GalleryViewModel(repository: CaptureRepository) : ViewModel() {
+class GalleryViewModel(private val repository: CaptureRepository) : ViewModel() {
 
     private val selectedFilter = MutableStateFlow(GalleryFilter.ALL)
     private val searchQuery = MutableStateFlow("")
@@ -56,6 +57,16 @@ class GalleryViewModel(repository: CaptureRepository) : ViewModel() {
 
     fun onSearchQueryChange(query: String) {
         searchQuery.value = query
+    }
+
+    /** Stars/unstars a capture. Favorites are exempt from the retention purge. */
+    fun toggleFavorite(id: String, favorite: Boolean) {
+        viewModelScope.launch { repository.setFavorite(id, favorite) }
+    }
+
+    /** Permanently deletes a capture (row + JPEG). The observed stream refreshes the grid. */
+    fun delete(id: String) {
+        viewModelScope.launch { repository.deleteCaptureById(id) }
     }
 
     companion object {

@@ -93,5 +93,6 @@ private fun Capture.toCaptureItem(zone: ZoneId): CaptureItem {
         aspectRatio = ASPECT_RATIOS[id.hashCode().absoluteValue % ASPECT_RATIOS.size],
         isBonus = isBonus,
         imagePath = filePath,
+        isFavorite = isFavorite,
     )
 }

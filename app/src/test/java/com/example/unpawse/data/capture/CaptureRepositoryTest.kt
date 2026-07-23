@@ -63,13 +63,23 @@ class CaptureRepositoryTest {
 
     @Test
     fun `setFavorite flips the flag`() = runBlocking {
-        val capture = seed("c", capturedAt = 1_000)
+        seed("c", capturedAt = 1_000)
         assertFalse(dao.all().single().isFavorite)
 
-        repo.setFavorite(capture, true)
+        repo.setFavorite("c", true)
         assertTrue(dao.all().single().isFavorite)
 
-        repo.setFavorite(capture, false)
+        repo.setFavorite("c", false)
         assertFalse(dao.all().single().isFavorite)
+    }
+
+    @Test
+    fun `deleteCaptureById removes the row and the file`() = runBlocking {
+        val capture = seed("gone", capturedAt = 1_000)
+
+        repo.deleteCaptureById("gone")
+
+        assertTrue(dao.all().isEmpty())
+        assertFalse(File(capture.filePath).exists())
     }
 }

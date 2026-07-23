@@ -19,6 +19,8 @@ internal class FakeCaptureDao : CaptureDao {
     override fun observeAll(): Flow<List<CaptureEntity>> =
         flowOf(rows.values.sortedByDescending { it.capturedAt })
 
+    override suspend fun findById(id: String): CaptureEntity? = rows[id]
+
     override suspend fun setFavorite(id: String, favorite: Boolean) {
         rows[id]?.let { rows[id] = it.copy(isFavorite = favorite) }
     }

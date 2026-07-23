@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider paths for sharing captures. Photos live in app-internal filesDir/captures/ (see
+  PhotoStorage); exposing that subtree lets the share sheet read a single JPEG via a temporary
+  content URI without making the files world-readable.
+-->
+<paths>
+    <files-path
+        name="captures"
+        path="captures/" />
+</paths>

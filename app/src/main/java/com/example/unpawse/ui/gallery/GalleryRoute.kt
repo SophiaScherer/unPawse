@@ -21,5 +21,8 @@ fun GalleryRoute(modifier: Modifier = Modifier) {
         modifier = modifier,
         onFilterSelected = viewModel::onFilterSelected,
         onSearchQueryChange = viewModel::onSearchQueryChange,
+        onToggleFavorite = { item -> viewModel.toggleFavorite(item.id, !item.isFavorite) },
+        onShare = { item -> item.imagePath?.let { shareCapture(context, it) } },
+        onDelete = { item -> viewModel.delete(item.id) },
     )
 }

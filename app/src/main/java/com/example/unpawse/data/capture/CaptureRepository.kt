@@ -39,9 +39,14 @@ class CaptureRepository(
         photoStorage.delete(capture.filePath)
     }
 
+    /** Removes a capture by id (row + backing file). No-op if the id no longer exists. */
+    suspend fun deleteCaptureById(id: String) {
+        dao.findById(id)?.let { deleteCapture(it.toDomain()) }
+    }
+
     /** Stars/unstars a capture. Favorites are exempt from [purgeExpired]. */
-    suspend fun setFavorite(capture: Capture, favorite: Boolean) {
-        dao.setFavorite(capture.id, favorite)
+    suspend fun setFavorite(id: String, favorite: Boolean) {
+        dao.setFavorite(id, favorite)
     }
 
     /**

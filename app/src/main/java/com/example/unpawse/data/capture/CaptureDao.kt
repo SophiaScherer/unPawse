@@ -16,6 +16,9 @@ interface CaptureDao {
     @Query("SELECT * FROM captures ORDER BY capturedAt DESC")
     fun observeAll(): Flow<List<CaptureEntity>>
 
+    @Query("SELECT * FROM captures WHERE id = :id")
+    suspend fun findById(id: String): CaptureEntity?
+
     @Query("UPDATE captures SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: String, favorite: Boolean)
 
