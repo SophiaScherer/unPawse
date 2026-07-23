@@ -13,16 +13,20 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  */
 @Composable
 fun HomeRoute(
-    onPauseProtection: () -> Unit,
+    onEditLimits: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val focus by viewModel.focus.collectAsStateWithLifecycle()
 
     HomeScreen(
         state = state,
+        focus = focus,
         modifier = modifier,
-        onPauseProtection = onPauseProtection,
+        onEditLimits = onEditLimits,
+        onStartFocus = viewModel::startFocus,
+        onStopFocus = viewModel::stopFocus,
     )
 }

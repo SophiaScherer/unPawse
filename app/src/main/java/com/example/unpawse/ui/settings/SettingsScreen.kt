@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Psychology
@@ -30,12 +31,15 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -65,8 +69,22 @@ fun SettingsScreen(
     onToggleLivePhoto: (Boolean) -> Unit = {},
     onToggleDailySummary: (Boolean) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit = {},
+    onNameChange: (String) -> Unit = {},
     onRowClick: (String) -> Unit = {},
 ) {
+    // Ephemeral UI state for the name-edit dialog; the value itself is persisted via onNameChange.
+    var showNameDialog by remember { mutableStateOf(false) }
+    if (showNameDialog) {
+        NameEditDialog(
+            currentName = state.userName,
+            onConfirm = {
+                onNameChange(it)
+                showNameDialog = false
+            },
+            onDismiss = { showNameDialog = false },
+        )
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -77,7 +95,22 @@ fun SettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
-        item { SettingsHeader(onBack) }
+        item { SettingsHeader(state.userName, onBack) }
+
+        item {
+            SectionLabel(text = "Profile", uppercase = true)
+            SettingsGroup {
+                SettingsRow(
+                    title = "Your name",
+                    subtitle = state.userName.ifBlank { "Not set — tap to add" },
+                    leadingIcon = Icons.Filled.Person,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    iconBackground = MaterialTheme.colorScheme.primaryContainer,
+                    onClick = { showNameDialog = true },
+                    trailing = { Chevron() },
+                )
+            }
+        }
 
         item {
             SectionLabel(text = "Screen Time", uppercase = true)
@@ -250,7 +283,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsHeader(onBack: () -> Unit) {
+private fun SettingsHeader(userName: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -264,8 +297,36 @@ private fun SettingsHeader(onBack: () -> Unit) {
         Spacer(Modifier.width(4.dp))
         Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-        InitialsAvatar(initial = 'S', size = 40.dp)
+        InitialsAvatar(initial = avatarInitialFor(userName), size = 40.dp)
     }
+}
+
+/** First letter of the name, or a paw-friendly fallback when no name is set. Matches Home's avatar. */
+private fun avatarInitialFor(userName: String): Char =
+    userName.ifBlank { "friend" }.first().uppercaseChar()
+
+/** Simple single-field dialog for the display name; seeds the field with the current value. */
+@Composable
+private fun NameEditDialog(
+    currentName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(currentName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Your name") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                label = { Text("Name") },
+            )
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(text) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

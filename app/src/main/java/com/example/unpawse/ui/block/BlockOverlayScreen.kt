@@ -35,13 +35,14 @@ import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.CatPhotoPlaceholder
 import com.example.unpawse.ui.theme.UnPawseTheme
 
-/** Copy for the "Time for a Break" overlay. */
+/** Copy for the "Time for a Break" overlay. [showCamera] is false for a focus hard-block. */
 data class BlockUiState(
     val appName: String = "this app",
     val headline: String = "Time for a Break 🐱",
     val subtitle: String = "You've reached today's limit for this app.",
     val body: String = "To continue using this app, go find your cat and take a picture.",
     val footer: String = "Healthy habits happen one break at a time.",
+    val showCamera: Boolean = true,
 ) {
     companion object {
         fun sample() = BlockUiState()
@@ -51,6 +52,19 @@ data class BlockUiState(
             appName = appName,
             subtitle = "You've reached today's limit for $appName.",
             body = "To keep using $appName, go find your cat and take a picture.",
+        )
+
+        /**
+         * A focus-session hard block: no camera escape (the "+15 min cat" path is hidden), the app
+         * unlocks only when the timer ends. The user can still leave via "Exit App".
+         */
+        fun forFocus(appName: String) = BlockUiState(
+            appName = appName,
+            headline = "Focus mode 🎯",
+            subtitle = "$appName is paused",
+            body = "Stay focused — this app unlocks when your session ends.",
+            footer = "You've got this.",
+            showCamera = false,
         )
     }
 }
@@ -113,15 +127,17 @@ fun BlockOverlayScreen(
                         textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(24.dp))
-                    Button(
-                        onClick = onOpenCamera,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    ) {
-                        Icon(Icons.Filled.PhotoCamera, contentDescription = null)
-                        Spacer(Modifier.size(8.dp))
-                        Text("Open Camera", style = MaterialTheme.typography.labelLarge)
+                    if (state.showCamera) {
+                        Button(
+                            onClick = onOpenCamera,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        ) {
+                            Icon(Icons.Filled.PhotoCamera, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text("Open Camera", style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                     TextButton(onClick = onExit, modifier = Modifier.padding(top = 4.dp)) {
                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null,

@@ -19,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -44,8 +46,9 @@ class UsageMonitorService : Service() {
         if (trackerJob?.isActive != true) {
             val tracker = appContainer().usageTracker
             trackerJob = scope.launch {
-                launch { observeLimitReached() }
+                launch { observeBlockRequired() }
                 launch { dismissBlockWhenUserLeaves() }
+                launch { runFocusSessionLifecycle() }
                 runCatching { tracker.run() }
                     .onFailure { Log.w(TAG, "Usage tracking stopped", it) }
             }
@@ -61,23 +64,62 @@ class UsageMonitorService : Service() {
     }
 
     /**
-     * Raises the block overlay when a monitored app runs out of budget. The tracker signals once per
-     * breach, so there's no debouncing to do here.
+     * Raises the block overlay when a monitored app must be blocked — either its daily limit was hit
+     * (escapable via the camera) or a focus session is running (a hard block, no camera). The tracker
+     * signals once per breach, so there's no debouncing to do here.
      */
-    private suspend fun observeLimitReached() {
+    private suspend fun observeBlockRequired() {
         val container = appContainer()
-        container.usageTracker.limitReached.collect { packageName ->
-            val label = container.usageRepository.appLabel(packageName) ?: packageName
-            // Arm the debt before showing, so the camera knows what it's earning back for.
-            container.blockSession.start(packageName)
-            // WindowManager.addView is main-thread only.
-            withContext(Dispatchers.Main) {
-                container.blockOverlayController.show(
-                    packageName = packageName,
-                    state = BlockUiState.forApp(label),
-                    onOpenCamera = { onOpenCamera(container.blockOverlayController) },
-                    onExit = { onExit(container) },
-                )
+        container.usageTracker.blockRequired.collect { event ->
+            val label = container.usageRepository.appLabel(event.packageName) ?: event.packageName
+            when (event.reason) {
+                BlockReason.LIMIT -> {
+                    // Arm the debt before showing, so the camera knows what it's earning back for.
+                    container.blockSession.start(event.packageName)
+                    // WindowManager.addView is main-thread only.
+                    withContext(Dispatchers.Main) {
+                        container.blockOverlayController.show(
+                            packageName = event.packageName,
+                            reason = BlockReason.LIMIT,
+                            state = BlockUiState.forApp(label),
+                            onOpenCamera = { onOpenCamera(container.blockOverlayController) },
+                            onExit = { onExit(container) },
+                        )
+                    }
+                }
+                BlockReason.FOCUS -> {
+                    // No blockSession is armed: there's nothing to earn back until the timer ends.
+                    withContext(Dispatchers.Main) {
+                        container.blockOverlayController.show(
+                            packageName = event.packageName,
+                            reason = BlockReason.FOCUS,
+                            state = BlockUiState.forFocus(label),
+                            onOpenCamera = {},
+                            onExit = { onFocusExit(container) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Ends a focus overlay when its session ends — whether the user stopped it early (`endTimeMillis`
+     * goes null) or the timer elapsed. `collectLatest` cancels the pending [delay] if the session is
+     * restarted or stopped, so there's at most one live timer.
+     */
+    private suspend fun runFocusSessionLifecycle() {
+        val container = appContainer()
+        container.focusSession.endTimeMillis.collectLatest { end ->
+            if (end == null) {
+                if (container.blockOverlayController.blockReason == BlockReason.FOCUS) {
+                    withContext(Dispatchers.Main) { container.blockOverlayController.hide() }
+                }
+            } else {
+                val remaining = end - System.currentTimeMillis()
+                if (remaining > 0) delay(remaining)
+                // Timer elapsed: clearing the session re-emits null above, which takes the overlay down.
+                container.focusSession.stop()
             }
         }
     }
@@ -123,6 +165,19 @@ class UsageMonitorService : Service() {
     private fun onExit(container: AppContainer) {
         container.blockOverlayController.hide()
         container.blockSession.clear()
+        goHome()
+    }
+
+    /**
+     * Focus "Exit App": leave the blocked app but keep the session running — returning re-blocks, so
+     * the focus still holds. Deliberately does not clear the focus session or touch the block debt.
+     */
+    private fun onFocusExit(container: AppContainer) {
+        container.blockOverlayController.hide()
+        goHome()
+    }
+
+    private fun goHome() {
         startActivity(
             Intent(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_HOME)

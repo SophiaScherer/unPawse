@@ -16,6 +16,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.unpawse.service.UsageMonitorController
 import com.example.unpawse.ui.navigation.Routes
+import com.example.unpawse.ui.navigation.TopLevelDestination
 import kotlinx.coroutines.launch
 import com.example.unpawse.ui.navigation.UnPawseBottomBar
 import com.example.unpawse.ui.navigation.UnPawseNavHost
@@ -54,8 +55,14 @@ fun UnPawseApp(initialRoute: String? = null) {
         val currentRoute = backStackEntry?.destination?.route
 
         // Honour a deep-link once per launch intent; keyed so a recomposition doesn't re-navigate.
+        // A top-level destination (e.g. the block's "Open Camera" → Camera tab) must go through the
+        // same tab semantics as the bottom bar: a plain navigate() would push it *onto* Home, and the
+        // bottom bar's saveState/restoreState would then save that pushed entry under Home's slot —
+        // leaving a later "Home" tap restoring the deep-linked screen instead of Home.
         LaunchedEffect(initialRoute) {
-            if (initialRoute != null) navController.navigate(initialRoute)
+            if (initialRoute == null) return@LaunchedEffect
+            val tab = TopLevelDestination.entries.firstOrNull { it.route == initialRoute }
+            if (tab != null) navController.navigateToTab(tab) else navController.navigate(initialRoute)
         }
 
         // The Block Overlay is a full-screen takeover — no bottom bar.

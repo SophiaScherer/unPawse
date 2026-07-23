@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -14,6 +15,7 @@ class HomeMapperTest {
 
     private val zone = ZoneId.of("UTC")
     private val today = LocalDate.of(2026, 7, 16)
+    private val morning = LocalTime.of(9, 0)
 
     private fun app(pkg: String, label: String, limitMinutes: Int, enabled: Boolean = true) =
         MonitoredApp(pkg, label, limitMinutes, enabled)
@@ -34,7 +36,9 @@ class HomeMapperTest {
         apps: List<MonitoredApp>,
         todayUsage: List<DailyUsage> = emptyList(),
         captures: List<Capture> = emptyList(),
-    ) = toHomeUiState(apps, todayUsage, captures, today, zone)
+        userName: String = "",
+        time: LocalTime = morning,
+    ) = toHomeUiState(apps, todayUsage, captures, userName, today, zone, time)
 
     @Test
     fun `totals sum across monitored apps`() {
@@ -120,6 +124,61 @@ class HomeMapperTest {
         )
 
         assertTrue(state.activities.none { it.kind == ActivityKind.BLOCKED })
+    }
+
+    @Test
+    fun `a set name drives the greeting name and avatar initial`() {
+        val state = map(apps = emptyList(), userName = "sophia")
+
+        assertEquals("sophia", state.userName)
+        assertEquals('S', state.avatarInitial)
+    }
+
+    @Test
+    fun `a blank name falls back to a friendly default`() {
+        val state = map(apps = emptyList(), userName = "")
+
+        assertEquals("friend", state.userName)
+        assertEquals('F', state.avatarInitial)
+    }
+
+    @Test
+    fun `banner guides setup when nothing is monitored`() {
+        val banner = buildBanner(streakDays = 0, remainingSeconds = 0, budgetSeconds = 0)
+        assertEquals("Welcome to unPawse!", banner.title)
+    }
+
+    @Test
+    fun `banner celebrates a streak of three or more`() {
+        val banner = buildBanner(streakDays = 5, remainingSeconds = 3600, budgetSeconds = 7200)
+        assertEquals("🔥 5-day streak!", banner.title)
+    }
+
+    @Test
+    fun `banner nudges when the budget is spent`() {
+        val banner = buildBanner(streakDays = 0, remainingSeconds = 0, budgetSeconds = 7200)
+        assertEquals("Limit reached", banner.title)
+    }
+
+    @Test
+    fun `banner warns when little time is left`() {
+        val banner = buildBanner(streakDays = 0, remainingSeconds = 5 * 60, budgetSeconds = 7200)
+        assertEquals("Almost there", banner.title)
+        assertEquals("Only 5m of screen time left today.", banner.body)
+    }
+
+    @Test
+    fun `banner is upbeat with plenty of budget left`() {
+        val banner = buildBanner(streakDays = 1, remainingSeconds = 3600, budgetSeconds = 7200)
+        assertEquals("Looking sharp today!", banner.title)
+    }
+
+    @Test
+    fun `greeting follows the time of day`() {
+        assertEquals("Good morning,", greetingFor(LocalTime.of(6, 0)))
+        assertEquals("Good afternoon,", greetingFor(LocalTime.of(13, 0)))
+        assertEquals("Good evening,", greetingFor(LocalTime.of(20, 0)))
+        assertEquals("Good evening,", greetingFor(LocalTime.of(2, 0)))
     }
 
     @Test

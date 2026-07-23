@@ -11,20 +11,25 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Turns [ForegroundAppMonitor] ticks into accrued screen time and signals when a monitored app has
- * spent its daily budget. Deliberately knows nothing about *showing* a block — it only emits
- * [limitReached]; Phase 5's overlay consumes it. Held as a singleton by the AppContainer so the UI
- * can observe the signal while the service drives [run].
+ * Turns [ForegroundAppMonitor] ticks into accrued screen time and signals when a monitored app must
+ * be blocked — either its daily budget is spent or a [FocusSession] is running. Deliberately knows
+ * nothing about *showing* a block — it only emits [blockRequired]; the overlay service consumes it.
+ * Held as a singleton by the AppContainer so the UI can observe the signal while the service drives
+ * [run].
  */
 class UsageTracker(
     private val usageRepository: UsageRepository,
     private val monitor: ForegroundAppMonitor,
     private val now: () -> Long = System::currentTimeMillis,
+    private val focusSession: FocusSession = FocusSession(),
 ) {
-    private val _limitReached = MutableSharedFlow<String>(extraBufferCapacity = EVENT_BUFFER)
+    private val _blockRequired = MutableSharedFlow<BlockEvent>(extraBufferCapacity = EVENT_BUFFER)
 
-    /** Package names that have just hit their limit. Fires once per breach, not once per tick. */
-    val limitReached: SharedFlow<String> = _limitReached.asSharedFlow()
+    /**
+     * Apps that must be blocked right now, with *why* (daily limit vs. focus session). Fires once per
+     * breach, not once per tick; the overlay differs by [BlockReason].
+     */
+    val blockRequired: SharedFlow<BlockEvent> = _blockRequired.asSharedFlow()
 
     private val _foregroundApp = MutableStateFlow<String?>(null)
 
@@ -56,9 +61,14 @@ class UsageTracker(
             if (attributedTo != null && elapsed > 0 && usageRepository.isMonitoredAndEnabled(attributedTo)) {
                 usageRepository.addUsage(attributedTo, elapsed.milliseconds)
 
-                if (usageRepository.isLimitReached(attributedTo)) {
+                // A focus session hard-blocks every monitored app; otherwise the daily limit does.
+                // Focus wins when both apply, so an over-budget app still shows the escape-less block.
+                val focusActive = focusSession.isActive()
+                val overLimit = usageRepository.isLimitReached(attributedTo)
+                if (focusActive || overLimit) {
                     if (signalledFor != attributedTo) {
-                        _limitReached.emit(attributedTo)
+                        val reason = if (focusActive) BlockReason.FOCUS else BlockReason.LIMIT
+                        _blockRequired.emit(BlockEvent(attributedTo, reason))
                         signalledFor = attributedTo
                     }
                 } else if (signalledFor == attributedTo) {
@@ -86,6 +96,18 @@ class UsageTracker(
         private val MAX_TICK = 5.seconds
     }
 }
+
+/** Why an app is being blocked — drives which overlay copy/affordances the service shows. */
+enum class BlockReason {
+    /** Daily budget spent; escapable by photographing a cat (+bonus minutes). */
+    LIMIT,
+
+    /** A focus session is running; a hard block with no camera escape until the timer ends. */
+    FOCUS,
+}
+
+/** One "block this app now" signal from the tracker. */
+data class BlockEvent(val packageName: String, val reason: BlockReason)
 
 /**
  * How much of an inter-tick gap to credit: never negative (clock skew) and never more than
