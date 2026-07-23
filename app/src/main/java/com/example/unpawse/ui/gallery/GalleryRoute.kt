@@ -16,5 +16,13 @@ fun GalleryRoute(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val viewModel: GalleryViewModel = viewModel(factory = GalleryViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    GalleryScreen(state = state, modifier = modifier)
+    GalleryScreen(
+        state = state,
+        modifier = modifier,
+        onFilterSelected = viewModel::onFilterSelected,
+        onSearchQueryChange = viewModel::onSearchQueryChange,
+        onToggleFavorite = { item -> viewModel.toggleFavorite(item.id, !item.isFavorite) },
+        onShare = { item -> item.imagePath?.let { shareCapture(context, it) } },
+        onDelete = { item -> viewModel.delete(item.id) },
+    )
 }

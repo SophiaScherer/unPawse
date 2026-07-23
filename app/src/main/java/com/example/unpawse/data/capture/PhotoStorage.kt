@@ -9,11 +9,16 @@ import java.util.UUID
 /**
  * Writes/reads capture JPEGs in app-internal storage (`filesDir/captures/`). Private to the app, no
  * runtime permission, wiped on uninstall. Swapping to public MediaStore later touches only this class.
+ *
+ * Takes the base directory rather than a [Context] so file operations are unit-testable against a
+ * temp folder; the app uses the [Context] convenience constructor, which resolves to `filesDir`.
  */
-class PhotoStorage(private val context: Context) {
+class PhotoStorage(private val baseDir: File) {
+
+    constructor(context: Context) : this(context.filesDir)
 
     private val dir: File
-        get() = File(context.filesDir, CAPTURES_DIR).apply { mkdirs() }
+        get() = File(baseDir, CAPTURES_DIR).apply { mkdirs() }
 
     /** Persists [bytes] as a new JPEG and returns its absolute path. */
     suspend fun save(bytes: ByteArray): String = withContext(Dispatchers.IO) {

@@ -38,4 +38,24 @@ class CaptureRepository(
         dao.deleteById(capture.id)
         photoStorage.delete(capture.filePath)
     }
+
+    /** Removes a capture by id (row + backing file). No-op if the id no longer exists. */
+    suspend fun deleteCaptureById(id: String) {
+        dao.findById(id)?.let { deleteCapture(it.toDomain()) }
+    }
+
+    /** Stars/unstars a capture. Favorites are exempt from [purgeExpired]. */
+    suspend fun setFavorite(id: String, favorite: Boolean) {
+        dao.setFavorite(id, favorite)
+    }
+
+    /**
+     * Deletes every non-favorite capture older than [cutoffMillis] (epoch millis), removing both the
+     * row and its JPEG via [deleteCapture]. Favorites are excluded by the query, so "favorites are
+     * never auto-deleted" holds. Called on a schedule by
+     * [com.example.unpawse.service.CaptureRetentionWorker].
+     */
+    suspend fun purgeExpired(cutoffMillis: Long) {
+        dao.findExpired(cutoffMillis).forEach { deleteCapture(it.toDomain()) }
+    }
 }

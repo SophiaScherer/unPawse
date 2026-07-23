@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.example.unpawse.data.AppContainer
 import com.example.unpawse.data.DefaultAppContainer
+import com.example.unpawse.service.CaptureRetentionWorker
 import com.example.unpawse.service.MonitorHealthWorker
 import com.example.unpawse.service.UsageMonitorController
 
@@ -30,6 +31,9 @@ class UnPawseApplication : Application() {
         // are both defeated by an aggressive OEM battery manager. KEEP policy makes this idempotent
         // across the many process starts that reach here.
         MonitorHealthWorker.schedule(this)
+
+        // Daily purge of captures past the retention window (favorites exempt). Also KEEP-idempotent.
+        CaptureRetentionWorker.schedule(this)
     }
 }
 

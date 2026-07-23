@@ -2,28 +2,26 @@ package com.example.unpawse.ui.gallery
 
 /** Immutable UI state for the Gallery screen. [sample] supplies mockup data for previews. */
 data class GalleryUiState(
+    val searchQuery: String,
     val searchPlaceholder: String,
-    val filters: List<GalleryFilter>,
+    val selectedFilter: GalleryFilter,
     val sections: List<GallerySection>,
 ) {
     companion object {
-        /** Filters are decorative for now (wiring is out of scope); shared by [sample] and [empty]. */
-        val defaultFilters = listOf(
-            GalleryFilter("This Week", selected = true),
-            GalleryFilter("Month"),
-            GalleryFilter("Favorites"),
-        )
+        const val SEARCH_PLACEHOLDER = "Search by date or time..."
 
         /** Empty real-data state: no captures yet. Used as the ViewModel's initial value. */
         fun empty() = GalleryUiState(
-            searchPlaceholder = "Search captures...",
-            filters = defaultFilters,
+            searchQuery = "",
+            searchPlaceholder = SEARCH_PLACEHOLDER,
+            selectedFilter = GalleryFilter.ALL,
             sections = emptyList(),
         )
 
         fun sample() = GalleryUiState(
-            searchPlaceholder = "Search captures...",
-            filters = defaultFilters,
+            searchQuery = "",
+            searchPlaceholder = SEARCH_PLACEHOLDER,
+            selectedFilter = GalleryFilter.ALL,
             sections = listOf(
                 GallerySection(
                     title = "Today",
@@ -46,7 +44,16 @@ data class GalleryUiState(
     }
 }
 
-data class GalleryFilter(val label: String, val selected: Boolean = false)
+/**
+ * The Gallery's filter chips. [THIS_WEEK] and [ALL] are age windows (last 7 / last 30 days);
+ * [FAVORITES] shows starred captures of any age — the only way older-than-a-month favorites surface.
+ * The window logic lives in [matchingFilter]; [label] is the chip text.
+ */
+enum class GalleryFilter(val label: String) {
+    THIS_WEEK("This Week"),
+    ALL("All"),
+    FAVORITES("Favorites"),
+}
 
 data class GallerySection(val title: String, val items: List<CaptureItem>)
 
@@ -65,4 +72,5 @@ data class CaptureItem(
     val aspectRatio: Float,
     val isBonus: Boolean = false,
     val imagePath: String? = null,
+    val isFavorite: Boolean = false,
 )
