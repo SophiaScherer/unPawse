@@ -8,31 +8,55 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
-import com.example.unpawse.data.capture.CaptureRetention
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import java.time.LocalDate
+import java.time.ZoneId
 
-/** Observes stored captures and shapes them into [GalleryUiState] for the (stateless) GalleryScreen. */
+/**
+ * Observes stored captures and shapes them into [GalleryUiState] for the (stateless) GalleryScreen,
+ * applying the user's selected filter chip and search query. Filter/search are held as their own
+ * flows and combined with the capture stream so a change re-derives the sections without a re-query.
+ */
 class GalleryViewModel(repository: CaptureRepository) : ViewModel() {
 
+    private val selectedFilter = MutableStateFlow(GalleryFilter.ALL)
+    private val searchQuery = MutableStateFlow("")
+
     val uiState: StateFlow<GalleryUiState> =
-        repository.observeCaptures()
-            .map { captures ->
-                // Default view: only the last month (favorites-regardless-of-age arrives in Phase 2).
-                val cutoff = CaptureRetention.cutoff(System.currentTimeMillis())
-                GalleryUiState(
-                    searchPlaceholder = "Search captures...",
-                    filters = GalleryUiState.defaultFilters,
-                    sections = captures.retainedWithin(cutoff).toGallerySections(),
-                )
-            }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-                initialValue = GalleryUiState.empty(),
+        combine(
+            repository.observeCaptures(),
+            selectedFilter,
+            searchQuery,
+        ) { captures, filter, query ->
+            val zone = ZoneId.systemDefault()
+            val today = LocalDate.now(zone)
+            val sections = captures
+                .matchingFilter(filter, System.currentTimeMillis())
+                .matchingSearch(query, today, zone)
+                .toGallerySections(today, zone)
+            GalleryUiState(
+                searchQuery = query,
+                searchPlaceholder = GalleryUiState.SEARCH_PLACEHOLDER,
+                selectedFilter = filter,
+                sections = sections,
             )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = GalleryUiState.empty(),
+        )
+
+    fun onFilterSelected(filter: GalleryFilter) {
+        selectedFilter.value = filter
+    }
+
+    fun onSearchQueryChange(query: String) {
+        searchQuery.value = query
+    }
 
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L

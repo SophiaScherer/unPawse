@@ -49,6 +49,62 @@ class GalleryMapperTest {
     }
 
     @Test
+    fun `matchingFilter THIS_WEEK keeps only the last seven days`() {
+        val captures = listOf(
+            capture("today", daysAgo = 0),
+            capture("weekEdge", daysAgo = 6),
+            capture("lastMonth", daysAgo = 20),
+        )
+        val now = millis(daysAgo = 0)
+
+        val kept = captures.matchingFilter(GalleryFilter.THIS_WEEK, now).map { it.id }
+
+        assertEquals(listOf("today", "weekEdge"), kept.sorted())
+    }
+
+    @Test
+    fun `matchingFilter ALL keeps the last month but not older`() {
+        val captures = listOf(
+            capture("recent", daysAgo = 10),
+            capture("stale", daysAgo = 40),
+        )
+        val now = millis(daysAgo = 0)
+
+        val kept = captures.matchingFilter(GalleryFilter.ALL, now).map { it.id }
+
+        assertEquals(listOf("recent"), kept)
+    }
+
+    @Test
+    fun `matchingFilter FAVORITES keeps favorites of any age and drops non-favorites`() {
+        val captures = listOf(
+            capture("oldFav", daysAgo = 90, favorite = true),
+            capture("recentPlain", daysAgo = 1, favorite = false),
+        )
+        val now = millis(daysAgo = 0)
+
+        val kept = captures.matchingFilter(GalleryFilter.FAVORITES, now).map { it.id }
+
+        assertEquals(listOf("oldFav"), kept)
+    }
+
+    @Test
+    fun `matchingSearch matches day labels and clock time, blank keeps all`() {
+        val captures = listOf(
+            capture("t", daysAgo = 0),   // "Today"
+            capture("y", daysAgo = 1),   // "Yesterday"
+            capture("d", daysAgo = 4),   // "Jul 11"
+        )
+
+        assertEquals(listOf("t"), captures.matchingSearch("today", today, zone).map { it.id })
+        assertEquals(listOf("y"), captures.matchingSearch("yester", today, zone).map { it.id })
+        assertEquals(listOf("d"), captures.matchingSearch("jul 11", today, zone).map { it.id })
+        // Every capture()'s time is 10:00 AM, so "AM" matches all three.
+        assertEquals(3, captures.matchingSearch("am", today, zone).size)
+        assertEquals(3, captures.matchingSearch("   ", today, zone).size)
+    }
+
+    @Test
     fun `toGallerySections groups by day with Today and Yesterday labels`() {
         val captures = listOf(
             capture("t1", daysAgo = 0),

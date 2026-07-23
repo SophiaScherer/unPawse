@@ -16,5 +16,10 @@ fun GalleryRoute(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val viewModel: GalleryViewModel = viewModel(factory = GalleryViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    GalleryScreen(state = state, modifier = modifier)
+    GalleryScreen(
+        state = state,
+        modifier = modifier,
+        onFilterSelected = viewModel::onFilterSelected,
+        onSearchQueryChange = viewModel::onSearchQueryChange,
+    )
 }
