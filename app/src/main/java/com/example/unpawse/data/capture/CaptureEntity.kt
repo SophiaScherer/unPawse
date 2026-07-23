@@ -11,6 +11,7 @@ data class CaptureEntity(
     val capturedAt: Long,
     val confidence: Float,
     val isBonus: Boolean,
+    val isFavorite: Boolean = false,
 )
 
 /** Entity → domain mapping kept next to the entity so both evolve together. */
@@ -20,4 +21,5 @@ internal fun CaptureEntity.toDomain(): Capture = Capture(
     capturedAt = capturedAt,
     confidence = confidence,
     isBonus = isBonus,
+    isFavorite = isFavorite,
 )

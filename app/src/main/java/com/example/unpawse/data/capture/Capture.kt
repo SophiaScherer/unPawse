@@ -8,6 +8,8 @@ package com.example.unpawse.data.capture
  * @param capturedAt epoch millis of when the shot was taken.
  * @param confidence ML Kit "Cat" label confidence, 0f..1f.
  * @param isBonus reserved for streak/bonus captures (no AI badge in the Gallery).
+ * @param isFavorite user-starred; favorites are exempt from the rolling retention purge (see
+ *   [com.example.unpawse.service.CaptureRetentionWorker]) and only surface under the Favorites filter.
  */
 data class Capture(
     val id: String,
@@ -15,4 +17,5 @@ data class Capture(
     val capturedAt: Long,
     val confidence: Float,
     val isBonus: Boolean = false,
+    val isFavorite: Boolean = false,
 )

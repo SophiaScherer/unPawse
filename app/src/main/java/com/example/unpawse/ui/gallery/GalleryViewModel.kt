@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.capture.CaptureRetention
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -19,10 +20,12 @@ class GalleryViewModel(repository: CaptureRepository) : ViewModel() {
     val uiState: StateFlow<GalleryUiState> =
         repository.observeCaptures()
             .map { captures ->
+                // Default view: only the last month (favorites-regardless-of-age arrives in Phase 2).
+                val cutoff = CaptureRetention.cutoff(System.currentTimeMillis())
                 GalleryUiState(
                     searchPlaceholder = "Search captures...",
                     filters = GalleryUiState.defaultFilters,
-                    sections = captures.toGallerySections(),
+                    sections = captures.retainedWithin(cutoff).toGallerySections(),
                 )
             }
             .stateIn(

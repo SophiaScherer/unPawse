@@ -14,6 +14,15 @@ private val DATE_FORMAT = DateTimeFormatter.ofPattern("MMM d")
 private val ASPECT_RATIOS = floatArrayOf(0.8f, 0.85f, 1.0f, 1.1f, 1.15f, 1.25f)
 
 /**
+ * Keeps only captures taken at/after [cutoffMillis] — the Gallery's "last month" display window.
+ * Pure so it's unit-testable; the purge worker eventually deletes the same rows, but filtering on
+ * read makes the boundary exact even before the worker next runs. Favorites-regardless-of-age
+ * (the Favorites filter) will layer on top of this in Phase 2.
+ */
+internal fun List<Capture>.retainedWithin(cutoffMillis: Long): List<Capture> =
+    filter { it.capturedAt >= cutoffMillis }
+
+/**
  * Groups captures (already newest-first from the DAO) into day sections for the Gallery. Pure and
  * parameterized on [today]/[zone] so it's unit-testable without touching the real clock.
  */
