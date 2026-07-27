@@ -13,6 +13,8 @@ import com.example.unpawse.data.settings.SettingsRepository
 data class SettingsUiState(
     /** The user's display name; blank means "not set yet" (the UI shows a fallback). */
     val userName: String = "",
+    /** Derived total of the enabled per-app limits, e.g. "4h 15m across 5 apps". */
+    val dailyLimitLabel: String = "No limits set yet",
     val appLimitsSummary: String = "No apps limited yet",
     /** Whether the user has granted usage access — without it nothing can be monitored at all. */
     val usageAccessGranted: Boolean = false,
@@ -26,8 +28,6 @@ data class SettingsUiState(
     // --- Rows still showing mockup copy, each replaced by a later phase of the Settings build-out.
     // They live here rather than in sample() so production has exactly one source of truth, and so
     // deleting a placeholder is a compile-time-visible change rather than a silent one.
-    /** Replaced by a derived total of the per-app limits. */
-    val dailyLimitLabel: String = "2 hours 30 minutes",
     /** Replaced by the configurable "time earned per cat" value. */
     val breakDurationLabel: String = "15 minutes every hour",
     /** Removed once the sensitivity slider shows its own derived confidence readout. */
@@ -44,6 +44,7 @@ data class SettingsUiState(
         /** Preview-only fixture. Never build production state from this — see the class KDoc. */
         fun sample(darkMode: Boolean = false) = SettingsUiState(
             userName = "Sophia",
+            dailyLimitLabel = "4h 15m across 5 apps",
             appLimitsSummary = "Instagram, TikTok, 3 others",
             usageAccessGranted = true,
             overlayAccessGranted = true,

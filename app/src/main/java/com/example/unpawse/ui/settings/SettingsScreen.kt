@@ -157,12 +157,13 @@ fun SettingsScreen(
                     onClick = { onRowClick(SettingsRowIds.OVERLAY_ACCESS) },
                     trailing = { Chevron() },
                 )
+                // Informational: the total is derived from the per-app limits below, so there is
+                // nothing to edit here — no onClick, no chevron.
                 SettingsRow(
-                    title = "Daily limit", subtitle = state.dailyLimitLabel,
+                    title = "Total daily limit", subtitle = state.dailyLimitLabel,
                     leadingIcon = Icons.Filled.Timer,
                     iconTint = MaterialTheme.colorScheme.primary,
                     iconBackground = MaterialTheme.colorScheme.primaryContainer,
-                    onClick = { onRowClick(SettingsRowIds.DAILY_LIMIT) }, trailing = { Chevron() },
                 )
                 SettingsRow(
                     title = "Individual app limits", subtitle = state.appLimitsSummary,

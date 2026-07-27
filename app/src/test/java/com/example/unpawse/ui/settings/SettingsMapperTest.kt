@@ -9,8 +9,8 @@ import org.junit.Test
 
 class SettingsMapperTest {
 
-    private fun app(label: String, enabled: Boolean = true) =
-        MonitoredApp("com.$label".lowercase(), label, dailyLimitMinutes = 30, enabled = enabled)
+    private fun app(label: String, enabled: Boolean = true, limitMinutes: Int = 30) =
+        MonitoredApp("com.$label".lowercase(), label, dailyLimitMinutes = limitMinutes, enabled = enabled)
 
     private fun state(
         userName: String = "",
@@ -81,8 +81,47 @@ class SettingsMapperTest {
         assertTrue(ui.requireLivePhoto)
         assertTrue(ui.dailySummaryEnabled)
         assertEquals("Instagram", ui.appLimitsSummary)
+        assertEquals("30m across 1 app", ui.dailyLimitLabel)
         assertTrue(ui.usageAccessGranted)
         assertTrue(ui.overlayAccessGranted)
+    }
+
+    @Test
+    fun `no limits reads as a prompt rather than zero minutes`() {
+        assertEquals("No limits set yet", dailyLimitSummary(emptyList()))
+    }
+
+    @Test
+    fun `a single limit is counted in the singular`() {
+        assertEquals("45m across 1 app", dailyLimitSummary(listOf(app("Instagram", limitMinutes = 45))))
+    }
+
+    @Test
+    fun `limits are summed and rendered as hours and minutes`() {
+        val apps = listOf(
+            app("Instagram", limitMinutes = 45),
+            app("TikTok", limitMinutes = 90),
+            app("Reddit", limitMinutes = 120),
+        )
+
+        assertEquals("4h 15m across 3 apps", dailyLimitSummary(apps))
+    }
+
+    @Test
+    fun `a whole number of hours drops the minutes`() {
+        val apps = listOf(app("Instagram", limitMinutes = 60), app("TikTok", limitMinutes = 60))
+
+        assertEquals("2h across 2 apps", dailyLimitSummary(apps))
+    }
+
+    @Test
+    fun `disabled apps do not count toward the total`() {
+        val apps = listOf(
+            app("Instagram", limitMinutes = 45),
+            app("TikTok", enabled = false, limitMinutes = 90),
+        )
+
+        assertEquals("45m across 1 app", dailyLimitSummary(apps))
     }
 
     @Test
@@ -114,6 +153,7 @@ class SettingsMapperTest {
 
         assertEquals("", ui.userName)
         assertEquals("No apps limited yet", ui.appLimitsSummary)
+        assertEquals("No limits set yet", ui.dailyLimitLabel)
         assertFalse(ui.usageAccessGranted)
         assertFalse(ui.overlayAccessGranted)
         assertFalse(ui.darkMode)

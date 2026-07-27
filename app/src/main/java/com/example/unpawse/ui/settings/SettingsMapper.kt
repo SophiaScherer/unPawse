@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.settings
 
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.ui.format.formatMinutes
 
 /** How many app names to spell out before collapsing the rest into "+N others". */
 private const val NAMES_SHOWN = 2
@@ -22,6 +23,23 @@ internal fun monitoredAppsSummary(apps: List<MonitoredApp>): String {
         others == 1 -> "$shown, 1 other"
         else -> "$shown, $others others"
     }
+}
+
+/**
+ * The Settings "Total daily limit" subtitle: how much screen time is budgeted across every limited
+ * app, e.g. "4h 15m across 5 apps". It is a *derived total*, not a separate cap — unPawse enforces
+ * per-app limits only, so this row reports rather than controls.
+ *
+ * Only *enabled* apps are counted, matching [monitoredAppsSummary]: a switched-off app keeps its
+ * limit for a later re-enable but isn't spending any budget today.
+ */
+internal fun dailyLimitSummary(apps: List<MonitoredApp>): String {
+    val enabled = apps.filter { it.enabled }
+    if (enabled.isEmpty()) return "No limits set yet"
+
+    val total = formatMinutes(enabled.sumOf { it.dailyLimitMinutes })
+    val appCount = if (enabled.size == 1) "1 app" else "${enabled.size} apps"
+    return "$total across $appCount"
 }
 
 /**
@@ -52,6 +70,7 @@ internal fun toSettingsUiState(
     versionLabel: String,
 ): SettingsUiState = SettingsUiState(
     userName = userName,
+    dailyLimitLabel = dailyLimitSummary(monitoredApps),
     appLimitsSummary = monitoredAppsSummary(monitoredApps),
     usageAccessGranted = usageAccessGranted,
     overlayAccessGranted = overlayAccessGranted,
