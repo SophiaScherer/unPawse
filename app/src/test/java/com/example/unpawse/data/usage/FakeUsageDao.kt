@@ -41,6 +41,9 @@ internal class FakeUsageDao : UsageDao() {
     override suspend fun usageFor(packageName: String, date: String): DailyUsageEntity? =
         usage[packageName to date]
 
+    override suspend fun allUsage(): List<DailyUsageEntity> =
+        usage.values.sortedWith(compareBy({ it.date }, { it.packageName }))
+
     override suspend fun insertUsageIfAbsent(row: DailyUsageEntity) {
         usage.putIfAbsent(row.packageName to row.date, row)
     }

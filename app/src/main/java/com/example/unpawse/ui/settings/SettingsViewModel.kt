@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.settings
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,16 +10,20 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.BuildConfig
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.export.ExportRepository
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /**
  * Backs the (stateless) [SettingsScreen] with persisted values from [SettingsRepository]. Wires
@@ -31,6 +36,7 @@ class SettingsViewModel(
     private val settings: SettingsRepository,
     usageRepository: UsageRepository,
     captureRepository: CaptureRepository,
+    private val exportRepository: ExportRepository,
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
     versionName: String,
@@ -45,6 +51,10 @@ class SettingsViewModel(
      * to observe — we re-read them whenever the screen resumes (see [refreshPermissions]).
      */
     private val permissions = MutableStateFlow(readPermissions())
+
+    /** One-shot user-facing messages, mirroring `CameraViewModel`'s event channel. */
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages = _messages.receiveAsFlow()
 
     // `combine` has typed overloads up to five flows, so the repository-backed scalar settings are
     // pre-combined into one holder rather than being added as top-level arguments below.
@@ -120,6 +130,19 @@ class SettingsViewModel(
     fun setEarnedMinutesPerCat(value: Int) =
         viewModelScope.launch { settings.setEarnedMinutesPerCat(value) }
 
+    /**
+     * Writes the data export to the document the user picked, then reports the outcome. A file write
+     * has no visible result of its own, so without the message an export is indistinguishable from
+     * the dead row this replaced.
+     */
+    fun exportTo(uri: Uri) = viewModelScope.launch {
+        val ok = exportRepository.exportTo(uri)
+        _messages.send(if (ok) "Data exported" else "Couldn't write the export file")
+    }
+
+    /** Default filename offered by the picker. */
+    fun exportFileName(): String = ExportRepository.defaultFileName(LocalDate.now())
+
     /** Trimmed so trailing spaces don't produce a blank-looking name that still counts as "set". */
     fun setUserName(value: String) = viewModelScope.launch { settings.setUserName(value.trim()) }
 
@@ -134,6 +157,7 @@ class SettingsViewModel(
                     settings = container.settingsRepository,
                     usageRepository = container.usageRepository,
                     captureRepository = container.captureRepository,
+                    exportRepository = container.exportRepository,
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
                     versionName = BuildConfig.VERSION_NAME,

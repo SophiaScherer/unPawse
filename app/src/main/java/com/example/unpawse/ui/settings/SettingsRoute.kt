@@ -1,6 +1,10 @@
 package com.example.unpawse.ui.settings
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -12,6 +16,8 @@ import com.example.unpawse.service.UsageAccess
 import com.example.unpawse.ui.navigation.Routes
 import com.example.unpawse.ui.navigation.SettingsRowIds
 import com.example.unpawse.ui.theme.ThemeMode
+
+private const val EXPORT_MIME_TYPE = "application/json"
 
 /**
  * Stateful wrapper for [SettingsScreen] — the `XxxRoute` every other screen already had. Settings
@@ -37,6 +43,18 @@ fun SettingsRoute(
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // The user picks where the export lands, so the app never writes to shared storage on its own
+    // and needs no storage permission. A null uri means they backed out of the picker.
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(EXPORT_MIME_TYPE),
+    ) { uri -> uri?.let(viewModel::exportTo) }
+
+    // Writing a file produces nothing visible on screen; surface the outcome so a successful export
+    // is distinguishable from a silent failure.
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
+
     // The permission rows read state that only changes while the user is away in system Settings,
     // so re-read it on the way back. Starting the monitor is not this screen's job — UnPawseApp
     // does it app-wide on every resume.
@@ -59,6 +77,7 @@ fun SettingsRoute(
                 SettingsRowIds.APP_LIMITS -> onNavigate(Routes.APP_PICKER)
                 SettingsRowIds.PRIVACY_POLICY -> onNavigate(Routes.PRIVACY_POLICY)
                 SettingsRowIds.MANAGE_PHOTOS -> onNavigate(Routes.PHOTO_STORAGE)
+                SettingsRowIds.EXPORT -> exportLauncher.launch(viewModel.exportFileName())
                 SettingsRowIds.USAGE_ACCESS ->
                     context.startActivity(UsageAccess.settingsIntent(context))
                 SettingsRowIds.OVERLAY_ACCESS ->

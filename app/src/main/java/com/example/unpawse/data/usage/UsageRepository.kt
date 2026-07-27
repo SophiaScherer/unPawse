@@ -1,6 +1,7 @@
 package com.example.unpawse.data.usage
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import kotlin.time.Duration
@@ -37,6 +38,13 @@ class UsageRepository(
         return dao.observeUsageBetween(start.toString(), end.toString())
             .map { rows -> rows.map(DailyUsageEntity::toDomain) }
     }
+
+    /** The complete usage history, oldest first. Used by the data export, not by any screen. */
+    suspend fun allUsage(): List<DailyUsage> = dao.allUsage().map(DailyUsageEntity::toDomain)
+
+    /** The monitored apps as a one-shot list, for callers that aren't observing. */
+    suspend fun monitoredApps(): List<MonitoredApp> =
+        observeMonitoredApps().first()
 
     /** Adds (or updates) a monitored app and its daily limit. */
     suspend fun setLimit(

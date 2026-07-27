@@ -1,11 +1,13 @@
 package com.example.unpawse.data
 
 import android.content.Context
+import com.example.unpawse.BuildConfig
 import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.apps.PackageManagerInstalledAppsProvider
 import com.example.unpawse.data.capture.CaptureDatabase
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.PhotoStorage
+import com.example.unpawse.data.export.ExportRepository
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
@@ -39,6 +41,9 @@ interface AppContainer {
     val settingsRepository: SettingsRepository
     val usageRepository: UsageRepository
     val installedAppsProvider: InstalledAppsProvider
+
+    /** Gathers every store into one JSON document for Settings → Export data. */
+    val exportRepository: ExportRepository
     val foregroundAppMonitor: ForegroundAppMonitor
 
     /**
@@ -104,6 +109,16 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val installedAppsProvider: InstalledAppsProvider by lazy {
         PackageManagerInstalledAppsProvider(appContext)
+    }
+
+    override val exportRepository: ExportRepository by lazy {
+        ExportRepository(
+            settings = settingsRepository,
+            usage = usageRepository,
+            captures = captureRepository,
+            contentResolver = appContext.contentResolver,
+            appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        )
     }
 
     override val foregroundAppMonitor: ForegroundAppMonitor by lazy {

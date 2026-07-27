@@ -231,7 +231,9 @@ fun SettingsScreen(
                     onClick = { onRowClick(SettingsRowIds.MANAGE_PHOTOS) }, trailing = { Chevron() },
                 )
                 SettingsRow(
-                    title = "Export data", leadingIcon = Icons.Filled.Download,
+                    title = "Export data",
+                    subtitle = "Save your settings, limits and history as JSON",
+                    leadingIcon = Icons.Filled.Download,
                     onClick = { onRowClick(SettingsRowIds.EXPORT) }, trailing = { Chevron() },
                 )
                 SettingsRow(

@@ -48,6 +48,10 @@ abstract class UsageDao {
     @Query("SELECT * FROM daily_usage WHERE packageName = :packageName AND date = :date LIMIT 1")
     abstract suspend fun usageFor(packageName: String, date: String): DailyUsageEntity?
 
+    /** Every row, oldest first — the whole history, for the data export. */
+    @Query("SELECT * FROM daily_usage ORDER BY date, packageName")
+    abstract suspend fun allUsage(): List<DailyUsageEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertUsageIfAbsent(row: DailyUsageEntity)
 
