@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.settings
 
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.ui.theme.ThemeMode
 
 /**
  * Immutable UI state for the Settings screen. The mutable-looking controls (slider, switches) are
@@ -24,7 +25,8 @@ data class SettingsUiState(
     val dailySummaryEnabled: Boolean = SettingsRepository.DEFAULT_DAILY_SUMMARY,
     /** Minutes one verified cat buys back; drives the reward loop. */
     val earnedMinutesPerCat: Int = SettingsRepository.DEFAULT_EARNED_MINUTES_PER_CAT,
-    val darkMode: Boolean = false,
+    /** Owned by `UnPawseApp` (it drives the whole theme) and overlaid onto this state for display. */
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 
     // --- Rows still showing mockup copy, each replaced by a later phase of the Settings build-out.
     // They live here rather than in sample() so production has exactly one source of truth, and so
@@ -39,7 +41,7 @@ data class SettingsUiState(
 ) {
     companion object {
         /** Preview-only fixture. Never build production state from this — see the class KDoc. */
-        fun sample(darkMode: Boolean = false) = SettingsUiState(
+        fun sample(themeMode: ThemeMode = ThemeMode.SYSTEM) = SettingsUiState(
             userName = "Sophia",
             dailyLimitLabel = "4h 15m across 5 apps",
             appLimitsSummary = "Instagram, TikTok, 3 others",
@@ -47,7 +49,7 @@ data class SettingsUiState(
             overlayAccessGranted = true,
             sensitivity = 0.65f,
             dailySummaryEnabled = false,
-            darkMode = darkMode,
+            themeMode = themeMode,
             versionLabel = "1.0 (1)",
         )
     }

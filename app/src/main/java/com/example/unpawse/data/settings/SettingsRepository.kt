@@ -49,8 +49,13 @@ class SettingsRepository(context: Context) {
      */
     val focusEndMillis: Flow<Long?> = dataStore.data.map { it[Keys.FOCUS_END_MILLIS] }
 
-    suspend fun setDarkModeOverride(enabled: Boolean) =
-        edit { it[Keys.DARK_MODE_OVERRIDE] = enabled }
+    /**
+     * Persists (or, with null, clears) the dark-mode override. Clearing is what returns the app to
+     * following the system — the previous non-null-only signature made that a one-way door.
+     */
+    suspend fun setDarkModeOverride(enabled: Boolean?) = edit {
+        if (enabled == null) it.remove(Keys.DARK_MODE_OVERRIDE) else it[Keys.DARK_MODE_OVERRIDE] = enabled
+    }
 
     suspend fun setSensitivity(value: Float) = edit { it[Keys.SENSITIVITY] = value }
 

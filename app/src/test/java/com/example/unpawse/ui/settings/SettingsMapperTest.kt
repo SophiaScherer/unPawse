@@ -2,6 +2,7 @@ package com.example.unpawse.ui.settings
 
 import com.example.unpawse.BuildConfig
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.ui.theme.ThemeMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -173,6 +174,6 @@ class SettingsMapperTest {
         assertEquals("No limits set yet", ui.dailyLimitLabel)
         assertFalse(ui.usageAccessGranted)
         assertFalse(ui.overlayAccessGranted)
-        assertFalse(ui.darkMode)
+        assertEquals(ThemeMode.SYSTEM, ui.themeMode)
     }
 }

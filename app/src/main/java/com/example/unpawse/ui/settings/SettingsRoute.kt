@@ -11,6 +11,7 @@ import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
 import com.example.unpawse.ui.navigation.Routes
 import com.example.unpawse.ui.navigation.SettingsRowIds
+import com.example.unpawse.ui.theme.ThemeMode
 
 /**
  * Stateful wrapper for [SettingsScreen] — the `XxxRoute` every other screen already had. Settings
@@ -21,13 +22,13 @@ import com.example.unpawse.ui.navigation.SettingsRowIds
  * Rows that go to another destination call [onNavigate] with a [Routes] constant, keeping the
  * NavHost free of any knowledge about Settings' internals.
  *
- * [darkMode] / [onToggleDarkMode] are threaded in from `UnPawseApp`: dark mode drives the whole
- * theme, so it is owned up there and merely displayed here.
+ * [themeMode] / [onThemeModeChange] are threaded in from `UnPawseApp`: the theme drives the whole
+ * app, so it is owned up there and merely displayed here.
  */
 @Composable
 fun SettingsRoute(
-    darkMode: Boolean,
-    onToggleDarkMode: (Boolean) -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onBack: () -> Unit,
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -45,10 +46,10 @@ fun SettingsRoute(
     }
 
     SettingsScreen(
-        state = state.copy(darkMode = darkMode),
+        state = state.copy(themeMode = themeMode),
         modifier = modifier,
         onBack = onBack,
-        onToggleDarkMode = onToggleDarkMode,
+        onThemeModeChange = onThemeModeChange,
         onToggleDailySummary = viewModel::setDailySummary,
         onSensitivityChange = viewModel::setSensitivity,
         onEarnedMinutesChange = viewModel::setEarnedMinutesPerCat,

@@ -13,20 +13,21 @@ import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeRoute
 import com.example.unpawse.ui.settings.SettingsRoute
 import com.example.unpawse.ui.stats.StatsRoute
+import com.example.unpawse.ui.theme.ThemeMode
 
 /**
  * Central navigation graph. Every destination renders from a real ViewModel via its `XxxRoute`,
  * except the Block Overlay — which is only reachable here as a design/debug entry (in production the
  * service draws it over the offending app), so it still uses [SampleData].
  *
- * [darkMode] / [onToggleDarkMode] are threaded down from [com.example.unpawse.UnPawseApp] so the
- * Settings switch actually flips the app theme.
+ * [themeMode] / [onThemeModeChange] are threaded down from [com.example.unpawse.UnPawseApp] so the
+ * Settings appearance picker actually flips the app theme.
  */
 @Composable
 fun UnPawseNavHost(
     navController: NavHostController,
-    darkMode: Boolean,
-    onToggleDarkMode: (Boolean) -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -59,8 +60,8 @@ fun UnPawseNavHost(
 
         composable(Routes.SETTINGS) {
             SettingsRoute(
-                darkMode = darkMode,
-                onToggleDarkMode = onToggleDarkMode,
+                themeMode = themeMode,
+                onThemeModeChange = onThemeModeChange,
                 onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
                 onNavigate = navController::navigate,
             )

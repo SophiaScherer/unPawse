@@ -45,12 +45,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.Chevron
 import com.example.unpawse.ui.components.InitialsAvatar
+import com.example.unpawse.ui.components.OptionPickerDialog
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
 import com.example.unpawse.ui.components.SettingsRow
 import com.example.unpawse.ui.components.ValueText
 import com.example.unpawse.ui.navigation.SettingsRowIds
 import com.example.unpawse.ui.theme.Dimens
+import com.example.unpawse.ui.theme.ThemeMode
 import com.example.unpawse.ui.theme.UnPawseTheme
 
 @Composable
@@ -61,11 +63,11 @@ fun SettingsScreen(
     onSensitivityChange: (Float) -> Unit = {},
     onEarnedMinutesChange: (Int) -> Unit = {},
     onToggleDailySummary: (Boolean) -> Unit = {},
-    onToggleDarkMode: (Boolean) -> Unit = {},
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onNameChange: (String) -> Unit = {},
     onRowClick: (String) -> Unit = {},
 ) {
-    // Ephemeral UI state for the name-edit dialog; the value itself is persisted via onNameChange.
+    // Ephemeral UI state for the dialogs; the values themselves are persisted via the callbacks.
     var showNameDialog by remember { mutableStateOf(false) }
     if (showNameDialog) {
         NameEditDialog(
@@ -75,6 +77,21 @@ fun SettingsScreen(
                 showNameDialog = false
             },
             onDismiss = { showNameDialog = false },
+        )
+    }
+
+    var showThemeDialog by remember { mutableStateOf(false) }
+    if (showThemeDialog) {
+        OptionPickerDialog(
+            title = "Theme",
+            options = ThemeMode.entries,
+            selected = state.themeMode,
+            onSelect = onThemeModeChange,
+            onDismiss = { showThemeDialog = false },
+            label = { it.label },
+            supporting = { mode ->
+                "Matches your device setting".takeIf { mode == ThemeMode.SYSTEM }
+            },
         )
     }
 
@@ -228,8 +245,9 @@ fun SettingsScreen(
             SectionLabel(text = "Appearance", uppercase = true)
             SettingsGroup {
                 SettingsRow(
-                    title = "Dark mode", leadingIcon = Icons.Filled.LightMode,
-                    trailing = { Switch(checked = state.darkMode, onCheckedChange = onToggleDarkMode) },
+                    title = "Theme", leadingIcon = Icons.Filled.LightMode,
+                    onClick = { showThemeDialog = true },
+                    trailing = { ValueText(state.themeMode.label) },
                 )
             }
         }
@@ -300,18 +318,18 @@ private fun NameEditDialog(
 
 /** Interactive preview body: the toggles/slider actually respond so the controls can be eyeballed. */
 @Composable
-private fun SettingsScreenPreviewContent(startDark: Boolean) {
-    var dark by remember { mutableStateOf(startDark) }
+private fun SettingsScreenPreviewContent(startMode: ThemeMode) {
+    var theme by remember { mutableStateOf(startMode) }
     var summary by remember { mutableStateOf(false) }
     var sensitivity by remember { mutableFloatStateOf(0.65f) }
     var earnedMinutes by remember { mutableIntStateOf(15) }
     SettingsScreen(
-        state = SettingsUiState.sample(darkMode = dark).copy(
+        state = SettingsUiState.sample(themeMode = theme).copy(
             dailySummaryEnabled = summary,
             sensitivity = sensitivity,
             earnedMinutesPerCat = earnedMinutes,
         ),
-        onToggleDarkMode = { dark = it },
+        onThemeModeChange = { theme = it },
         onToggleDailySummary = { summary = it },
         onSensitivityChange = { sensitivity = it },
         onEarnedMinutesChange = { earnedMinutes = it },
@@ -321,11 +339,11 @@ private fun SettingsScreenPreviewContent(startDark: Boolean) {
 @Preview(name = "Settings", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1800)
 @Composable
 private fun SettingsScreenPreview() {
-    UnPawseTheme { SettingsScreenPreviewContent(startDark = false) }
+    UnPawseTheme { SettingsScreenPreviewContent(startMode = ThemeMode.LIGHT) }
 }
 
 @Preview(name = "Settings · dark", showBackground = true, backgroundColor = 0xFF171213, heightDp = 1800)
 @Composable
 private fun SettingsScreenDarkPreview() {
-    UnPawseTheme(darkTheme = true) { SettingsScreenPreviewContent(startDark = true) }
+    UnPawseTheme(darkTheme = true) { SettingsScreenPreviewContent(startMode = ThemeMode.DARK) }
 }
