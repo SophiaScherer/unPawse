@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.Chevron
@@ -67,6 +68,7 @@ fun SettingsScreen(
     onSensitivityChange: (Float) -> Unit = {},
     onEarnedMinutesChange: (Int) -> Unit = {},
     onWarningMinutesChange: (Int) -> Unit = {},
+    onReminderMinutesChange: (Int) -> Unit = {},
     onToggleDailySummary: (Boolean) -> Unit = {},
     onThemeModeChange: (ThemeMode) -> Unit = {},
     onEraseEverything: () -> Unit = {},
@@ -100,6 +102,25 @@ fun SettingsScreen(
             destructive = true,
             onConfirm = onEraseEverything,
             onDismiss = { showEraseDialog = false },
+        )
+    }
+
+    var showReminderDialog by remember { mutableStateOf(false) }
+    if (showReminderDialog) {
+        OptionPickerDialog(
+            title = "Reminder frequency",
+            options = SettingsRepository.REMINDER_MINUTE_CHOICES,
+            selected = state.reminderMinutes,
+            onSelect = onReminderMinutesChange,
+            onDismiss = { showReminderDialog = false },
+            label = { reminderLabel(it) },
+            supporting = { minutes ->
+                if (minutes <= REMINDER_OFF) {
+                    "No check-ins"
+                } else {
+                    "Only while a limited app is open"
+                }
+            },
         )
     }
 
@@ -267,9 +288,11 @@ fun SettingsScreen(
                     trailing = { Chevron() },
                 )
                 SettingsRow(
-                    title = "Reminder frequency", leadingIcon = Icons.Filled.NotificationsActive,
+                    title = "Reminder frequency",
+                    subtitle = "Check in while you're using a limited app",
+                    leadingIcon = Icons.Filled.NotificationsActive,
                     enabled = state.notificationsGranted,
-                    onClick = { onRowClick(SettingsRowIds.REMINDER) },
+                    onClick = { showReminderDialog = true },
                     trailing = { ValueText(state.reminderFrequency) },
                 )
                 SettingsRow(

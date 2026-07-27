@@ -35,6 +35,7 @@ object Notifications {
     const val ID_MONITORING = 1
     const val ID_WARNING = 2
     const val ID_SUMMARY = 3
+    const val ID_REMINDER = 4
 
     /**
      * Creates every channel. Idempotent — re-creating an existing channel updates its name and

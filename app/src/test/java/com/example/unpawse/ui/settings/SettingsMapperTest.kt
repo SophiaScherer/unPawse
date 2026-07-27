@@ -19,6 +19,7 @@ class SettingsMapperTest {
         dailySummaryEnabled: Boolean = false,
         earnedMinutesPerCat: Int = 15,
         warningMinutes: Int = 5,
+        reminderMinutes: Int = 0,
         photoCount: Int = 0,
         photoStorageBytes: Long = 0L,
         monitoredApps: List<MonitoredApp> = emptyList(),
@@ -32,6 +33,7 @@ class SettingsMapperTest {
         dailySummaryEnabled = dailySummaryEnabled,
         earnedMinutesPerCat = earnedMinutesPerCat,
         warningMinutes = warningMinutes,
+        reminderMinutes = reminderMinutes,
         photoCount = photoCount,
         photoStorageBytes = photoStorageBytes,
         monitoredApps = monitoredApps,
@@ -133,6 +135,13 @@ class SettingsMapperTest {
         )
 
         assertEquals("45m across 1 app", dailyLimitSummary(apps))
+    }
+
+    @Test
+    fun `the reminder interval reads as a frequency, and off when disabled`() {
+        assertEquals("Off", reminderLabel(0))
+        assertEquals("Every 30m", reminderLabel(30))
+        assertEquals("Every 1h", reminderLabel(60))
     }
 
     @Test

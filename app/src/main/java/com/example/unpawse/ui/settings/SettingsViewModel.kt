@@ -84,13 +84,17 @@ class SettingsViewModel(
         usageRepository.observeMonitoredApps(),
         permissions,
         photoStats,
-    ) { values, monitoredApps, permissionState, photos ->
+        // The fifth and last top-level slot; further settings go into `settingsValues` or a holder
+        // beside it, not here.
+        settings.reminderMinutes,
+    ) { values, monitoredApps, permissionState, photos, reminderMinutes ->
         toSettingsUiState(
             userName = values.userName,
             sensitivity = values.sensitivity,
             dailySummaryEnabled = values.dailySummary,
             earnedMinutesPerCat = values.earnedMinutesPerCat,
             warningMinutes = values.warningMinutes,
+            reminderMinutes = reminderMinutes,
             photoCount = photos.count,
             photoStorageBytes = photos.bytes,
             monitoredApps = monitoredApps,
@@ -145,6 +149,8 @@ class SettingsViewModel(
         viewModelScope.launch { settings.setEarnedMinutesPerCat(value) }
 
     fun setWarningMinutes(value: Int) = viewModelScope.launch { settings.setWarningMinutes(value) }
+
+    fun setReminderMinutes(value: Int) = viewModelScope.launch { settings.setReminderMinutes(value) }
 
     /**
      * Writes the data export to the document the user picked, then reports the outcome. A file write

@@ -86,6 +86,10 @@ class UsageRepository(
         return remainingMinutes(app.dailyLimitMinutes, usage.used, usage.earned)
     }
 
+    /** Minutes spent in [packageName] today, ignoring earned time. Drives the reminder copy. */
+    suspend fun usedMinutes(packageName: String): Int =
+        (dao.usageFor(packageName, todayKey()).used / SECONDS_PER_MINUTE).toInt()
+
     /** Whether [packageName] is being watched right now — the monitor's per-tick gate. */
     suspend fun isMonitoredAndEnabled(packageName: String): Boolean =
         enabledApp(packageName) != null

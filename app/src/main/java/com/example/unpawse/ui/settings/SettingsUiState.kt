@@ -36,11 +36,10 @@ data class SettingsUiState(
     /** Owned by `UnPawseApp` (it drives the whole theme) and overlaid onto this state for display. */
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
 
-    // --- Rows still showing mockup copy, each replaced by a later phase of the Settings build-out.
-    // They live here rather than in sample() so production has exactly one source of truth, and so
-    // deleting a placeholder is a compile-time-visible change rather than a silent one.
-    /** Replaced by the persisted reminder interval. */
-    val reminderFrequency: String = "Every 30m",
+    /** Minutes between in-app reminders; 0 is off. */
+    val reminderMinutes: Int = SettingsRepository.DEFAULT_REMINDER_MINUTES,
+    /** Display form of [reminderMinutes], e.g. "Every 30m". */
+    val reminderFrequency: String = "Off",
 
     /** Always supplied by the mapper from `BuildConfig`; blank only in a bare test fixture. */
     val versionLabel: String = "",

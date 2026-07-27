@@ -78,6 +78,7 @@ fun SettingsRoute(
         onSensitivityChange = viewModel::setSensitivity,
         onEarnedMinutesChange = viewModel::setEarnedMinutesPerCat,
         onWarningMinutesChange = viewModel::setWarningMinutes,
+        onReminderMinutesChange = viewModel::setReminderMinutes,
         // Leave Settings once the wipe lands: staying would show a screen still rendering the data
         // that was just deleted.
         onEraseEverything = { viewModel.eraseEverything(onFinished = onBack) },

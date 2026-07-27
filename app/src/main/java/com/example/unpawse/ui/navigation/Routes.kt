@@ -51,9 +51,6 @@ object SettingsRowIds {
     /** Requests POST_NOTIFICATIONS, or opens system Settings once it can no longer be asked for. */
     const val NOTIFICATION_ACCESS = "notification_access"
 
-    // Not yet handled.
-    const val REMINDER = "reminder"
-    const val WARNING = "warning"
     const val MANAGE_PHOTOS = "manage_photos"
     const val EXPORT = "export"
 

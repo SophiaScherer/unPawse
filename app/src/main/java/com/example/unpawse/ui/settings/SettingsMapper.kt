@@ -2,6 +2,7 @@ package com.example.unpawse.ui.settings
 
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ml.sensitivityToMinConfidence
+import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.photos.photoStorageSummary
@@ -46,6 +47,10 @@ internal fun dailyLimitSummary(apps: List<MonitoredApp>): String {
     return "$total across $appCount"
 }
 
+/** The "Reminder frequency" value, e.g. "Every 30m" / "Off". */
+internal fun reminderLabel(minutes: Int): String =
+    if (minutes <= REMINDER_OFF) "Off" else "Every ${formatMinutes(minutes)}"
+
 /** The "Warning before lock" value, e.g. "5 minutes before" / "Off". */
 internal fun warningLabel(minutes: Int): String = when {
     minutes <= UsageTracker.WARNING_OFF -> "Off"
@@ -88,6 +93,7 @@ internal fun toSettingsUiState(
     dailySummaryEnabled: Boolean,
     earnedMinutesPerCat: Int,
     warningMinutes: Int,
+    reminderMinutes: Int,
     photoCount: Int,
     photoStorageBytes: Long,
     monitoredApps: List<MonitoredApp>,
@@ -107,6 +113,8 @@ internal fun toSettingsUiState(
     earnedMinutesPerCat = earnedMinutesPerCat,
     warningMinutes = warningMinutes,
     warningBeforeLock = warningLabel(warningMinutes),
+    reminderMinutes = reminderMinutes,
+    reminderFrequency = reminderLabel(reminderMinutes),
     photosSummary = photoStorageSummary(photoCount, photoStorageBytes),
     versionLabel = versionLabel,
 )

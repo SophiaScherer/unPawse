@@ -94,6 +94,9 @@ interface AppContainer {
      * DataStore.
      */
     val warningMinutes: StateFlow<Int>
+
+    /** How often to remind the user while they sit in a limited app; 0 is off. */
+    val reminderMinutes: StateFlow<Int>
 }
 
 /** Production [AppContainer]; builds every dependency lazily off the singleton Room database. */
@@ -199,5 +202,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val warningMinutes: StateFlow<Int> by lazy {
         settingsRepository.warningMinutes
             .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_WARNING_MINUTES)
+    }
+
+    override val reminderMinutes: StateFlow<Int> by lazy {
+        settingsRepository.reminderMinutes
+            .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_REMINDER_MINUTES)
     }
 }

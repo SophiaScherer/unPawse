@@ -21,8 +21,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Foreground service that drives [UsageTracker] for as long as monitoring is on. It has to be a
@@ -48,6 +50,7 @@ class UsageMonitorService : Service() {
             trackerJob = scope.launch {
                 launch { observeBlockRequired() }
                 launch { observeWarningRequired() }
+                launch { runUsageReminders() }
                 launch { dismissBlockWhenUserLeaves() }
                 launch { runFocusSessionLifecycle() }
                 runCatching { tracker.run() }
@@ -80,6 +83,49 @@ class UsageMonitorService : Service() {
                 text = warningText(label, event.remainingMinutes),
             )
         }
+    }
+
+    /**
+     * Periodically reminds the user how long they have been in the limited app they're using.
+     *
+     * Driven by the foreground app rather than by a scheduled job: a reminder is only worth sending
+     * while the user is actually in one of these apps, and WorkManager's 15-minute floor can't
+     * express the shorter intervals anyway. This runs inside a service that is already awake, so it
+     * costs nothing extra.
+     *
+     * [kotlinx.coroutines.flow.collectLatest] restarts the timer whenever the foreground app or the
+     * interval changes, which gives the semantics we want: the countdown measures one continuous
+     * stretch in one app, and changing the setting takes effect immediately.
+     */
+    private suspend fun runUsageReminders() {
+        val container = appContainer()
+        combine(
+            container.usageTracker.foregroundApp,
+            container.reminderMinutes,
+        ) { packageName, intervalMinutes -> packageName to intervalMinutes }
+            .collectLatest { (packageName, intervalMinutes) ->
+                if (packageName == null || intervalMinutes <= REMINDER_OFF) return@collectLatest
+                if (!container.usageRepository.isMonitoredAndEnabled(packageName)) return@collectLatest
+
+                while (true) {
+                    delay(intervalMinutes.minutes)
+                    // Limits can change while the timer runs; don't nag about an app that stopped
+                    // being monitored in the meantime.
+                    if (!container.usageRepository.isMonitoredAndEnabled(packageName)) break
+
+                    val label = container.usageRepository.appLabel(packageName) ?: packageName
+                    Notifications.post(
+                        context = this@UsageMonitorService,
+                        channelId = Notifications.CHANNEL_ALERTS,
+                        id = Notifications.ID_REMINDER,
+                        title = reminderTitle(label),
+                        text = reminderText(
+                            usedMinutes = container.usageRepository.usedMinutes(packageName),
+                            remainingMinutes = container.usageRepository.remainingMinutes(packageName),
+                        ),
+                    )
+                }
+            }
     }
 
     /**
