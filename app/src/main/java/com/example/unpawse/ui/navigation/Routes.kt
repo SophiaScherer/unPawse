@@ -27,6 +27,9 @@ object Routes {
 
     /** Settings sub-screen: choose monitored apps and their daily limits. */
     const val APP_PICKER = "app_picker"
+
+    /** Settings sub-screen: the in-app privacy policy. */
+    const val PRIVACY_POLICY = "privacy_policy"
 }
 
 /**
@@ -48,7 +51,9 @@ object SettingsRowIds {
     const val MANAGE_PHOTOS = "manage_photos"
     const val EXPORT = "export"
     const val DELETE_HISTORY = "delete_history"
-    const val PRIVACY_POLICY = "privacy_policy"
+
+    /** Opens the in-app policy at [Routes.PRIVACY_POLICY]. */
+    const val PRIVACY_POLICY = "privacy_policy_row"
 }
 
 /**

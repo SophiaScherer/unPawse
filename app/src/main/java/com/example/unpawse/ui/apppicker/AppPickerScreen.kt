@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ValueStepper
 import com.example.unpawse.ui.format.formatMinutes
@@ -93,34 +94,18 @@ fun AppPickerScreen(
 
 @Composable
 private fun AppPickerHeader(monitoredCount: Int, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Dimens.ScreenHMargin - 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-        Spacer(Modifier.width(4.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                "App limits",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                if (monitoredCount == 0) "No apps limited yet" else "$monitoredCount app${if (monitoredCount == 1) "" else "s"} limited",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    BackHeader(
+        title = "App limits",
+        subtitle = if (monitoredCount == 0) {
+            "No apps limited yet"
+        } else {
+            "$monitoredCount app${if (monitoredCount == 1) "" else "s"} limited"
+        },
+        onBack = onBack,
+        // This header sits outside the list, so it pads itself; the 12dp back-off aligns the arrow
+        // glyph (not the IconButton's touch target) with the rows below.
+        modifier = Modifier.padding(horizontal = Dimens.ScreenHMargin - 12.dp),
+    )
 }
 
 /** Functional search field styled to match the Gallery's (decorative) search bar. */

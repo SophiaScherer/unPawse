@@ -57,6 +57,7 @@ fun SettingsRoute(
         onRowClick = { rowId ->
             when (rowId) {
                 SettingsRowIds.APP_LIMITS -> onNavigate(Routes.APP_PICKER)
+                SettingsRowIds.PRIVACY_POLICY -> onNavigate(Routes.PRIVACY_POLICY)
                 SettingsRowIds.USAGE_ACCESS ->
                     context.startActivity(UsageAccess.settingsIntent(context))
                 SettingsRowIds.OVERLAY_ACCESS ->

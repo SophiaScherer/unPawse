@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.Chevron
 import com.example.unpawse.ui.components.InitialsAvatar
 import com.example.unpawse.ui.components.OptionPickerDialog
@@ -256,13 +257,11 @@ fun SettingsScreen(
             SectionLabel(text = "About", uppercase = true)
             SettingsGroup {
                 SettingsRow(title = "Version", trailing = { ValueText(state.versionLabel) })
+                // Chevron, not "open in new": the policy is a screen in this app, not a web link.
                 SettingsRow(
                     title = "Privacy Policy",
                     onClick = { onRowClick(SettingsRowIds.PRIVACY_POLICY) },
-                    trailing = {
-                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                    },
+                    trailing = { Chevron() },
                 )
             }
         }
@@ -271,21 +270,11 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsHeader(userName: String, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface)
-        }
-        Spacer(Modifier.width(4.dp))
-        Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-        InitialsAvatar(initial = avatarInitialFor(userName), size = 40.dp)
-    }
+    BackHeader(
+        title = "Settings",
+        onBack = onBack,
+        trailing = { InitialsAvatar(initial = avatarInitialFor(userName), size = 40.dp) },
+    )
 }
 
 /** First letter of the name, or a paw-friendly fallback when no name is set. Matches Home's avatar. */

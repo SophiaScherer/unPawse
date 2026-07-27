@@ -6,6 +6,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.unpawse.data.SampleData
+import com.example.unpawse.ui.about.PrivacyPolicyScreen
 import com.example.unpawse.ui.apppicker.AppPickerRoute
 import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
@@ -69,6 +70,11 @@ fun UnPawseNavHost(
 
         composable(Routes.APP_PICKER) {
             AppPickerRoute(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.PRIVACY_POLICY) {
+            // Static copy — no ViewModel, so no Route wrapper either.
+            PrivacyPolicyScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.BLOCK) {
