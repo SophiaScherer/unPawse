@@ -14,6 +14,7 @@ import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.ml.sensitivityToMinConfidence
 import com.example.unpawse.service.BlockOverlayController
 import com.example.unpawse.service.BlockSession
+import com.example.unpawse.service.DailySummaryWorker
 import com.example.unpawse.service.FocusSession
 import com.example.unpawse.service.ForegroundAppMonitor
 import com.example.unpawse.service.UsageStatsForegroundAppMonitor
@@ -168,6 +169,19 @@ class DefaultAppContainer(context: Context) : AppContainer {
         appScope.launch {
             focusSession.restore(settingsRepository.focusEndMillis.first())
             focusSession.endTimeMillis.collect { settingsRepository.setFocusEndMillis(it) }
+        }
+
+        // Keep the recap job in step with its toggle. Owning this here rather than in the Settings
+        // ViewModel means the schedule is correct even for a process that never opens Settings, and
+        // leaves the UI with nothing to know about WorkManager.
+        appScope.launch {
+            settingsRepository.dailySummaryEnabled.collect { enabled ->
+                if (enabled) {
+                    DailySummaryWorker.schedule(appContext)
+                } else {
+                    DailySummaryWorker.cancel(appContext)
+                }
+            }
         }
     }
 

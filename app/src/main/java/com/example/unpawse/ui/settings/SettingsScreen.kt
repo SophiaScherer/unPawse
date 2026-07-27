@@ -281,7 +281,9 @@ fun SettingsScreen(
                     trailing = { ValueText(state.warningBeforeLock) },
                 )
                 SettingsRow(
-                    title = "Daily summary", leadingIcon = Icons.Filled.Summarize,
+                    title = "Daily summary",
+                    subtitle = "A recap of your screen time each evening",
+                    leadingIcon = Icons.Filled.Summarize,
                     enabled = state.notificationsGranted,
                     trailing = {
                         Switch(
