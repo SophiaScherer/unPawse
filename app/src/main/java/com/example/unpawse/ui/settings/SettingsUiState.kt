@@ -22,13 +22,13 @@ data class SettingsUiState(
     val overlayAccessGranted: Boolean = false,
     val sensitivity: Float = SettingsRepository.DEFAULT_SENSITIVITY,
     val dailySummaryEnabled: Boolean = SettingsRepository.DEFAULT_DAILY_SUMMARY,
+    /** Minutes one verified cat buys back; drives the reward loop. */
+    val earnedMinutesPerCat: Int = SettingsRepository.DEFAULT_EARNED_MINUTES_PER_CAT,
     val darkMode: Boolean = false,
 
     // --- Rows still showing mockup copy, each replaced by a later phase of the Settings build-out.
     // They live here rather than in sample() so production has exactly one source of truth, and so
     // deleting a placeholder is a compile-time-visible change rather than a silent one.
-    /** Replaced by the configurable "time earned per cat" value. */
-    val breakDurationLabel: String = "15 minutes every hour",
     /** Replaced by the persisted reminder interval. */
     val reminderFrequency: String = "Every 30m",
     /** Replaced by the persisted warning threshold. */

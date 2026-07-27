@@ -50,8 +50,9 @@ class SettingsViewModel(
         settings.sensitivity,
         settings.dailySummaryEnabled,
         settings.userName,
-    ) { sensitivity, dailySummary, userName ->
-        SettingsValues(sensitivity, dailySummary, userName)
+        settings.earnedMinutesPerCat,
+    ) { sensitivity, dailySummary, userName, earnedMinutes ->
+        SettingsValues(sensitivity, dailySummary, userName, earnedMinutes)
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -63,6 +64,7 @@ class SettingsViewModel(
             userName = values.userName,
             sensitivity = values.sensitivity,
             dailySummaryEnabled = values.dailySummary,
+            earnedMinutesPerCat = values.earnedMinutesPerCat,
             monitoredApps = monitoredApps,
             usageAccessGranted = permissionState.usageAccess,
             overlayAccessGranted = permissionState.overlayAccess,
@@ -94,11 +96,15 @@ class SettingsViewModel(
         val sensitivity: Float,
         val dailySummary: Boolean,
         val userName: String,
+        val earnedMinutesPerCat: Int,
     )
 
     fun setSensitivity(value: Float) = viewModelScope.launch { settings.setSensitivity(value) }
 
     fun setDailySummary(value: Boolean) = viewModelScope.launch { settings.setDailySummary(value) }
+
+    fun setEarnedMinutesPerCat(value: Int) =
+        viewModelScope.launch { settings.setEarnedMinutesPerCat(value) }
 
     /** Trimmed so trailing spaces don't produce a blank-looking name that still counts as "set". */
     fun setUserName(value: String) = viewModelScope.launch { settings.setUserName(value.trim()) }

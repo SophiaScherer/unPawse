@@ -16,6 +16,7 @@ class SettingsMapperTest {
         userName: String = "",
         sensitivity: Float = 0.65f,
         dailySummaryEnabled: Boolean = false,
+        earnedMinutesPerCat: Int = 15,
         monitoredApps: List<MonitoredApp> = emptyList(),
         usageAccessGranted: Boolean = false,
         overlayAccessGranted: Boolean = false,
@@ -24,6 +25,7 @@ class SettingsMapperTest {
         userName = userName,
         sensitivity = sensitivity,
         dailySummaryEnabled = dailySummaryEnabled,
+        earnedMinutesPerCat = earnedMinutesPerCat,
         monitoredApps = monitoredApps,
         usageAccessGranted = usageAccessGranted,
         overlayAccessGranted = overlayAccessGranted,
@@ -68,6 +70,7 @@ class SettingsMapperTest {
             userName = "Sophia",
             sensitivity = 0.8f,
             dailySummaryEnabled = true,
+            earnedMinutesPerCat = 30,
             monitoredApps = listOf(app("Instagram")),
             usageAccessGranted = true,
             overlayAccessGranted = true,
@@ -76,6 +79,7 @@ class SettingsMapperTest {
         assertEquals("Sophia", ui.userName)
         assertEquals(0.8f, ui.sensitivity, 0.0001f)
         assertTrue(ui.dailySummaryEnabled)
+        assertEquals(30, ui.earnedMinutesPerCat)
         assertEquals("Instagram", ui.appLimitsSummary)
         assertEquals("30m across 1 app", ui.dailyLimitLabel)
         assertTrue(ui.usageAccessGranted)
@@ -118,6 +122,12 @@ class SettingsMapperTest {
         )
 
         assertEquals("45m across 1 app", dailyLimitSummary(apps))
+    }
+
+    @Test
+    fun `the reward grant reads as time back per cat`() {
+        assertEquals("15m back per verified cat", earnedTimeSummary(15))
+        assertEquals("1h back per verified cat", earnedTimeSummary(60))
     }
 
     /**

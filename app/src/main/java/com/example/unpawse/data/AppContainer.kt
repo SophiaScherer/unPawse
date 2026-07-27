@@ -71,6 +71,13 @@ interface AppContainer {
      * camera pipeline; the detector reads `.value` on each capture.
      */
     val catDetectorMinConfidence: StateFlow<Float>
+
+    /**
+     * How many minutes one verified cat buys back, from the Settings stepper. Held app-wide for the
+     * same reason as [catDetectorMinConfidence]: the camera reads `.value` at the moment it credits,
+     * so a change applies to the next capture without rebuilding anything.
+     */
+    val earnedMinutesPerCat: StateFlow<Int>
 }
 
 /** Production [AppContainer]; builds every dependency lazily off the singleton Room database. */
@@ -128,5 +135,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
         settingsRepository.sensitivity
             .map(::sensitivityToMinConfidence)
             .stateIn(appScope, SharingStarted.Eagerly, CatDetector.DEFAULT_MIN_CONFIDENCE)
+    }
+
+    override val earnedMinutesPerCat: StateFlow<Int> by lazy {
+        settingsRepository.earnedMinutesPerCat
+            .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_EARNED_MINUTES_PER_CAT)
     }
 }

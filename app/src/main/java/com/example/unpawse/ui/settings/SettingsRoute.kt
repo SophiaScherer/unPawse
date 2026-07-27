@@ -51,6 +51,7 @@ fun SettingsRoute(
         onToggleDarkMode = onToggleDarkMode,
         onToggleDailySummary = viewModel::setDailySummary,
         onSensitivityChange = viewModel::setSensitivity,
+        onEarnedMinutesChange = viewModel::setEarnedMinutesPerCat,
         onNameChange = viewModel::setUserName,
         onRowClick = { rowId ->
             when (rowId) {

@@ -44,6 +44,10 @@ internal fun dailyLimitSummary(apps: List<MonitoredApp>): String {
     return "$total across $appCount"
 }
 
+/** Subtitle for the reward-grant row, e.g. "15m back per verified cat". */
+internal fun earnedTimeSummary(minutesPerCat: Int): String =
+    "${formatMinutes(minutesPerCat)} back per verified cat"
+
 /**
  * The confidence gate the sensitivity slider currently produces, e.g. "70% match". Derived from
  * [sensitivityToMinConfidence] — the same function the detector gates on — so the number shown is
@@ -73,6 +77,7 @@ internal fun toSettingsUiState(
     userName: String,
     sensitivity: Float,
     dailySummaryEnabled: Boolean,
+    earnedMinutesPerCat: Int,
     monitoredApps: List<MonitoredApp>,
     usageAccessGranted: Boolean,
     overlayAccessGranted: Boolean,
@@ -85,5 +90,6 @@ internal fun toSettingsUiState(
     overlayAccessGranted = overlayAccessGranted,
     sensitivity = sensitivity,
     dailySummaryEnabled = dailySummaryEnabled,
+    earnedMinutesPerCat = earnedMinutesPerCat,
     versionLabel = versionLabel,
 )

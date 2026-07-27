@@ -34,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,6 +59,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onSensitivityChange: (Float) -> Unit = {},
+    onEarnedMinutesChange: (Int) -> Unit = {},
     onToggleDailySummary: (Boolean) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit = {},
     onNameChange: (String) -> Unit = {},
@@ -165,12 +167,9 @@ fun SettingsScreen(
                     iconBackground = MaterialTheme.colorScheme.secondaryContainer,
                     onClick = { onRowClick(SettingsRowIds.APP_LIMITS) }, trailing = { Chevron() },
                 )
-                SettingsRow(
-                    title = "Break duration", subtitle = state.breakDurationLabel,
-                    leadingIcon = Icons.Filled.LocalCafe,
-                    iconTint = MaterialTheme.colorScheme.tertiary,
-                    iconBackground = MaterialTheme.colorScheme.tertiaryContainer,
-                    onClick = { onRowClick(SettingsRowIds.BREAK_DURATION) }, trailing = { Chevron() },
+                EarnedTimeControl(
+                    minutesPerCat = state.earnedMinutesPerCat,
+                    onMinutesChange = onEarnedMinutesChange,
                 )
             }
         }
@@ -305,13 +304,17 @@ private fun SettingsScreenPreviewContent(startDark: Boolean) {
     var dark by remember { mutableStateOf(startDark) }
     var summary by remember { mutableStateOf(false) }
     var sensitivity by remember { mutableFloatStateOf(0.65f) }
+    var earnedMinutes by remember { mutableIntStateOf(15) }
     SettingsScreen(
         state = SettingsUiState.sample(darkMode = dark).copy(
-            dailySummaryEnabled = summary, sensitivity = sensitivity,
+            dailySummaryEnabled = summary,
+            sensitivity = sensitivity,
+            earnedMinutesPerCat = earnedMinutes,
         ),
         onToggleDarkMode = { dark = it },
         onToggleDailySummary = { summary = it },
         onSensitivityChange = { sensitivity = it },
+        onEarnedMinutesChange = { earnedMinutes = it },
     )
 }
 

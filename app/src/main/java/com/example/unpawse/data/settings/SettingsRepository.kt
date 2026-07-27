@@ -6,9 +6,11 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.unpawse.service.BONUS_MINUTES_PER_CAT
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -34,6 +36,10 @@ class SettingsRepository(context: Context) {
     val dailySummaryEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.DAILY_SUMMARY] ?: DEFAULT_DAILY_SUMMARY }
 
+    /** How much time one verified cat buys back; the reward loop reads this instead of a constant. */
+    val earnedMinutesPerCat: Flow<Int> =
+        dataStore.data.map { it[Keys.EARNED_MINUTES_PER_CAT] ?: DEFAULT_EARNED_MINUTES_PER_CAT }
+
     /** The user's display name for the Home greeting/avatar; blank until they set one. */
     val userName: Flow<String> = dataStore.data.map { it[Keys.USER_NAME] ?: DEFAULT_USER_NAME }
 
@@ -50,6 +56,8 @@ class SettingsRepository(context: Context) {
 
     suspend fun setDailySummary(value: Boolean) = edit { it[Keys.DAILY_SUMMARY] = value }
 
+    suspend fun setEarnedMinutesPerCat(value: Int) = edit { it[Keys.EARNED_MINUTES_PER_CAT] = value }
+
     suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
 
     /** Persists (or, with null, clears) the active focus session's end time. */
@@ -65,6 +73,7 @@ class SettingsRepository(context: Context) {
         val DARK_MODE_OVERRIDE = booleanPreferencesKey("dark_mode_override")
         val SENSITIVITY = floatPreferencesKey("sensitivity")
         val DAILY_SUMMARY = booleanPreferencesKey("daily_summary")
+        val EARNED_MINUTES_PER_CAT = intPreferencesKey("earned_minutes_per_cat")
         val USER_NAME = stringPreferencesKey("user_name")
         val FOCUS_END_MILLIS = longPreferencesKey("focus_end_millis")
     }
@@ -73,6 +82,17 @@ class SettingsRepository(context: Context) {
         /** Defaults match the previous `SettingsUiState.sample()` values so behaviour is unchanged. */
         const val DEFAULT_SENSITIVITY = 0.65f
         const val DEFAULT_DAILY_SUMMARY = false
+
+        /**
+         * Aliased to the reward loop's own constant rather than repeated, so the shipped default and
+         * the value the loop documents can't drift apart.
+         */
+        const val DEFAULT_EARNED_MINUTES_PER_CAT = BONUS_MINUTES_PER_CAT
+
+        /** Bounds for the Settings stepper, in minutes. */
+        const val MIN_EARNED_MINUTES_PER_CAT = 5
+        const val MAX_EARNED_MINUTES_PER_CAT = 60
+        const val EARNED_MINUTES_STEP = 5
 
         /** Blank means "no name set yet"; the UI substitutes a friendly fallback. */
         const val DEFAULT_USER_NAME = ""

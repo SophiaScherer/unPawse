@@ -43,7 +43,6 @@ object SettingsRowIds {
     const val OVERLAY_ACCESS = "overlay_access"
 
     // Not yet handled.
-    const val BREAK_DURATION = "break_duration"
     const val REMINDER = "reminder"
     const val WARNING = "warning"
     const val MANAGE_PHOTOS = "manage_photos"
