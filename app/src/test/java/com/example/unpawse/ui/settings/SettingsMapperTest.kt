@@ -23,6 +23,7 @@ class SettingsMapperTest {
         monitoredApps: List<MonitoredApp> = emptyList(),
         usageAccessGranted: Boolean = false,
         overlayAccessGranted: Boolean = false,
+        notificationsGranted: Boolean = false,
         versionLabel: String = "1.0 (1)",
     ) = toSettingsUiState(
         userName = userName,
@@ -34,6 +35,7 @@ class SettingsMapperTest {
         monitoredApps = monitoredApps,
         usageAccessGranted = usageAccessGranted,
         overlayAccessGranted = overlayAccessGranted,
+        notificationsGranted = notificationsGranted,
         versionLabel = versionLabel,
     )
 
@@ -79,6 +81,7 @@ class SettingsMapperTest {
             monitoredApps = listOf(app("Instagram")),
             usageAccessGranted = true,
             overlayAccessGranted = true,
+            notificationsGranted = true,
         )
 
         assertEquals("Sophia", ui.userName)
@@ -89,6 +92,7 @@ class SettingsMapperTest {
         assertEquals("30m across 1 app", ui.dailyLimitLabel)
         assertTrue(ui.usageAccessGranted)
         assertTrue(ui.overlayAccessGranted)
+        assertTrue(ui.notificationsGranted)
     }
 
     @Test
@@ -179,6 +183,7 @@ class SettingsMapperTest {
         assertEquals("No photos yet", ui.photosSummary)
         assertFalse(ui.usageAccessGranted)
         assertFalse(ui.overlayAccessGranted)
+        assertFalse(ui.notificationsGranted)
         assertEquals(ThemeMode.SYSTEM, ui.themeMode)
     }
 }

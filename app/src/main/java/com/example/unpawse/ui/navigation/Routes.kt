@@ -48,6 +48,9 @@ object SettingsRowIds {
     /** Opens system Settings — "display over other apps" is likewise not a runtime permission. */
     const val OVERLAY_ACCESS = "overlay_access"
 
+    /** Requests POST_NOTIFICATIONS, or opens system Settings once it can no longer be asked for. */
+    const val NOTIFICATION_ACCESS = "notification_access"
+
     // Not yet handled.
     const val REMINDER = "reminder"
     const val WARNING = "warning"

@@ -187,39 +187,13 @@ class UsageMonitorService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                "Screen time monitoring",
-                // Low: this notification is a platform requirement, not something to interrupt with.
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = "Shows while unPawse is watching your app limits."
-                setShowBadge(false)
-            },
-        )
-
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("unPawse is watching your limits")
-            .setContentText("Tap to open unPawse")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(contentIntent)
-            .setOngoing(true)
-            .build()
+        Notifications.ensureChannels(this)
+        return Notifications.monitoringNotification(this)
     }
 
     companion object {
         private const val TAG = "UsageMonitorService"
-        private const val CHANNEL_ID = "usage_monitoring"
-        private const val NOTIFICATION_ID = 1
+        private const val NOTIFICATION_ID = Notifications.ID_MONITORING
     }
 }
 

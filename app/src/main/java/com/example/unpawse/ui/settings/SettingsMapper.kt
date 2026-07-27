@@ -84,6 +84,7 @@ internal fun toSettingsUiState(
     monitoredApps: List<MonitoredApp>,
     usageAccessGranted: Boolean,
     overlayAccessGranted: Boolean,
+    notificationsGranted: Boolean,
     versionLabel: String,
 ): SettingsUiState = SettingsUiState(
     userName = userName,
@@ -91,6 +92,7 @@ internal fun toSettingsUiState(
     appLimitsSummary = monitoredAppsSummary(monitoredApps),
     usageAccessGranted = usageAccessGranted,
     overlayAccessGranted = overlayAccessGranted,
+    notificationsGranted = notificationsGranted,
     sensitivity = sensitivity,
     dailySummaryEnabled = dailySummaryEnabled,
     earnedMinutesPerCat = earnedMinutesPerCat,

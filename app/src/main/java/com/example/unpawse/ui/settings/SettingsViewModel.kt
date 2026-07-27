@@ -14,6 +14,7 @@ import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.export.ExportRepository
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
+import com.example.unpawse.service.Notifications
 import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
 import kotlinx.coroutines.channels.Channel
@@ -41,6 +42,7 @@ class SettingsViewModel(
     private val resetRepository: ResetRepository,
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
+    private val notificationsGranted: () -> Boolean,
     versionName: String,
     versionCode: Int,
 ) : ViewModel() {
@@ -92,6 +94,7 @@ class SettingsViewModel(
             monitoredApps = monitoredApps,
             usageAccessGranted = permissionState.usageAccess,
             overlayAccessGranted = permissionState.overlayAccess,
+            notificationsGranted = permissionState.notifications,
             versionLabel = version,
         )
     }.stateIn(
@@ -103,6 +106,7 @@ class SettingsViewModel(
         initialValue = SettingsUiState(
             usageAccessGranted = permissions.value.usageAccess,
             overlayAccessGranted = permissions.value.overlayAccess,
+            notificationsGranted = permissions.value.notifications,
             versionLabel = version,
         ),
     )
@@ -112,9 +116,14 @@ class SettingsViewModel(
         permissions.value = readPermissions()
     }
 
-    private fun readPermissions() = PermissionState(usageAccessGranted(), overlayAccessGranted())
+    private fun readPermissions() =
+        PermissionState(usageAccessGranted(), overlayAccessGranted(), notificationsGranted())
 
-    private data class PermissionState(val usageAccess: Boolean, val overlayAccess: Boolean)
+    private data class PermissionState(
+        val usageAccess: Boolean,
+        val overlayAccess: Boolean,
+        val notifications: Boolean,
+    )
 
     private data class PhotoStats(val count: Int, val bytes: Long)
 
@@ -173,6 +182,7 @@ class SettingsViewModel(
                     resetRepository = container.resetRepository,
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
+                    notificationsGranted = { Notifications.canPost(appContext) },
                     versionName = BuildConfig.VERSION_NAME,
                     versionCode = BuildConfig.VERSION_CODE,
                 )

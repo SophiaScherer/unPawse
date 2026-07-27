@@ -224,19 +224,51 @@ fun SettingsScreen(
         item {
             SectionLabel(text = "Notifications", uppercase = true)
             SettingsGroup {
+                // Nothing below can reach the user without this, so it leads the group — the same
+                // treatment the two screen-time permissions get.
+                SettingsRow(
+                    title = "Notification access",
+                    subtitle = if (state.notificationsGranted) {
+                        "Granted — unPawse can reach you"
+                    } else {
+                        "Required — tap to let unPawse send notifications"
+                    },
+                    leadingIcon = if (state.notificationsGranted) Icons.Filled.Shield else Icons.Filled.Warning,
+                    iconTint = if (state.notificationsGranted) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    iconBackground = if (state.notificationsGranted) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    },
+                    onClick = { onRowClick(SettingsRowIds.NOTIFICATION_ACCESS) },
+                    trailing = { Chevron() },
+                )
                 SettingsRow(
                     title = "Reminder frequency", leadingIcon = Icons.Filled.NotificationsActive,
+                    enabled = state.notificationsGranted,
                     onClick = { onRowClick(SettingsRowIds.REMINDER) },
                     trailing = { ValueText(state.reminderFrequency) },
                 )
                 SettingsRow(
                     title = "Warning before lock", leadingIcon = Icons.Filled.Warning,
+                    enabled = state.notificationsGranted,
                     onClick = { onRowClick(SettingsRowIds.WARNING) },
                     trailing = { ValueText(state.warningBeforeLock) },
                 )
                 SettingsRow(
                     title = "Daily summary", leadingIcon = Icons.Filled.Summarize,
-                    trailing = { Switch(checked = state.dailySummaryEnabled, onCheckedChange = onToggleDailySummary) },
+                    enabled = state.notificationsGranted,
+                    trailing = {
+                        Switch(
+                            checked = state.dailySummaryEnabled,
+                            onCheckedChange = onToggleDailySummary,
+                            enabled = state.notificationsGranted,
+                        )
+                    },
                 )
             }
         }

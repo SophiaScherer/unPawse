@@ -13,6 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
+import com.example.unpawse.service.rememberNotificationPermissionState
 import com.example.unpawse.ui.navigation.Routes
 import com.example.unpawse.ui.navigation.SettingsRowIds
 import com.example.unpawse.ui.theme.ThemeMode
@@ -58,8 +59,13 @@ fun SettingsRoute(
     // The permission rows read state that only changes while the user is away in system Settings,
     // so re-read it on the way back. Starting the monitor is not this screen's job — UnPawseApp
     // does it app-wide on every resume.
+    // Unlike the two special permissions, this one has a runtime dialog — but it can also be
+    // changed in system Settings, so both this handle and the ViewModel re-read on resume.
+    val notificationPermission = rememberNotificationPermissionState()
+
     LifecycleResumeEffect(Unit) {
         viewModel.refreshPermissions()
+        notificationPermission.refresh()
         onPauseOrDispose { }
     }
 
@@ -85,6 +91,13 @@ fun SettingsRoute(
                     context.startActivity(UsageAccess.settingsIntent(context))
                 SettingsRowIds.OVERLAY_ACCESS ->
                     context.startActivity(OverlayPermission.settingsIntent(context))
+                SettingsRowIds.NOTIFICATION_ACCESS -> {
+                    notificationPermission.request()
+                    // The dialog's result lands in the permission handle; mirror it into the state
+                    // the screen renders, which the resume effect would otherwise not refresh until
+                    // the user leaves and returns.
+                    viewModel.refreshPermissions()
+                }
                 // Rows still being built out. Explicit so an unhandled id is a visible gap here
                 // rather than a `when` that silently falls through.
                 else -> Unit

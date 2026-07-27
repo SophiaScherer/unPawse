@@ -21,6 +21,8 @@ data class SettingsUiState(
     val usageAccessGranted: Boolean = false,
     /** Whether we can draw over other apps — without it a reached limit can't be blocked. */
     val overlayAccessGranted: Boolean = false,
+    /** Whether we may post notifications — without it the whole Notifications group is inert. */
+    val notificationsGranted: Boolean = false,
     val sensitivity: Float = SettingsRepository.DEFAULT_SENSITIVITY,
     val dailySummaryEnabled: Boolean = SettingsRepository.DEFAULT_DAILY_SUMMARY,
     /** Minutes one verified cat buys back; drives the reward loop. */
@@ -49,6 +51,7 @@ data class SettingsUiState(
             appLimitsSummary = "Instagram, TikTok, 3 others",
             usageAccessGranted = true,
             overlayAccessGranted = true,
+            notificationsGranted = true,
             sensitivity = 0.65f,
             dailySummaryEnabled = false,
             photosSummary = "142 photos · 38.4 MB",
