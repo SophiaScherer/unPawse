@@ -1,6 +1,8 @@
 package com.example.unpawse.data.capture
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -13,6 +15,9 @@ class CaptureRepository(
     private val dao: CaptureDao,
     private val photoStorage: PhotoStorage,
 ) {
+    /** Bumped when files change without any row changing; see [deleteAllCaptures]. */
+    private val storageRevision = MutableStateFlow(0)
+
     /** Stream of stored captures, newest first, mapped to the domain model. */
     fun observeCaptures(): Flow<List<Capture>> =
         dao.observeAll().map { rows -> rows.map(CaptureEntity::toDomain) }
@@ -67,6 +72,12 @@ class CaptureRepository(
      */
     suspend fun deleteAllCaptures() {
         dao.observeAll().first().forEach { deleteCapture(it.toDomain()) }
+        // Then sweep the directory: a file whose row was lost would otherwise survive a delete-all
+        // that told the user it had freed that space.
+        photoStorage.deleteAll()
+        // Sweeping orphans changes no rows, so the DAO stream won't fire — nudge the size flow
+        // ourselves or the screen keeps showing the space it just reported freeing.
+        storageRevision.value++
     }
 
     /**
@@ -74,5 +85,6 @@ class CaptureRepository(
      * capture stream because size can only be measured, not derived from the row count — a save, a
      * delete or a purge all move it.
      */
-    fun observeStorageBytes(): Flow<Long> = dao.observeAll().map { photoStorage.totalBytes() }
+    fun observeStorageBytes(): Flow<Long> =
+        combine(dao.observeAll(), storageRevision) { _, _ -> photoStorage.totalBytes() }
 }

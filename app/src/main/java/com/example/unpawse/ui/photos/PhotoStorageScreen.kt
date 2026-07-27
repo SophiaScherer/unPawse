@@ -137,7 +137,8 @@ fun PhotoStorageScreen(
                     iconTint = MaterialTheme.colorScheme.error,
                     iconBackground = MaterialTheme.colorScheme.errorContainer,
                     titleColor = MaterialTheme.colorScheme.error,
-                    onClick = { showDeleteDialog = true }.takeIf { state.hasPhotos },
+                    enabled = state.canDeleteAll,
+                    onClick = { showDeleteDialog = true },
                     trailing = { Chevron() },
                 )
             }
@@ -147,6 +148,10 @@ fun PhotoStorageScreen(
 
 /** Spells out exactly what is about to go, rather than asking a bare "are you sure?". */
 private fun deleteAllMessage(state: PhotoStorageUiState): String {
+    if (!state.hasPhotos) {
+        return "This clears ${state.storageLabel} of leftover photo files. " +
+            "Your screen-time history is not affected."
+    }
     val photos = if (state.photoCount == 1) "1 photo" else "${state.photoCount} photos"
     val favourites = when (state.favoriteCount) {
         0 -> ""

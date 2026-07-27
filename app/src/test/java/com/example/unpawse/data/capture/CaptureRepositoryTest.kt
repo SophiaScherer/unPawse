@@ -90,6 +90,21 @@ class CaptureRepositoryTest {
         assertFalse("delete all means all", File(favorite.filePath).exists())
     }
 
+    /**
+     * A JPEG can outlive its row — a crash between the write and the insert, or a destructive Room
+     * migration. Delete-all reports the space it frees, so it has to free all of it.
+     */
+    @Test
+    fun `deleteAllCaptures also removes files left without a row`() = runBlocking {
+        val orphan = File(storage.save(byteArrayOf(9, 9, 9)))
+        seed("tracked", capturedAt = 1_000)
+
+        repo.deleteAllCaptures()
+
+        assertFalse("orphaned JPEG should be swept", orphan.exists())
+        assertEquals(0L, repo.observeStorageBytes().first())
+    }
+
     @Test
     fun `storage size reflects the files actually on disk`() = runBlocking {
         assertEquals(0L, repo.observeStorageBytes().first())

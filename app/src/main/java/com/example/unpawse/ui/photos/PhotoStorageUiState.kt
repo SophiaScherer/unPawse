@@ -19,6 +19,13 @@ data class PhotoStorageUiState(
 
     val hasPhotos: Boolean get() = photoCount > 0
 
+    /**
+     * Whether "Delete all photos" has anything to do. Gated on bytes as well as the count: a file
+     * can outlive its row, and a user looking at "0 photos · 93 KB" with a dead button has no way
+     * to reclaim that space.
+     */
+    val canDeleteAll: Boolean get() = photoCount > 0 || storageBytes > 0
+
     companion object {
         /** Preview-only fixture. */
         fun sample() = PhotoStorageUiState(

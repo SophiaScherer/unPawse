@@ -34,10 +34,25 @@ class PhotoStorageUiStateTest {
         )
     }
 
-    /** "Delete all photos" must not be tappable with nothing to delete. */
     @Test
-    fun `hasPhotos gates the destructive row`() {
+    fun `hasPhotos tracks the count`() {
         assertFalse(PhotoStorageUiState(photoCount = 0).hasPhotos)
         assertTrue(PhotoStorageUiState(photoCount = 1).hasPhotos)
+    }
+
+    /** "Delete all photos" must not be tappable with nothing at all to delete. */
+    @Test
+    fun `the destructive row is dead only when there is truly nothing to remove`() {
+        assertFalse(PhotoStorageUiState(photoCount = 0, storageBytes = 0).canDeleteAll)
+        assertTrue(PhotoStorageUiState(photoCount = 1, storageBytes = 1_024).canDeleteAll)
+    }
+
+    /**
+     * Files can outlive their rows. Gating purely on the count would leave a user staring at
+     * "0 photos · 93 KB" with no way to reclaim it.
+     */
+    @Test
+    fun `leftover files with no rows can still be cleared`() {
+        assertTrue(PhotoStorageUiState(photoCount = 0, storageBytes = 95_130).canDeleteAll)
     }
 }

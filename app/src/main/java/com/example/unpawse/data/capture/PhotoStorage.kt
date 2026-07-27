@@ -41,6 +41,17 @@ class PhotoStorage(private val baseDir: File) {
         dir.listFiles()?.sumOf { it.length() } ?: 0L
     }
 
+    /**
+     * Removes every stored JPEG, including any left without a database row.
+     *
+     * Orphans are possible: a crash between writing the file and inserting its row leaves one, and
+     * a destructive Room migration drops the rows for all of them. Deleting only what the database
+     * knows about would leave "Delete all photos" reporting freed space that is still occupied.
+     */
+    suspend fun deleteAll() {
+        withContext(Dispatchers.IO) { dir.listFiles()?.forEach { runCatching { it.delete() } } }
+    }
+
     private companion object {
         const val CAPTURES_DIR = "captures"
     }
