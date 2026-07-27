@@ -62,6 +62,12 @@ class UsageRepository(
     suspend fun removeMonitoredApp(packageName: String) =
         dao.removeMonitoredApp(packageName)
 
+    /** Drops the entire screen-time history and every monitored app. Used only by the full reset. */
+    suspend fun clearAll() {
+        dao.clearUsage()
+        dao.clearMonitoredApps()
+    }
+
     /** Accrues foreground time against today's budget (called by the foreground monitor). */
     suspend fun addUsage(packageName: String, duration: Duration) =
         dao.addUsage(packageName, todayKey(), duration.inWholeSeconds)

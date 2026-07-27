@@ -53,7 +53,6 @@ object SettingsRowIds {
     const val WARNING = "warning"
     const val MANAGE_PHOTOS = "manage_photos"
     const val EXPORT = "export"
-    const val DELETE_HISTORY = "delete_history"
 
     /** Opens the in-app policy at [Routes.PRIVACY_POLICY]. */
     const val PRIVACY_POLICY = "privacy_policy_row"

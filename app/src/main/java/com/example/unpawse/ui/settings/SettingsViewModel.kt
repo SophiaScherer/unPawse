@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.BuildConfig
 import com.example.unpawse.appContainer
+import com.example.unpawse.data.ResetRepository
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.export.ExportRepository
 import com.example.unpawse.data.settings.SettingsRepository
@@ -37,6 +38,7 @@ class SettingsViewModel(
     usageRepository: UsageRepository,
     captureRepository: CaptureRepository,
     private val exportRepository: ExportRepository,
+    private val resetRepository: ResetRepository,
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
     versionName: String,
@@ -143,6 +145,16 @@ class SettingsViewModel(
     /** Default filename offered by the picker. */
     fun exportFileName(): String = ExportRepository.defaultFileName(LocalDate.now())
 
+    /**
+     * Erases every store. The caller is expected to have confirmed first, and to leave Settings
+     * afterwards — the screen it returns to would otherwise be rendering data that no longer exists.
+     */
+    fun eraseEverything(onFinished: () -> Unit) = viewModelScope.launch {
+        resetRepository.eraseEverything()
+        _messages.send("All data deleted")
+        onFinished()
+    }
+
     /** Trimmed so trailing spaces don't produce a blank-looking name that still counts as "set". */
     fun setUserName(value: String) = viewModelScope.launch { settings.setUserName(value.trim()) }
 
@@ -158,6 +170,7 @@ class SettingsViewModel(
                     usageRepository = container.usageRepository,
                     captureRepository = container.captureRepository,
                     exportRepository = container.exportRepository,
+                    resetRepository = container.resetRepository,
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
                     versionName = BuildConfig.VERSION_NAME,

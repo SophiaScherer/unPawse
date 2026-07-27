@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.Chevron
+import com.example.unpawse.ui.components.ConfirmDialog
 import com.example.unpawse.ui.components.InitialsAvatar
 import com.example.unpawse.ui.components.OptionPickerDialog
 import com.example.unpawse.ui.components.SectionLabel
@@ -65,6 +66,7 @@ fun SettingsScreen(
     onEarnedMinutesChange: (Int) -> Unit = {},
     onToggleDailySummary: (Boolean) -> Unit = {},
     onThemeModeChange: (ThemeMode) -> Unit = {},
+    onEraseEverything: () -> Unit = {},
     onNameChange: (String) -> Unit = {},
     onRowClick: (String) -> Unit = {},
 ) {
@@ -78,6 +80,23 @@ fun SettingsScreen(
                 showNameDialog = false
             },
             onDismiss = { showNameDialog = false },
+        )
+    }
+
+    // The one action in the app that cannot be undone; the message enumerates what goes rather than
+    // asking a bare "are you sure?".
+    var showEraseDialog by remember { mutableStateOf(false) }
+    if (showEraseDialog) {
+        ConfirmDialog(
+            title = "Delete everything?",
+            message = "This removes your screen-time history, your app limits, every cat photo " +
+                "(favourites included) and all your settings. unPawse goes back to how it was on " +
+                "the day you installed it.\n\n" +
+                "Export your data first if you want to keep a copy. This cannot be undone.",
+            confirmLabel = "Delete everything",
+            destructive = true,
+            onConfirm = onEraseEverything,
+            onDismiss = { showEraseDialog = false },
         )
     }
 
@@ -237,10 +256,13 @@ fun SettingsScreen(
                     onClick = { onRowClick(SettingsRowIds.EXPORT) }, trailing = { Chevron() },
                 )
                 SettingsRow(
-                    title = "Delete history", leadingIcon = Icons.Filled.DeleteOutline,
+                    title = "Delete all data",
+                    subtitle = "History, limits, photos and settings",
+                    leadingIcon = Icons.Filled.DeleteOutline,
                     iconTint = MaterialTheme.colorScheme.error,
+                    iconBackground = MaterialTheme.colorScheme.errorContainer,
                     titleColor = MaterialTheme.colorScheme.error,
-                    onClick = { onRowClick(SettingsRowIds.DELETE_HISTORY) },
+                    onClick = { showEraseDialog = true },
                 )
             }
         }

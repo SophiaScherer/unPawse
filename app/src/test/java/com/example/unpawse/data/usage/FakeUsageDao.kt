@@ -32,6 +32,14 @@ internal class FakeUsageDao : UsageDao() {
         apps.remove(packageName)
     }
 
+    override suspend fun clearMonitoredApps() {
+        apps.clear()
+    }
+
+    override suspend fun clearUsage() {
+        usage.clear()
+    }
+
     override fun observeUsageForDate(date: String): Flow<List<DailyUsageEntity>> =
         flowOf(usage.values.filter { it.date == date })
 

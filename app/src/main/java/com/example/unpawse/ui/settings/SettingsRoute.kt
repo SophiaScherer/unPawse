@@ -71,6 +71,9 @@ fun SettingsRoute(
         onToggleDailySummary = viewModel::setDailySummary,
         onSensitivityChange = viewModel::setSensitivity,
         onEarnedMinutesChange = viewModel::setEarnedMinutesPerCat,
+        // Leave Settings once the wipe lands: staying would show a screen still rendering the data
+        // that was just deleted.
+        onEraseEverything = { viewModel.eraseEverything(onFinished = onBack) },
         onNameChange = viewModel::setUserName,
         onRowClick = { rowId ->
             when (rowId) {

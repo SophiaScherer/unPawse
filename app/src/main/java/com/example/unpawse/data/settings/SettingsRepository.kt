@@ -80,6 +80,12 @@ class SettingsRepository(context: Context) {
         if (value == null) it.remove(Keys.FOCUS_END_MILLIS) else it[Keys.FOCUS_END_MILLIS] = value
     }
 
+    /**
+     * Drops every stored preference, returning the app to first-launch defaults. Used only by the
+     * full reset in Settings.
+     */
+    suspend fun clearAll() = edit { it.clear() }
+
     private suspend fun edit(transform: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         dataStore.edit(transform)
     }

@@ -44,6 +44,9 @@ interface AppContainer {
 
     /** Gathers every store into one JSON document for Settings → Export data. */
     val exportRepository: ExportRepository
+
+    /** Erases every store for Settings → Delete history. */
+    val resetRepository: ResetRepository
     val foregroundAppMonitor: ForegroundAppMonitor
 
     /**
@@ -118,6 +121,16 @@ class DefaultAppContainer(context: Context) : AppContainer {
             captures = captureRepository,
             contentResolver = appContext.contentResolver,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        )
+    }
+
+    override val resetRepository: ResetRepository by lazy {
+        ResetRepository(
+            usage = usageRepository,
+            captures = captureRepository,
+            focusSession = focusSession,
+            blockSession = blockSession,
+            clearSettings = settingsRepository::clearAll,
         )
     }
 
