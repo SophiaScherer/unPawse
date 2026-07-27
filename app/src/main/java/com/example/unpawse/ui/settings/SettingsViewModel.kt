@@ -19,13 +19,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Backs the (stateless) [SettingsScreen] with persisted values from [SettingsRepository]. Replaces
- * the session-only `rememberSaveable` state that previously lived in the NavHost.
+ * Backs the (stateless) [SettingsScreen] with persisted values from [SettingsRepository]. Wires
+ * flows together only; the shaping lives in the pure [toSettingsUiState].
  *
  * Dark mode is intentionally *not* owned here — it is resolved against the system theme and drives
- * the whole app from `UnPawseApp`, which persists its own override through the same repository. The
- * remaining static labels (daily limit, break duration, confidence, etc.) come from
- * [SettingsUiState.sample] for now; later phases replace them with real data.
+ * the whole app from `UnPawseApp`, which persists its own override through the same repository.
  */
 class SettingsViewModel(
     private val settings: SettingsRepository,
@@ -56,19 +54,25 @@ class SettingsViewModel(
         usageRepository.observeMonitoredApps(),
         permissions,
     ) { values, monitoredApps, permissionState ->
-        SettingsUiState.sample().copy(
+        toSettingsUiState(
+            userName = values.userName,
             sensitivity = values.sensitivity,
             requireLivePhoto = values.requireLivePhoto,
             dailySummaryEnabled = values.dailySummary,
-            userName = values.userName,
-            appLimitsSummary = monitoredAppsSummary(monitoredApps),
+            monitoredApps = monitoredApps,
             usageAccessGranted = permissionState.usageAccess,
             overlayAccessGranted = permissionState.overlayAccess,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-        initialValue = SettingsUiState.sample(),
+        // Shown for the one frame before DataStore's first read lands. The permissions are read
+        // synchronously above, so seed them — otherwise the two access rows flash red "Required"
+        // at a user who has in fact granted them.
+        initialValue = SettingsUiState(
+            usageAccessGranted = permissions.value.usageAccess,
+            overlayAccessGranted = permissions.value.overlayAccess,
+        ),
     )
 
     /** Re-reads both special permissions; call when the screen resumes (e.g. back from Settings). */

@@ -1,29 +1,21 @@
 package com.example.unpawse.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.unpawse.data.SampleData
-import com.example.unpawse.service.OverlayPermission
-import com.example.unpawse.service.UsageAccess
 import com.example.unpawse.ui.apppicker.AppPickerRoute
 import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeRoute
-import com.example.unpawse.ui.settings.SettingsScreen
-import com.example.unpawse.ui.settings.SettingsViewModel
+import com.example.unpawse.ui.settings.SettingsRoute
 import com.example.unpawse.ui.stats.StatsRoute
 
 /**
- * Central navigation graph. Every destination now renders from a real ViewModel via its `XxxRoute`,
+ * Central navigation graph. Every destination renders from a real ViewModel via its `XxxRoute`,
  * except the Block Overlay — which is only reachable here as a design/debug entry (in production the
  * service draws it over the offending app), so it still uses [SampleData].
  *
@@ -66,38 +58,11 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.SETTINGS) {
-            // Persisted settings come from the SettingsViewModel; dark mode is the exception — it
-            // lives in UnPawseApp so it can drive the whole theme, and is overlaid here for display.
-            val context = LocalContext.current
-            val settingsViewModel: SettingsViewModel =
-                viewModel(factory = SettingsViewModel.factory(context))
-            val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
-
-            // The permission chips read state that only changes while the user is away in system
-            // Settings, so re-read it on the way back. Starting the monitor is not this screen's
-            // job — UnPawseApp does it app-wide on every resume.
-            LifecycleResumeEffect(Unit) {
-                settingsViewModel.refreshPermissions()
-                onPauseOrDispose { }
-            }
-
-            SettingsScreen(
-                state = settingsState.copy(darkMode = darkMode),
-                onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
+            SettingsRoute(
+                darkMode = darkMode,
                 onToggleDarkMode = onToggleDarkMode,
-                onToggleLivePhoto = settingsViewModel::setRequireLivePhoto,
-                onToggleDailySummary = settingsViewModel::setDailySummary,
-                onSensitivityChange = settingsViewModel::setSensitivity,
-                onNameChange = settingsViewModel::setUserName,
-                onRowClick = { rowId ->
-                    // Only these rows lead anywhere so far; the rest stay inert.
-                    when (rowId) {
-                        SettingsRowIds.APP_LIMITS -> navController.navigate(Routes.APP_PICKER)
-                        SettingsRowIds.USAGE_ACCESS -> context.startActivity(UsageAccess.settingsIntent(context))
-                        SettingsRowIds.OVERLAY_ACCESS ->
-                            context.startActivity(OverlayPermission.settingsIntent(context))
-                    }
-                },
+                onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
+                onNavigate = navController::navigate,
             )
         }
 

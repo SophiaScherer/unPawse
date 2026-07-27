@@ -29,7 +29,10 @@ object Routes {
     const val APP_PICKER = "app_picker"
 }
 
-/** Row ids emitted by `SettingsScreen.onRowClick`; only the wired ones are listed. */
+/**
+ * Every row id `SettingsScreen.onRowClick` can emit. `SettingsRoute` maps them to a destination or
+ * a system intent; ids marked "not yet handled" are rows whose behaviour a later phase supplies.
+ */
 object SettingsRowIds {
     const val APP_LIMITS = "app_limits"
 
@@ -38,6 +41,17 @@ object SettingsRowIds {
 
     /** Opens system Settings — "display over other apps" is likewise not a runtime permission. */
     const val OVERLAY_ACCESS = "overlay_access"
+
+    // Not yet handled.
+    const val DAILY_LIMIT = "daily_limit"
+    const val BREAK_DURATION = "break_duration"
+    const val CONFIDENCE = "confidence"
+    const val REMINDER = "reminder"
+    const val WARNING = "warning"
+    const val MANAGE_PHOTOS = "manage_photos"
+    const val EXPORT = "export"
+    const val DELETE_HISTORY = "delete_history"
+    const val PRIVACY_POLICY = "privacy_policy"
 }
 
 /**

@@ -1,0 +1,69 @@
+package com.example.unpawse.ui.settings
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.unpawse.service.OverlayPermission
+import com.example.unpawse.service.UsageAccess
+import com.example.unpawse.ui.navigation.Routes
+import com.example.unpawse.ui.navigation.SettingsRowIds
+
+/**
+ * Stateful wrapper for [SettingsScreen] — the `XxxRoute` every other screen already had. Settings
+ * used to be wired inline in the NavHost, which meant its row dispatch grew inside the navigation
+ * graph rather than beside the screen it belongs to.
+ *
+ * Rows that leave the app for system Settings are handled here, since they need only a `Context`.
+ * Rows that go to another destination call [onNavigate] with a [Routes] constant, keeping the
+ * NavHost free of any knowledge about Settings' internals.
+ *
+ * [darkMode] / [onToggleDarkMode] are threaded in from `UnPawseApp`: dark mode drives the whole
+ * theme, so it is owned up there and merely displayed here.
+ */
+@Composable
+fun SettingsRoute(
+    darkMode: Boolean,
+    onToggleDarkMode: (Boolean) -> Unit,
+    onBack: () -> Unit,
+    onNavigate: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(context))
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The permission rows read state that only changes while the user is away in system Settings,
+    // so re-read it on the way back. Starting the monitor is not this screen's job — UnPawseApp
+    // does it app-wide on every resume.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshPermissions()
+        onPauseOrDispose { }
+    }
+
+    SettingsScreen(
+        state = state.copy(darkMode = darkMode),
+        modifier = modifier,
+        onBack = onBack,
+        onToggleDarkMode = onToggleDarkMode,
+        onToggleLivePhoto = viewModel::setRequireLivePhoto,
+        onToggleDailySummary = viewModel::setDailySummary,
+        onSensitivityChange = viewModel::setSensitivity,
+        onNameChange = viewModel::setUserName,
+        onRowClick = { rowId ->
+            when (rowId) {
+                SettingsRowIds.APP_LIMITS -> onNavigate(Routes.APP_PICKER)
+                SettingsRowIds.USAGE_ACCESS ->
+                    context.startActivity(UsageAccess.settingsIntent(context))
+                SettingsRowIds.OVERLAY_ACCESS ->
+                    context.startActivity(OverlayPermission.settingsIntent(context))
+                // Rows still being built out. Explicit so an unhandled id is a visible gap here
+                // rather than a `when` that silently falls through.
+                else -> Unit
+            }
+        },
+    )
+}

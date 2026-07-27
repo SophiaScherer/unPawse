@@ -1,8 +1,6 @@
 package com.example.unpawse.ui.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,12 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.LightMode
@@ -48,15 +44,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.ui.components.Chevron
+import com.example.unpawse.ui.components.IconTile
 import com.example.unpawse.ui.components.InitialsAvatar
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
 import com.example.unpawse.ui.components.SettingsRow
+import com.example.unpawse.ui.components.ValueText
+import com.example.unpawse.ui.navigation.SettingsRowIds
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 
@@ -135,7 +133,7 @@ fun SettingsScreen(
                     } else {
                         MaterialTheme.colorScheme.errorContainer
                     },
-                    onClick = { onRowClick("usage_access") },
+                    onClick = { onRowClick(SettingsRowIds.USAGE_ACCESS) },
                     trailing = { Chevron() },
                 )
                 SettingsRow(
@@ -156,7 +154,7 @@ fun SettingsScreen(
                     } else {
                         MaterialTheme.colorScheme.errorContainer
                     },
-                    onClick = { onRowClick("overlay_access") },
+                    onClick = { onRowClick(SettingsRowIds.OVERLAY_ACCESS) },
                     trailing = { Chevron() },
                 )
                 SettingsRow(
@@ -164,21 +162,21 @@ fun SettingsScreen(
                     leadingIcon = Icons.Filled.Timer,
                     iconTint = MaterialTheme.colorScheme.primary,
                     iconBackground = MaterialTheme.colorScheme.primaryContainer,
-                    onClick = { onRowClick("daily_limit") }, trailing = { Chevron() },
+                    onClick = { onRowClick(SettingsRowIds.DAILY_LIMIT) }, trailing = { Chevron() },
                 )
                 SettingsRow(
                     title = "Individual app limits", subtitle = state.appLimitsSummary,
                     leadingIcon = Icons.Filled.Apps,
                     iconTint = MaterialTheme.colorScheme.secondary,
                     iconBackground = MaterialTheme.colorScheme.secondaryContainer,
-                    onClick = { onRowClick("app_limits") }, trailing = { Chevron() },
+                    onClick = { onRowClick(SettingsRowIds.APP_LIMITS) }, trailing = { Chevron() },
                 )
                 SettingsRow(
                     title = "Break duration", subtitle = state.breakDurationLabel,
                     leadingIcon = Icons.Filled.LocalCafe,
                     iconTint = MaterialTheme.colorScheme.tertiary,
                     iconBackground = MaterialTheme.colorScheme.tertiaryContainer,
-                    onClick = { onRowClick("break_duration") }, trailing = { Chevron() },
+                    onClick = { onRowClick(SettingsRowIds.BREAK_DURATION) }, trailing = { Chevron() },
                 )
             }
         }
@@ -212,7 +210,7 @@ fun SettingsScreen(
                 SettingsRow(
                     title = "Confidence threshold", subtitle = state.confidenceLabel,
                     leadingIcon = Icons.Filled.Psychology,
-                    onClick = { onRowClick("confidence") }, trailing = { Chevron() },
+                    onClick = { onRowClick(SettingsRowIds.CONFIDENCE) }, trailing = { Chevron() },
                 )
             }
         }
@@ -222,11 +220,13 @@ fun SettingsScreen(
             SettingsGroup {
                 SettingsRow(
                     title = "Reminder frequency", leadingIcon = Icons.Filled.NotificationsActive,
-                    onClick = { onRowClick("reminder") }, trailing = { ValueText(state.reminderFrequency) },
+                    onClick = { onRowClick(SettingsRowIds.REMINDER) },
+                    trailing = { ValueText(state.reminderFrequency) },
                 )
                 SettingsRow(
                     title = "Warning before lock", leadingIcon = Icons.Filled.Warning,
-                    onClick = { onRowClick("warning") }, trailing = { ValueText(state.warningBeforeLock) },
+                    onClick = { onRowClick(SettingsRowIds.WARNING) },
+                    trailing = { ValueText(state.warningBeforeLock) },
                 )
                 SettingsRow(
                     title = "Daily summary", leadingIcon = Icons.Filled.Summarize,
@@ -240,17 +240,17 @@ fun SettingsScreen(
             SettingsGroup {
                 SettingsRow(
                     title = "Manage photos", leadingIcon = Icons.Filled.PhotoLibrary,
-                    onClick = { onRowClick("manage_photos") }, trailing = { Chevron() },
+                    onClick = { onRowClick(SettingsRowIds.MANAGE_PHOTOS) }, trailing = { Chevron() },
                 )
                 SettingsRow(
                     title = "Export data", leadingIcon = Icons.Filled.Download,
-                    onClick = { onRowClick("export") }, trailing = { Chevron() },
+                    onClick = { onRowClick(SettingsRowIds.EXPORT) }, trailing = { Chevron() },
                 )
                 SettingsRow(
                     title = "Delete history", leadingIcon = Icons.Filled.DeleteOutline,
                     iconTint = MaterialTheme.colorScheme.error,
                     titleColor = MaterialTheme.colorScheme.error,
-                    onClick = { onRowClick("delete_history") },
+                    onClick = { onRowClick(SettingsRowIds.DELETE_HISTORY) },
                 )
             }
         }
@@ -271,7 +271,7 @@ fun SettingsScreen(
                 SettingsRow(title = "Version", trailing = { ValueText(state.versionLabel) })
                 SettingsRow(
                     title = "Privacy Policy",
-                    onClick = { onRowClick("privacy_policy") },
+                    onClick = { onRowClick(SettingsRowIds.PRIVACY_POLICY) },
                     trailing = {
                         Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
@@ -327,30 +327,6 @@ private fun NameEditDialog(
         confirmButton = { TextButton(onClick = { onConfirm(text) }) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
-}
-
-@Composable
-private fun Chevron() {
-    Icon(Icons.Filled.ChevronRight, contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-}
-
-@Composable
-private fun ValueText(text: String) {
-    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-}
-
-@Composable
-private fun IconTile(icon: ImageVector) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-    }
 }
 
 /** Interactive preview body: the toggles/slider actually respond so the controls can be eyeballed. */

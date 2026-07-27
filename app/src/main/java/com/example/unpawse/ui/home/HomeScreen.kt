@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.ActivityTimeline
 import com.example.unpawse.ui.components.CatPhotoPlaceholder
+import com.example.unpawse.ui.components.IconTile
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ProgressRing
 import com.example.unpawse.ui.components.ScreenHeader
@@ -169,7 +170,12 @@ private fun FocusCard(
 ) {
     // Inactive: tapping the card starts a session. Active: it shows the countdown + a Stop button.
     PawCard(modifier = modifier, onClick = if (focus.active) null else onStart) {
-        IconTile(Icons.Filled.Timer, MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.secondaryContainer)
+        IconTile(
+            icon = Icons.Filled.Timer,
+            tint = MaterialTheme.colorScheme.secondary,
+            background = MaterialTheme.colorScheme.secondaryContainer,
+            shape = CircleShape,
+        )
         Spacer(Modifier.height(12.dp))
         Text("Focus", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (focus.active) {
@@ -228,7 +234,12 @@ private fun FocusDurationDialog(onSelect: (Int) -> Unit, onDismiss: () -> Unit) 
 private fun PauseProtectionCard(appsActive: Int, modifier: Modifier = Modifier) {
     // Informational only: it reports how many apps are actively protected; it is not a control.
     PawCard(modifier = modifier) {
-        IconTile(Icons.Filled.Shield, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
+        IconTile(
+            icon = Icons.Filled.Shield,
+            tint = MaterialTheme.colorScheme.primary,
+            background = MaterialTheme.colorScheme.primaryContainer,
+            shape = CircleShape,
+        )
         Spacer(Modifier.height(12.dp))
         Text("Pause Protection", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(4.dp))
@@ -246,19 +257,6 @@ private fun PauseProtectionCard(appsActive: Int, modifier: Modifier = Modifier) 
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
-    }
-}
-
-@Composable
-private fun IconTile(icon: ImageVector, tint: Color, background: Color) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(background),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 

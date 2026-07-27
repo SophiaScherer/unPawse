@@ -1,16 +1,12 @@
 package com.example.unpawse.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,20 +61,7 @@ fun SettingsRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leadingIcon != null) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(iconBackground),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = leadingIcon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+            IconTile(icon = leadingIcon, tint = iconTint, background = iconBackground)
             Spacer(Modifier.width(16.dp))
         }
 
