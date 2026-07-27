@@ -1,6 +1,7 @@
 package com.example.unpawse.data.capture
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
@@ -58,4 +59,20 @@ class CaptureRepository(
     suspend fun purgeExpired(cutoffMillis: Long) {
         dao.findExpired(cutoffMillis).forEach { deleteCapture(it.toDomain()) }
     }
+
+    /**
+     * Deletes every capture, favorites included — the user asked for all of them, and a "delete all"
+     * that quietly spared some photos would misreport what it did. Goes through [deleteCapture] so
+     * rows and JPEGs come away together.
+     */
+    suspend fun deleteAllCaptures() {
+        dao.observeAll().first().forEach { deleteCapture(it.toDomain()) }
+    }
+
+    /**
+     * Bytes the stored JPEGs occupy, re-measured whenever the library changes. Driven off the
+     * capture stream because size can only be measured, not derived from the row count — a save, a
+     * delete or a purge all move it.
+     */
+    fun observeStorageBytes(): Flow<Long> = dao.observeAll().map { photoStorage.totalBytes() }
 }

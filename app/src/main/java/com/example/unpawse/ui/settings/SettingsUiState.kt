@@ -25,6 +25,8 @@ data class SettingsUiState(
     val dailySummaryEnabled: Boolean = SettingsRepository.DEFAULT_DAILY_SUMMARY,
     /** Minutes one verified cat buys back; drives the reward loop. */
     val earnedMinutesPerCat: Int = SettingsRepository.DEFAULT_EARNED_MINUTES_PER_CAT,
+    /** Size of the cat-photo library, e.g. "142 photos · 38.4 MB". */
+    val photosSummary: String = "No photos yet",
     /** Owned by `UnPawseApp` (it drives the whole theme) and overlaid onto this state for display. */
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
 
@@ -49,6 +51,7 @@ data class SettingsUiState(
             overlayAccessGranted = true,
             sensitivity = 0.65f,
             dailySummaryEnabled = false,
+            photosSummary = "142 photos · 38.4 MB",
             themeMode = themeMode,
             versionLabel = "1.0 (1)",
         )

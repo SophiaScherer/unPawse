@@ -58,6 +58,7 @@ fun SettingsRoute(
             when (rowId) {
                 SettingsRowIds.APP_LIMITS -> onNavigate(Routes.APP_PICKER)
                 SettingsRowIds.PRIVACY_POLICY -> onNavigate(Routes.PRIVACY_POLICY)
+                SettingsRowIds.MANAGE_PHOTOS -> onNavigate(Routes.PHOTO_STORAGE)
                 SettingsRowIds.USAGE_ACCESS ->
                     context.startActivity(UsageAccess.settingsIntent(context))
                 SettingsRowIds.OVERLAY_ACCESS ->

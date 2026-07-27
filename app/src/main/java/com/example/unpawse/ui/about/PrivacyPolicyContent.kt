@@ -56,12 +56,15 @@ val privacyPolicySections: List<PolicySection> = listOf(
     ),
     PolicySection(
         heading = "How long photos are kept",
-        body = "Cat photos are removed automatically after 30 days. Anything you have marked as a " +
-            "favourite is kept until you delete it yourself.",
+        body = "Cat photos are removed automatically once they pass the window you choose under " +
+            "Settings › Manage photos — 30 days by default, or never if you prefer. Anything you " +
+            "have marked as a favourite is kept until you delete it yourself.",
     ),
     PolicySection(
         heading = "Deleting your data",
-        body = "You can delete any photo from the Gallery. Uninstalling unPawse removes " +
-            "everything it stored — photos, screen-time history and preferences — from your device.",
+        body = "You can delete any single photo from the Gallery, or all of them at once under " +
+            "Settings › Manage photos.\n\n" +
+            "Uninstalling unPawse removes everything it stored — photos, screen-time history and " +
+            "preferences — from your device.",
     ),
 )

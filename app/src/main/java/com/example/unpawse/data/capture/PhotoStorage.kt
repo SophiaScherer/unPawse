@@ -32,6 +32,15 @@ class PhotoStorage(private val baseDir: File) {
         withContext(Dispatchers.IO) { runCatching { File(path).delete() } }
     }
 
+    /**
+     * Total bytes the stored JPEGs occupy, for the Photo storage screen. Reads the directory rather
+     * than summing anything recorded in the database, so it reflects what is really on disk even if
+     * a file and its row ever disagree.
+     */
+    suspend fun totalBytes(): Long = withContext(Dispatchers.IO) {
+        dir.listFiles()?.sumOf { it.length() } ?: 0L
+    }
+
     private companion object {
         const val CAPTURES_DIR = "captures"
     }

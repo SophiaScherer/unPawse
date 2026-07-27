@@ -30,6 +30,9 @@ object Routes {
 
     /** Settings sub-screen: the in-app privacy policy. */
     const val PRIVACY_POLICY = "privacy_policy"
+
+    /** Settings sub-screen: cat-photo library size, retention window and bulk delete. */
+    const val PHOTO_STORAGE = "photo_storage"
 }
 
 /**

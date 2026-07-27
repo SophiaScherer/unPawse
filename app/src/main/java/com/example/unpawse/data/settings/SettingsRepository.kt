@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.unpawse.data.capture.CaptureRetention
 import com.example.unpawse.service.BONUS_MINUTES_PER_CAT
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -40,6 +41,13 @@ class SettingsRepository(context: Context) {
     val earnedMinutesPerCat: Flow<Int> =
         dataStore.data.map { it[Keys.EARNED_MINUTES_PER_CAT] ?: DEFAULT_EARNED_MINUTES_PER_CAT }
 
+    /**
+     * Days a non-favorite photo is kept before the purge worker removes it;
+     * [CaptureRetention.KEEP_FOREVER] disables the purge.
+     */
+    val retentionDays: Flow<Int> =
+        dataStore.data.map { it[Keys.RETENTION_DAYS] ?: CaptureRetention.DEFAULT_WINDOW_DAYS }
+
     /** The user's display name for the Home greeting/avatar; blank until they set one. */
     val userName: Flow<String> = dataStore.data.map { it[Keys.USER_NAME] ?: DEFAULT_USER_NAME }
 
@@ -63,6 +71,8 @@ class SettingsRepository(context: Context) {
 
     suspend fun setEarnedMinutesPerCat(value: Int) = edit { it[Keys.EARNED_MINUTES_PER_CAT] = value }
 
+    suspend fun setRetentionDays(value: Int) = edit { it[Keys.RETENTION_DAYS] = value }
+
     suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
 
     /** Persists (or, with null, clears) the active focus session's end time. */
@@ -79,6 +89,7 @@ class SettingsRepository(context: Context) {
         val SENSITIVITY = floatPreferencesKey("sensitivity")
         val DAILY_SUMMARY = booleanPreferencesKey("daily_summary")
         val EARNED_MINUTES_PER_CAT = intPreferencesKey("earned_minutes_per_cat")
+        val RETENTION_DAYS = intPreferencesKey("retention_days")
         val USER_NAME = stringPreferencesKey("user_name")
         val FOCUS_END_MILLIS = longPreferencesKey("focus_end_millis")
     }

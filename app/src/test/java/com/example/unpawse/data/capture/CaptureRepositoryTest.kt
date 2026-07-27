@@ -1,5 +1,6 @@
 package com.example.unpawse.data.capture
 
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -71,6 +72,33 @@ class CaptureRepositoryTest {
 
         repo.setFavorite("c", false)
         assertFalse(dao.all().single().isFavorite)
+    }
+
+    /**
+     * Unlike the purge, "Delete all photos" takes favorites too — the confirm dialog says so, and a
+     * bulk delete that quietly spared some photos would misreport what it did.
+     */
+    @Test
+    fun `deleteAllCaptures removes every row and file, favorites included`() = runBlocking {
+        val plain = seed("plain", capturedAt = 1_000)
+        val favorite = seed("fav", capturedAt = 2_000, favorite = true)
+
+        repo.deleteAllCaptures()
+
+        assertTrue(dao.all().isEmpty())
+        assertFalse(File(plain.filePath).exists())
+        assertFalse("delete all means all", File(favorite.filePath).exists())
+    }
+
+    @Test
+    fun `storage size reflects the files actually on disk`() = runBlocking {
+        assertEquals(0L, repo.observeStorageBytes().first())
+
+        seed("a", capturedAt = 1_000)
+        seed("b", capturedAt = 2_000)
+
+        // Each seed writes a 3-byte JPEG.
+        assertEquals(6L, repo.observeStorageBytes().first())
     }
 
     @Test

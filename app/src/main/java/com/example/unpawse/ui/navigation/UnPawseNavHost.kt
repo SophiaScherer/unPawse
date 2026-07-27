@@ -12,6 +12,7 @@ import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeRoute
+import com.example.unpawse.ui.photos.PhotoStorageRoute
 import com.example.unpawse.ui.settings.SettingsRoute
 import com.example.unpawse.ui.stats.StatsRoute
 import com.example.unpawse.ui.theme.ThemeMode
@@ -70,6 +71,10 @@ fun UnPawseNavHost(
 
         composable(Routes.APP_PICKER) {
             AppPickerRoute(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.PHOTO_STORAGE) {
+            PhotoStorageRoute(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.PRIVACY_POLICY) {

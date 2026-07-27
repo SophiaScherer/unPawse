@@ -8,11 +8,13 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRetention
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
- * Prunes the capture library to the rolling retention window ([CaptureRetention.WINDOW_DAYS]):
- * non-favorite photos older than the cutoff are deleted (row + JPEG); favorites are kept forever.
+ * Prunes the capture library to the user's retention window
+ * ([com.example.unpawse.data.settings.SettingsRepository.retentionDays]): non-favorite photos older
+ * than the cutoff are deleted (row + JPEG); favorites are kept forever.
  * Mirrors [MonitorHealthWorker]'s WorkManager pattern — persisted across reboots and idempotently
  * scheduled once per process start.
  */
@@ -22,8 +24,12 @@ class CaptureRetentionWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val cutoff = CaptureRetention.cutoff(System.currentTimeMillis())
-        applicationContext.appContainer().captureRepository.purgeExpired(cutoff)
+        val container = applicationContext.appContainer()
+        // Read the window per run rather than at schedule time, so changing it in Photo storage
+        // takes effect on the next purge instead of needing the job rescheduled.
+        val windowDays = container.settingsRepository.retentionDays.first()
+        val cutoff = CaptureRetention.cutoff(System.currentTimeMillis(), windowDays)
+        container.captureRepository.purgeExpired(cutoff)
         return Result.success()
     }
 

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,10 @@ import java.time.ZoneId
  * applying the user's selected filter chip and search query. Filter/search are held as their own
  * flows and combined with the capture stream so a change re-derives the sections without a re-query.
  */
-class GalleryViewModel(private val repository: CaptureRepository) : ViewModel() {
+class GalleryViewModel(
+    private val repository: CaptureRepository,
+    retentionDays: Flow<Int>,
+) : ViewModel() {
 
     private val selectedFilter = MutableStateFlow(GalleryFilter.ALL)
     private val searchQuery = MutableStateFlow("")
@@ -32,11 +36,12 @@ class GalleryViewModel(private val repository: CaptureRepository) : ViewModel() 
             repository.observeCaptures(),
             selectedFilter,
             searchQuery,
-        ) { captures, filter, query ->
+            retentionDays,
+        ) { captures, filter, query, retention ->
             val zone = ZoneId.systemDefault()
             val today = LocalDate.now(zone)
             val sections = captures
-                .matchingFilter(filter, System.currentTimeMillis())
+                .matchingFilter(filter, System.currentTimeMillis(), retention)
                 .matchingSearch(query, today, zone)
                 .toGallerySections(today, zone)
             GalleryUiState(
@@ -75,7 +80,11 @@ class GalleryViewModel(private val repository: CaptureRepository) : ViewModel() 
         /** Manual-DI factory mirroring CameraViewModel; both share the container's repository. */
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                GalleryViewModel(context.appContainer().captureRepository)
+                val container = context.appContainer()
+                GalleryViewModel(
+                    repository = container.captureRepository,
+                    retentionDays = container.settingsRepository.retentionDays,
+                )
             }
         }
     }

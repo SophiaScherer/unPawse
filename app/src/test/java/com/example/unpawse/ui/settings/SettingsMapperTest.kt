@@ -18,6 +18,8 @@ class SettingsMapperTest {
         sensitivity: Float = 0.65f,
         dailySummaryEnabled: Boolean = false,
         earnedMinutesPerCat: Int = 15,
+        photoCount: Int = 0,
+        photoStorageBytes: Long = 0L,
         monitoredApps: List<MonitoredApp> = emptyList(),
         usageAccessGranted: Boolean = false,
         overlayAccessGranted: Boolean = false,
@@ -27,6 +29,8 @@ class SettingsMapperTest {
         sensitivity = sensitivity,
         dailySummaryEnabled = dailySummaryEnabled,
         earnedMinutesPerCat = earnedMinutesPerCat,
+        photoCount = photoCount,
+        photoStorageBytes = photoStorageBytes,
         monitoredApps = monitoredApps,
         usageAccessGranted = usageAccessGranted,
         overlayAccessGranted = overlayAccessGranted,
@@ -172,6 +176,7 @@ class SettingsMapperTest {
         assertEquals("", ui.userName)
         assertEquals("No apps limited yet", ui.appLimitsSummary)
         assertEquals("No limits set yet", ui.dailyLimitLabel)
+        assertEquals("No photos yet", ui.photosSummary)
         assertFalse(ui.usageAccessGranted)
         assertFalse(ui.overlayAccessGranted)
         assertEquals(ThemeMode.SYSTEM, ui.themeMode)

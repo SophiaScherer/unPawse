@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.BuildConfig
 import com.example.unpawse.appContainer
+import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.OverlayPermission
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val settings: SettingsRepository,
     usageRepository: UsageRepository,
+    captureRepository: CaptureRepository,
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
     versionName: String,
@@ -55,16 +57,26 @@ class SettingsViewModel(
         SettingsValues(sensitivity, dailySummary, userName, earnedMinutes)
     }
 
+    // The photo row's subtitle needs both a count and a measured size; pre-combined like the
+    // settings scalars so the top-level `combine` below stays within its typed arity.
+    private val photoStats = combine(
+        captureRepository.observeCaptures(),
+        captureRepository.observeStorageBytes(),
+    ) { captures, bytes -> PhotoStats(captures.size, bytes) }
+
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsValues,
         usageRepository.observeMonitoredApps(),
         permissions,
-    ) { values, monitoredApps, permissionState ->
+        photoStats,
+    ) { values, monitoredApps, permissionState, photos ->
         toSettingsUiState(
             userName = values.userName,
             sensitivity = values.sensitivity,
             dailySummaryEnabled = values.dailySummary,
             earnedMinutesPerCat = values.earnedMinutesPerCat,
+            photoCount = photos.count,
+            photoStorageBytes = photos.bytes,
             monitoredApps = monitoredApps,
             usageAccessGranted = permissionState.usageAccess,
             overlayAccessGranted = permissionState.overlayAccess,
@@ -91,6 +103,8 @@ class SettingsViewModel(
     private fun readPermissions() = PermissionState(usageAccessGranted(), overlayAccessGranted())
 
     private data class PermissionState(val usageAccess: Boolean, val overlayAccess: Boolean)
+
+    private data class PhotoStats(val count: Int, val bytes: Long)
 
     private data class SettingsValues(
         val sensitivity: Float,
@@ -119,6 +133,7 @@ class SettingsViewModel(
                 SettingsViewModel(
                     settings = container.settingsRepository,
                     usageRepository = container.usageRepository,
+                    captureRepository = container.captureRepository,
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
                     versionName = BuildConfig.VERSION_NAME,

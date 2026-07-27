@@ -27,13 +27,18 @@ internal fun List<Capture>.retainedWithin(cutoffMillis: Long): List<Capture> =
 
 /**
  * Applies the selected chip: [GalleryFilter.THIS_WEEK]/[GalleryFilter.ALL] are age windows keyed off
- * [nowMillis]; [GalleryFilter.FAVORITES] shows starred captures of any age (so older-than-a-month
- * favorites surface only here). Pure and parameterized on [nowMillis] for deterministic tests.
+ * [nowMillis]; [GalleryFilter.FAVORITES] shows starred captures of any age (so favorites older than
+ * the window surface only here). [GalleryFilter.ALL] hides what the purge worker will delete, so it
+ * takes the same user-chosen [retentionDays]. Pure and parameterized for deterministic tests.
  */
-internal fun List<Capture>.matchingFilter(selected: GalleryFilter, nowMillis: Long): List<Capture> =
+internal fun List<Capture>.matchingFilter(
+    selected: GalleryFilter,
+    nowMillis: Long,
+    retentionDays: Int = CaptureRetention.DEFAULT_WINDOW_DAYS,
+): List<Capture> =
     when (selected) {
         GalleryFilter.THIS_WEEK -> retainedWithin(nowMillis - WEEK_MILLIS)
-        GalleryFilter.ALL -> retainedWithin(CaptureRetention.cutoff(nowMillis))
+        GalleryFilter.ALL -> retainedWithin(CaptureRetention.cutoff(nowMillis, retentionDays))
         GalleryFilter.FAVORITES -> filter { it.isFavorite }
     }
 

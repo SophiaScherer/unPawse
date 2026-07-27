@@ -226,7 +226,8 @@ fun SettingsScreen(
             SectionLabel(text = "Privacy", uppercase = true)
             SettingsGroup {
                 SettingsRow(
-                    title = "Manage photos", leadingIcon = Icons.Filled.PhotoLibrary,
+                    title = "Manage photos", subtitle = state.photosSummary,
+                    leadingIcon = Icons.Filled.PhotoLibrary,
                     onClick = { onRowClick(SettingsRowIds.MANAGE_PHOTOS) }, trailing = { Chevron() },
                 )
                 SettingsRow(
