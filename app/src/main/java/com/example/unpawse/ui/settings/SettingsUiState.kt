@@ -36,8 +36,9 @@ data class SettingsUiState(
     val reminderFrequency: String = "Every 30m",
     /** Replaced by the persisted warning threshold. */
     val warningBeforeLock: String = "5 minutes",
-    /** Replaced by the real build's version name/code. */
-    val versionLabel: String = "2.4.1-alpha",
+
+    /** Always supplied by the mapper from `BuildConfig`; blank only in a bare test fixture. */
+    val versionLabel: String = "",
 ) {
     companion object {
         /** Preview-only fixture. Never build production state from this — see the class KDoc. */
@@ -50,6 +51,7 @@ data class SettingsUiState(
             requireLivePhoto = false,
             dailySummaryEnabled = false,
             darkMode = darkMode,
+            versionLabel = "1.0 (1)",
         )
     }
 }

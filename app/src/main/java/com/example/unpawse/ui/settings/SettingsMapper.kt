@@ -25,6 +25,12 @@ internal fun monitoredAppsSummary(apps: List<MonitoredApp>): String {
 }
 
 /**
+ * The About row's version string, e.g. "1.0 (1)". Takes the name and code as parameters rather than
+ * reading `BuildConfig` directly so it stays pure — the ViewModel's factory supplies the real values.
+ */
+internal fun versionLabel(versionName: String, versionCode: Int): String = "$versionName ($versionCode)"
+
+/**
  * Shapes the persisted values and permission state into [SettingsUiState]. Pure and parameterised
  * rather than flow-aware, so the whole screen's data shaping is unit-testable — the ViewModel is
  * left doing nothing but wiring flows together (the convention every other screen follows).
@@ -43,6 +49,7 @@ internal fun toSettingsUiState(
     monitoredApps: List<MonitoredApp>,
     usageAccessGranted: Boolean,
     overlayAccessGranted: Boolean,
+    versionLabel: String,
 ): SettingsUiState = SettingsUiState(
     userName = userName,
     appLimitsSummary = monitoredAppsSummary(monitoredApps),
@@ -51,4 +58,5 @@ internal fun toSettingsUiState(
     sensitivity = sensitivity,
     requireLivePhoto = requireLivePhoto,
     dailySummaryEnabled = dailySummaryEnabled,
+    versionLabel = versionLabel,
 )

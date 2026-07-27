@@ -35,6 +35,9 @@ android {
     }
     buildFeatures {
         compose = true
+        // Generates BuildConfig, which the Settings "Version" row reads so the shipped version can
+        // never drift from defaultConfig above.
+        buildConfig = true
     }
 }
 

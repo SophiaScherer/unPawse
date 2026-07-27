@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.unpawse.BuildConfig
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
@@ -30,7 +31,12 @@ class SettingsViewModel(
     usageRepository: UsageRepository,
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
+    versionName: String,
+    versionCode: Int,
 ) : ViewModel() {
+
+    /** Compile-time constants, so this never changes and is safe to seed the initial state with. */
+    private val version = versionLabel(versionName, versionCode)
 
     /**
      * Both permissions are system-Settings toggles rather than runtime dialogs, so there's nothing
@@ -62,6 +68,7 @@ class SettingsViewModel(
             monitoredApps = monitoredApps,
             usageAccessGranted = permissionState.usageAccess,
             overlayAccessGranted = permissionState.overlayAccess,
+            versionLabel = version,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -72,6 +79,7 @@ class SettingsViewModel(
         initialValue = SettingsUiState(
             usageAccessGranted = permissions.value.usageAccess,
             overlayAccessGranted = permissions.value.overlayAccess,
+            versionLabel = version,
         ),
     )
 
@@ -113,6 +121,8 @@ class SettingsViewModel(
                     usageRepository = container.usageRepository,
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
+                    versionName = BuildConfig.VERSION_NAME,
+                    versionCode = BuildConfig.VERSION_CODE,
                 )
             }
         }

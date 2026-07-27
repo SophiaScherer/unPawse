@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.settings
 
+import com.example.unpawse.BuildConfig
 import com.example.unpawse.data.usage.MonitoredApp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -19,6 +20,7 @@ class SettingsMapperTest {
         monitoredApps: List<MonitoredApp> = emptyList(),
         usageAccessGranted: Boolean = false,
         overlayAccessGranted: Boolean = false,
+        versionLabel: String = "1.0 (1)",
     ) = toSettingsUiState(
         userName = userName,
         sensitivity = sensitivity,
@@ -27,6 +29,7 @@ class SettingsMapperTest {
         monitoredApps = monitoredApps,
         usageAccessGranted = usageAccessGranted,
         overlayAccessGranted = overlayAccessGranted,
+        versionLabel = versionLabel,
     )
 
     @Test
@@ -80,6 +83,24 @@ class SettingsMapperTest {
         assertEquals("Instagram", ui.appLimitsSummary)
         assertTrue(ui.usageAccessGranted)
         assertTrue(ui.overlayAccessGranted)
+    }
+
+    @Test
+    fun `version reads as name and code`() {
+        assertEquals("1.0 (1)", versionLabel("1.0", 1))
+        assertEquals("2.4.1-alpha (37)", versionLabel("2.4.1-alpha", 37))
+    }
+
+    /**
+     * The version row shipped a hardcoded "2.4.1-alpha" while the build said 1.0. Pins that the row
+     * now renders whatever the build reports, with no placeholder left to drift from it again.
+     */
+    @Test
+    fun `version comes from the build, not a placeholder`() {
+        val fromBuild = versionLabel(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+
+        assertEquals(fromBuild, state(versionLabel = fromBuild).versionLabel)
+        assertEquals("", SettingsUiState().versionLabel)
     }
 
     /**
