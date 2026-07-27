@@ -2,6 +2,7 @@ package com.example.unpawse.ui.settings
 
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ml.sensitivityToMinConfidence
+import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.photos.photoStorageSummary
 import kotlin.math.roundToInt
@@ -45,6 +46,13 @@ internal fun dailyLimitSummary(apps: List<MonitoredApp>): String {
     return "$total across $appCount"
 }
 
+/** The "Warning before lock" value, e.g. "5 minutes before" / "Off". */
+internal fun warningLabel(minutes: Int): String = when {
+    minutes <= UsageTracker.WARNING_OFF -> "Off"
+    minutes == 1 -> "1 minute before"
+    else -> "$minutes minutes before"
+}
+
 /** Subtitle for the reward-grant row, e.g. "15m back per verified cat". */
 internal fun earnedTimeSummary(minutesPerCat: Int): String =
     "${formatMinutes(minutesPerCat)} back per verified cat"
@@ -79,6 +87,7 @@ internal fun toSettingsUiState(
     sensitivity: Float,
     dailySummaryEnabled: Boolean,
     earnedMinutesPerCat: Int,
+    warningMinutes: Int,
     photoCount: Int,
     photoStorageBytes: Long,
     monitoredApps: List<MonitoredApp>,
@@ -96,6 +105,8 @@ internal fun toSettingsUiState(
     sensitivity = sensitivity,
     dailySummaryEnabled = dailySummaryEnabled,
     earnedMinutesPerCat = earnedMinutesPerCat,
+    warningMinutes = warningMinutes,
+    warningBeforeLock = warningLabel(warningMinutes),
     photosSummary = photoStorageSummary(photoCount, photoStorageBytes),
     versionLabel = versionLabel,
 )

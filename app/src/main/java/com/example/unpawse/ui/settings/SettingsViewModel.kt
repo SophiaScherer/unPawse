@@ -67,8 +67,9 @@ class SettingsViewModel(
         settings.dailySummaryEnabled,
         settings.userName,
         settings.earnedMinutesPerCat,
-    ) { sensitivity, dailySummary, userName, earnedMinutes ->
-        SettingsValues(sensitivity, dailySummary, userName, earnedMinutes)
+        settings.warningMinutes,
+    ) { sensitivity, dailySummary, userName, earnedMinutes, warningMinutes ->
+        SettingsValues(sensitivity, dailySummary, userName, earnedMinutes, warningMinutes)
     }
 
     // The photo row's subtitle needs both a count and a measured size; pre-combined like the
@@ -89,6 +90,7 @@ class SettingsViewModel(
             sensitivity = values.sensitivity,
             dailySummaryEnabled = values.dailySummary,
             earnedMinutesPerCat = values.earnedMinutesPerCat,
+            warningMinutes = values.warningMinutes,
             photoCount = photos.count,
             photoStorageBytes = photos.bytes,
             monitoredApps = monitoredApps,
@@ -132,6 +134,7 @@ class SettingsViewModel(
         val dailySummary: Boolean,
         val userName: String,
         val earnedMinutesPerCat: Int,
+        val warningMinutes: Int,
     )
 
     fun setSensitivity(value: Float) = viewModelScope.launch { settings.setSensitivity(value) }
@@ -140,6 +143,8 @@ class SettingsViewModel(
 
     fun setEarnedMinutesPerCat(value: Int) =
         viewModelScope.launch { settings.setEarnedMinutesPerCat(value) }
+
+    fun setWarningMinutes(value: Int) = viewModelScope.launch { settings.setWarningMinutes(value) }
 
     /**
      * Writes the data export to the document the user picked, then reports the outcome. A file write

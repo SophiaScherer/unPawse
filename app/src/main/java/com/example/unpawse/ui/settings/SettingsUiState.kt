@@ -29,6 +29,10 @@ data class SettingsUiState(
     val earnedMinutesPerCat: Int = SettingsRepository.DEFAULT_EARNED_MINUTES_PER_CAT,
     /** Size of the cat-photo library, e.g. "142 photos · 38.4 MB". */
     val photosSummary: String = "No photos yet",
+    /** Minutes of remaining budget at which to warn; 0 is off. */
+    val warningMinutes: Int = SettingsRepository.DEFAULT_WARNING_MINUTES,
+    /** Display form of [warningMinutes], e.g. "5 minutes before". */
+    val warningBeforeLock: String = "5 minutes before",
     /** Owned by `UnPawseApp` (it drives the whole theme) and overlaid onto this state for display. */
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
 
@@ -37,8 +41,6 @@ data class SettingsUiState(
     // deleting a placeholder is a compile-time-visible change rather than a silent one.
     /** Replaced by the persisted reminder interval. */
     val reminderFrequency: String = "Every 30m",
-    /** Replaced by the persisted warning threshold. */
-    val warningBeforeLock: String = "5 minutes",
 
     /** Always supplied by the mapper from `BuildConfig`; blank only in a bare test fixture. */
     val versionLabel: String = "",

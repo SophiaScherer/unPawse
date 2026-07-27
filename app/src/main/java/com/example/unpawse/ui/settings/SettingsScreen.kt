@@ -43,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.Chevron
 import com.example.unpawse.ui.components.ConfirmDialog
@@ -64,6 +66,7 @@ fun SettingsScreen(
     onBack: () -> Unit = {},
     onSensitivityChange: (Float) -> Unit = {},
     onEarnedMinutesChange: (Int) -> Unit = {},
+    onWarningMinutesChange: (Int) -> Unit = {},
     onToggleDailySummary: (Boolean) -> Unit = {},
     onThemeModeChange: (ThemeMode) -> Unit = {},
     onEraseEverything: () -> Unit = {},
@@ -97,6 +100,22 @@ fun SettingsScreen(
             destructive = true,
             onConfirm = onEraseEverything,
             onDismiss = { showEraseDialog = false },
+        )
+    }
+
+    var showWarningDialog by remember { mutableStateOf(false) }
+    if (showWarningDialog) {
+        OptionPickerDialog(
+            title = "Warning before lock",
+            options = SettingsRepository.WARNING_MINUTE_CHOICES,
+            selected = state.warningMinutes,
+            onSelect = onWarningMinutesChange,
+            onDismiss = { showWarningDialog = false },
+            label = { warningLabel(it) },
+            supporting = { minutes ->
+                "No warning — the block is the first you hear of it"
+                    .takeIf { minutes <= UsageTracker.WARNING_OFF }
+            },
         )
     }
 
@@ -254,9 +273,11 @@ fun SettingsScreen(
                     trailing = { ValueText(state.reminderFrequency) },
                 )
                 SettingsRow(
-                    title = "Warning before lock", leadingIcon = Icons.Filled.Warning,
+                    title = "Warning before lock",
+                    subtitle = "A heads-up before an app runs out",
+                    leadingIcon = Icons.Filled.Warning,
                     enabled = state.notificationsGranted,
-                    onClick = { onRowClick(SettingsRowIds.WARNING) },
+                    onClick = { showWarningDialog = true },
                     trailing = { ValueText(state.warningBeforeLock) },
                 )
                 SettingsRow(

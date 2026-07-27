@@ -86,6 +86,13 @@ interface AppContainer {
      * so a change applies to the next capture without rebuilding anything.
      */
     val earnedMinutesPerCat: StateFlow<Int>
+
+    /**
+     * Minutes of remaining budget at which to warn before a block. Held app-wide for the same
+     * reason as the two above: [UsageTracker] reads `.value` on each tick and stays free of
+     * DataStore.
+     */
+    val warningMinutes: StateFlow<Int>
 }
 
 /** Production [AppContainer]; builds every dependency lazily off the singleton Room database. */
@@ -139,7 +146,12 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val usageTracker: UsageTracker by lazy {
-        UsageTracker(usageRepository, foregroundAppMonitor, focusSession = focusSession)
+        UsageTracker(
+            usageRepository,
+            foregroundAppMonitor,
+            focusSession = focusSession,
+            warningMinutes = { warningMinutes.value },
+        )
     }
 
     override val blockOverlayController: BlockOverlayController by lazy {
@@ -168,5 +180,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val earnedMinutesPerCat: StateFlow<Int> by lazy {
         settingsRepository.earnedMinutesPerCat
             .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_EARNED_MINUTES_PER_CAT)
+    }
+
+    override val warningMinutes: StateFlow<Int> by lazy {
+        settingsRepository.warningMinutes
+            .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_WARNING_MINUTES)
     }
 }

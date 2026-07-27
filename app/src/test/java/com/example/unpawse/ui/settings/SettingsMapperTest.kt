@@ -18,6 +18,7 @@ class SettingsMapperTest {
         sensitivity: Float = 0.65f,
         dailySummaryEnabled: Boolean = false,
         earnedMinutesPerCat: Int = 15,
+        warningMinutes: Int = 5,
         photoCount: Int = 0,
         photoStorageBytes: Long = 0L,
         monitoredApps: List<MonitoredApp> = emptyList(),
@@ -30,6 +31,7 @@ class SettingsMapperTest {
         sensitivity = sensitivity,
         dailySummaryEnabled = dailySummaryEnabled,
         earnedMinutesPerCat = earnedMinutesPerCat,
+        warningMinutes = warningMinutes,
         photoCount = photoCount,
         photoStorageBytes = photoStorageBytes,
         monitoredApps = monitoredApps,
@@ -131,6 +133,13 @@ class SettingsMapperTest {
         )
 
         assertEquals("45m across 1 app", dailyLimitSummary(apps))
+    }
+
+    @Test
+    fun `the warning threshold reads as a countdown, and off when disabled`() {
+        assertEquals("Off", warningLabel(0))
+        assertEquals("1 minute before", warningLabel(1))
+        assertEquals("5 minutes before", warningLabel(5))
     }
 
     @Test

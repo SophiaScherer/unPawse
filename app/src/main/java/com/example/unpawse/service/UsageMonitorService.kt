@@ -47,6 +47,7 @@ class UsageMonitorService : Service() {
             val tracker = appContainer().usageTracker
             trackerJob = scope.launch {
                 launch { observeBlockRequired() }
+                launch { observeWarningRequired() }
                 launch { dismissBlockWhenUserLeaves() }
                 launch { runFocusSessionLifecycle() }
                 runCatching { tracker.run() }
@@ -61,6 +62,24 @@ class UsageMonitorService : Service() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * Notifies the user shortly before an app runs out of budget. Deliberately a notification and
+     * not an overlay: the point is to give warning without interrupting, so it can be ignored.
+     */
+    private suspend fun observeWarningRequired() {
+        val container = appContainer()
+        container.usageTracker.warningRequired.collect { event ->
+            val label = container.usageRepository.appLabel(event.packageName) ?: event.packageName
+            Notifications.post(
+                context = this,
+                channelId = Notifications.CHANNEL_ALERTS,
+                id = Notifications.ID_WARNING,
+                title = "$label is nearly up",
+                text = warningText(label, event.remainingMinutes),
+            )
+        }
     }
 
     /**
@@ -195,6 +214,20 @@ class UsageMonitorService : Service() {
         private const val TAG = "UsageMonitorService"
         private const val NOTIFICATION_ID = Notifications.ID_MONITORING
     }
+}
+
+/**
+ * Warning copy, e.g. "5 minutes of Instagram left today. Photograph a cat to earn more." Pure, so
+ * the singular/plural and the wording are unit-tested.
+ */
+internal fun warningText(appLabel: String, remainingMinutes: Int): String {
+    // Remaining minutes are floored, so 0 means "under a minute" rather than "none".
+    val left = when (remainingMinutes) {
+        0 -> "Less than a minute"
+        1 -> "1 minute"
+        else -> "$remainingMinutes minutes"
+    }
+    return "$left of $appLabel left today. Photograph a cat to earn more."
 }
 
 /**

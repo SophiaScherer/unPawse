@@ -22,8 +22,22 @@ class UsageTracker(
     private val monitor: ForegroundAppMonitor,
     private val now: () -> Long = System::currentTimeMillis,
     private val focusSession: FocusSession = FocusSession(),
+    /**
+     * Minutes of remaining budget at which to warn, or 0 for off. A lambda so the setting is read
+     * fresh each tick, keeping DataStore out of the tracker (see `AppContainer.warningMinutes`).
+     */
+    private val warningMinutes: () -> Int = { 0 },
 ) {
     private val _blockRequired = MutableSharedFlow<BlockEvent>(extraBufferCapacity = EVENT_BUFFER)
+
+    private val _warningRequired = MutableSharedFlow<WarningEvent>(extraBufferCapacity = EVENT_BUFFER)
+
+    /**
+     * Apps about to run out of budget. Fires once as an app crosses the threshold, and re-arms only
+     * when it climbs back above it — never on an app switch, unlike [blockRequired]. A block must
+     * reappear every time the user returns to the app; a warning said twice is just nagging.
+     */
+    val warningRequired: SharedFlow<WarningEvent> = _warningRequired.asSharedFlow()
 
     /**
      * Apps that must be blocked right now, with *why* (daily limit vs. focus session). Fires once per
@@ -50,6 +64,9 @@ class UsageTracker(
         // The app we've already signalled a breach for, so the overlay isn't re-triggered every
         // second while the user sits on a blocked app.
         var signalledFor: String? = null
+        // Apps already warned about. A set, not a single slot: two apps can each be near their
+        // limit, and warning about one must not re-arm the other.
+        val warnedFor = mutableSetOf<String>()
 
         monitor.foregroundApp().collect { currentPackage ->
             _foregroundApp.value = currentPackage
@@ -71,9 +88,12 @@ class UsageTracker(
                         _blockRequired.emit(BlockEvent(attributedTo, reason))
                         signalledFor = attributedTo
                     }
-                } else if (signalledFor == attributedTo) {
-                    // Back under budget (e.g. bonus minutes earned) — allow a fresh signal later.
-                    signalledFor = null
+                } else {
+                    if (signalledFor == attributedTo) {
+                        // Back under budget (e.g. bonus minutes earned) — allow a fresh signal later.
+                        signalledFor = null
+                    }
+                    maybeWarn(attributedTo, warnedFor)
                 }
             }
 
@@ -85,8 +105,33 @@ class UsageTracker(
         }
     }
 
+    /**
+     * Emits a warning the first time [packageName] drops to the configured threshold or below.
+     *
+     * Only ever called from the not-yet-blocked branch, so a remaining count of zero still means
+     * there is time left — [UsageRepository.remainingMinutes] floors, so anything under a minute
+     * reads as 0. That is the most urgent moment to warn, not one to skip.
+     */
+    private suspend fun maybeWarn(packageName: String, warnedFor: MutableSet<String>) {
+        val threshold = warningMinutes()
+        if (threshold <= WARNING_OFF) return
+
+        val remaining = usageRepository.remainingMinutes(packageName) ?: return
+        if (remaining <= threshold) {
+            if (warnedFor.add(packageName)) {
+                _warningRequired.emit(WarningEvent(packageName, remaining))
+            }
+        } else {
+            // Climbed back above the line — a later approach deserves a fresh warning.
+            warnedFor.remove(packageName)
+        }
+    }
+
     companion object {
         private const val EVENT_BUFFER = 8
+
+        /** A threshold of zero means the user turned warnings off. */
+        const val WARNING_OFF = 0
 
         /**
          * Ceiling on a single tick's credit. The poll is ~1s, so a much larger gap means the process
@@ -108,6 +153,9 @@ enum class BlockReason {
 
 /** One "block this app now" signal from the tracker. */
 data class BlockEvent(val packageName: String, val reason: BlockReason)
+
+/** One "this app is nearly out of budget" signal, carrying how many minutes are left. */
+data class WarningEvent(val packageName: String, val remainingMinutes: Int)
 
 /**
  * How much of an inter-tick gap to credit: never negative (clock skew) and never more than

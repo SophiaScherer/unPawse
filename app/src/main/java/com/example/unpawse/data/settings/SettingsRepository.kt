@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.unpawse.data.capture.CaptureRetention
 import com.example.unpawse.service.BONUS_MINUTES_PER_CAT
+import com.example.unpawse.service.UsageTracker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -48,6 +49,13 @@ class SettingsRepository(context: Context) {
     val retentionDays: Flow<Int> =
         dataStore.data.map { it[Keys.RETENTION_DAYS] ?: CaptureRetention.DEFAULT_WINDOW_DAYS }
 
+    /**
+     * Minutes of remaining budget at which to warn before an app is blocked;
+     * [UsageTracker.WARNING_OFF] disables the warning.
+     */
+    val warningMinutes: Flow<Int> =
+        dataStore.data.map { it[Keys.WARNING_MINUTES] ?: DEFAULT_WARNING_MINUTES }
+
     /** The user's display name for the Home greeting/avatar; blank until they set one. */
     val userName: Flow<String> = dataStore.data.map { it[Keys.USER_NAME] ?: DEFAULT_USER_NAME }
 
@@ -73,6 +81,8 @@ class SettingsRepository(context: Context) {
 
     suspend fun setRetentionDays(value: Int) = edit { it[Keys.RETENTION_DAYS] = value }
 
+    suspend fun setWarningMinutes(value: Int) = edit { it[Keys.WARNING_MINUTES] = value }
+
     suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
 
     /** Persists (or, with null, clears) the active focus session's end time. */
@@ -96,6 +106,7 @@ class SettingsRepository(context: Context) {
         val DAILY_SUMMARY = booleanPreferencesKey("daily_summary")
         val EARNED_MINUTES_PER_CAT = intPreferencesKey("earned_minutes_per_cat")
         val RETENTION_DAYS = intPreferencesKey("retention_days")
+        val WARNING_MINUTES = intPreferencesKey("warning_minutes")
         val USER_NAME = stringPreferencesKey("user_name")
         val FOCUS_END_MILLIS = longPreferencesKey("focus_end_millis")
     }
@@ -115,6 +126,12 @@ class SettingsRepository(context: Context) {
         const val MIN_EARNED_MINUTES_PER_CAT = 5
         const val MAX_EARNED_MINUTES_PER_CAT = 60
         const val EARNED_MINUTES_STEP = 5
+
+        /** Warn five minutes out by default — enough time to finish what you're doing. */
+        const val DEFAULT_WARNING_MINUTES = 5
+
+        /** The choices offered in Settings; [UsageTracker.WARNING_OFF] first. */
+        val WARNING_MINUTE_CHOICES = listOf(UsageTracker.WARNING_OFF, 1, 5, 10, 15)
 
         /** Blank means "no name set yet"; the UI substitutes a friendly fallback. */
         const val DEFAULT_USER_NAME = ""
