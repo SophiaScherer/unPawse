@@ -21,7 +21,6 @@ data class SettingsUiState(
     /** Whether we can draw over other apps — without it a reached limit can't be blocked. */
     val overlayAccessGranted: Boolean = false,
     val sensitivity: Float = SettingsRepository.DEFAULT_SENSITIVITY,
-    val requireLivePhoto: Boolean = SettingsRepository.DEFAULT_REQUIRE_LIVE_PHOTO,
     val dailySummaryEnabled: Boolean = SettingsRepository.DEFAULT_DAILY_SUMMARY,
     val darkMode: Boolean = false,
 
@@ -30,8 +29,6 @@ data class SettingsUiState(
     // deleting a placeholder is a compile-time-visible change rather than a silent one.
     /** Replaced by the configurable "time earned per cat" value. */
     val breakDurationLabel: String = "15 minutes every hour",
-    /** Removed once the sensitivity slider shows its own derived confidence readout. */
-    val confidenceLabel: String = "85% minimum match",
     /** Replaced by the persisted reminder interval. */
     val reminderFrequency: String = "Every 30m",
     /** Replaced by the persisted warning threshold. */
@@ -49,7 +46,6 @@ data class SettingsUiState(
             usageAccessGranted = true,
             overlayAccessGranted = true,
             sensitivity = 0.65f,
-            requireLivePhoto = false,
             dailySummaryEnabled = false,
             darkMode = darkMode,
             versionLabel = "1.0 (1)",

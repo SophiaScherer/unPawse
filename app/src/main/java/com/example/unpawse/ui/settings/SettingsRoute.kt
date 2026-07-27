@@ -49,7 +49,6 @@ fun SettingsRoute(
         modifier = modifier,
         onBack = onBack,
         onToggleDarkMode = onToggleDarkMode,
-        onToggleLivePhoto = viewModel::setRequireLivePhoto,
         onToggleDailySummary = viewModel::setDailySummary,
         onSensitivityChange = viewModel::setSensitivity,
         onNameChange = viewModel::setUserName,

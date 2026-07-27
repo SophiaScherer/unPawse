@@ -1,7 +1,6 @@
 package com.example.unpawse.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,13 +15,10 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material.icons.filled.Timer
@@ -32,7 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,7 +43,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.Chevron
-import com.example.unpawse.ui.components.IconTile
 import com.example.unpawse.ui.components.InitialsAvatar
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
@@ -64,7 +58,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onSensitivityChange: (Float) -> Unit = {},
-    onToggleLivePhoto: (Boolean) -> Unit = {},
     onToggleDailySummary: (Boolean) -> Unit = {},
     onToggleDarkMode: (Boolean) -> Unit = {},
     onNameChange: (String) -> Unit = {},
@@ -185,33 +178,9 @@ fun SettingsScreen(
         item {
             SectionLabel(text = "Cat Detection", uppercase = true)
             SettingsGroup {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconTile(Icons.Filled.Pets)
-                        Spacer(Modifier.width(16.dp))
-                        Text("Sensitivity", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    }
-                    Slider(
-                        value = state.sensitivity,
-                        onValueChange = onSensitivityChange,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Low", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Medium", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("High", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                SettingsRow(
-                    title = "Require live photo",
-                    subtitle = "Increases security, uses more battery",
-                    leadingIcon = Icons.Filled.LiveTv,
-                    trailing = { Switch(checked = state.requireLivePhoto, onCheckedChange = onToggleLivePhoto) },
-                )
-                SettingsRow(
-                    title = "Confidence threshold", subtitle = state.confidenceLabel,
-                    leadingIcon = Icons.Filled.Psychology,
-                    onClick = { onRowClick(SettingsRowIds.CONFIDENCE) }, trailing = { Chevron() },
+                SensitivityControl(
+                    sensitivity = state.sensitivity,
+                    onSensitivityChange = onSensitivityChange,
                 )
             }
         }
@@ -334,15 +303,13 @@ private fun NameEditDialog(
 @Composable
 private fun SettingsScreenPreviewContent(startDark: Boolean) {
     var dark by remember { mutableStateOf(startDark) }
-    var live by remember { mutableStateOf(false) }
     var summary by remember { mutableStateOf(false) }
     var sensitivity by remember { mutableFloatStateOf(0.65f) }
     SettingsScreen(
         state = SettingsUiState.sample(darkMode = dark).copy(
-            requireLivePhoto = live, dailySummaryEnabled = summary, sensitivity = sensitivity,
+            dailySummaryEnabled = summary, sensitivity = sensitivity,
         ),
         onToggleDarkMode = { dark = it },
-        onToggleLivePhoto = { live = it },
         onToggleDailySummary = { summary = it },
         onSensitivityChange = { sensitivity = it },
     )

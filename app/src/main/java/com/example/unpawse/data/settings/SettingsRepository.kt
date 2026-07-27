@@ -31,9 +31,6 @@ class SettingsRepository(context: Context) {
 
     val sensitivity: Flow<Float> = dataStore.data.map { it[Keys.SENSITIVITY] ?: DEFAULT_SENSITIVITY }
 
-    val requireLivePhoto: Flow<Boolean> =
-        dataStore.data.map { it[Keys.REQUIRE_LIVE_PHOTO] ?: DEFAULT_REQUIRE_LIVE_PHOTO }
-
     val dailySummaryEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.DAILY_SUMMARY] ?: DEFAULT_DAILY_SUMMARY }
 
@@ -51,8 +48,6 @@ class SettingsRepository(context: Context) {
 
     suspend fun setSensitivity(value: Float) = edit { it[Keys.SENSITIVITY] = value }
 
-    suspend fun setRequireLivePhoto(value: Boolean) = edit { it[Keys.REQUIRE_LIVE_PHOTO] = value }
-
     suspend fun setDailySummary(value: Boolean) = edit { it[Keys.DAILY_SUMMARY] = value }
 
     suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
@@ -69,7 +64,6 @@ class SettingsRepository(context: Context) {
     private object Keys {
         val DARK_MODE_OVERRIDE = booleanPreferencesKey("dark_mode_override")
         val SENSITIVITY = floatPreferencesKey("sensitivity")
-        val REQUIRE_LIVE_PHOTO = booleanPreferencesKey("require_live_photo")
         val DAILY_SUMMARY = booleanPreferencesKey("daily_summary")
         val USER_NAME = stringPreferencesKey("user_name")
         val FOCUS_END_MILLIS = longPreferencesKey("focus_end_millis")
@@ -78,7 +72,6 @@ class SettingsRepository(context: Context) {
     companion object {
         /** Defaults match the previous `SettingsUiState.sample()` values so behaviour is unchanged. */
         const val DEFAULT_SENSITIVITY = 0.65f
-        const val DEFAULT_REQUIRE_LIVE_PHOTO = false
         const val DEFAULT_DAILY_SUMMARY = false
 
         /** Blank means "no name set yet"; the UI substitutes a friendly fallback. */

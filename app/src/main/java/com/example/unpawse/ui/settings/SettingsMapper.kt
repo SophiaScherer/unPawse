@@ -1,7 +1,9 @@
 package com.example.unpawse.ui.settings
 
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.ml.sensitivityToMinConfidence
 import com.example.unpawse.ui.format.formatMinutes
+import kotlin.math.roundToInt
 
 /** How many app names to spell out before collapsing the rest into "+N others". */
 private const val NAMES_SHOWN = 2
@@ -43,6 +45,14 @@ internal fun dailyLimitSummary(apps: List<MonitoredApp>): String {
 }
 
 /**
+ * The confidence gate the sensitivity slider currently produces, e.g. "70% match". Derived from
+ * [sensitivityToMinConfidence] — the same function the detector gates on — so the number shown is
+ * the number enforced, unlike the hardcoded "85% minimum match" row this replaced.
+ */
+internal fun minConfidenceLabel(sensitivity: Float): String =
+    "${(sensitivityToMinConfidence(sensitivity) * 100).roundToInt()}% match"
+
+/**
  * The About row's version string, e.g. "1.0 (1)". Takes the name and code as parameters rather than
  * reading `BuildConfig` directly so it stays pure — the ViewModel's factory supplies the real values.
  */
@@ -62,7 +72,6 @@ internal fun versionLabel(versionName: String, versionCode: Int): String = "$ver
 internal fun toSettingsUiState(
     userName: String,
     sensitivity: Float,
-    requireLivePhoto: Boolean,
     dailySummaryEnabled: Boolean,
     monitoredApps: List<MonitoredApp>,
     usageAccessGranted: Boolean,
@@ -75,7 +84,6 @@ internal fun toSettingsUiState(
     usageAccessGranted = usageAccessGranted,
     overlayAccessGranted = overlayAccessGranted,
     sensitivity = sensitivity,
-    requireLivePhoto = requireLivePhoto,
     dailySummaryEnabled = dailySummaryEnabled,
     versionLabel = versionLabel,
 )

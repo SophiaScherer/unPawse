@@ -15,7 +15,6 @@ class SettingsMapperTest {
     private fun state(
         userName: String = "",
         sensitivity: Float = 0.65f,
-        requireLivePhoto: Boolean = false,
         dailySummaryEnabled: Boolean = false,
         monitoredApps: List<MonitoredApp> = emptyList(),
         usageAccessGranted: Boolean = false,
@@ -24,7 +23,6 @@ class SettingsMapperTest {
     ) = toSettingsUiState(
         userName = userName,
         sensitivity = sensitivity,
-        requireLivePhoto = requireLivePhoto,
         dailySummaryEnabled = dailySummaryEnabled,
         monitoredApps = monitoredApps,
         usageAccessGranted = usageAccessGranted,
@@ -69,7 +67,6 @@ class SettingsMapperTest {
         val ui = state(
             userName = "Sophia",
             sensitivity = 0.8f,
-            requireLivePhoto = true,
             dailySummaryEnabled = true,
             monitoredApps = listOf(app("Instagram")),
             usageAccessGranted = true,
@@ -78,7 +75,6 @@ class SettingsMapperTest {
 
         assertEquals("Sophia", ui.userName)
         assertEquals(0.8f, ui.sensitivity, 0.0001f)
-        assertTrue(ui.requireLivePhoto)
         assertTrue(ui.dailySummaryEnabled)
         assertEquals("Instagram", ui.appLimitsSummary)
         assertEquals("30m across 1 app", ui.dailyLimitLabel)
@@ -122,6 +118,17 @@ class SettingsMapperTest {
         )
 
         assertEquals("45m across 1 app", dailyLimitSummary(apps))
+    }
+
+    /**
+     * The Cat Detection section used to advertise a hardcoded "85% minimum match" beside the slider
+     * that actually sets the gate. This pins the readout to the detector's own mapping.
+     */
+    @Test
+    fun `the confidence readout is derived from the slider position`() {
+        assertEquals("90% match", minConfidenceLabel(0f))
+        assertEquals("70% match", minConfidenceLabel(0.5f))
+        assertEquals("50% match", minConfidenceLabel(1f))
     }
 
     @Test

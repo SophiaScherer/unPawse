@@ -44,15 +44,14 @@ class SettingsViewModel(
      */
     private val permissions = MutableStateFlow(readPermissions())
 
-    // `combine` has typed overloads up to five flows; there are six sources, so the four
-    // repository-backed scalar settings are pre-combined into one holder.
+    // `combine` has typed overloads up to five flows, so the repository-backed scalar settings are
+    // pre-combined into one holder rather than being added as top-level arguments below.
     private val settingsValues = combine(
         settings.sensitivity,
-        settings.requireLivePhoto,
         settings.dailySummaryEnabled,
         settings.userName,
-    ) { sensitivity, requireLivePhoto, dailySummary, userName ->
-        SettingsValues(sensitivity, requireLivePhoto, dailySummary, userName)
+    ) { sensitivity, dailySummary, userName ->
+        SettingsValues(sensitivity, dailySummary, userName)
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -63,7 +62,6 @@ class SettingsViewModel(
         toSettingsUiState(
             userName = values.userName,
             sensitivity = values.sensitivity,
-            requireLivePhoto = values.requireLivePhoto,
             dailySummaryEnabled = values.dailySummary,
             monitoredApps = monitoredApps,
             usageAccessGranted = permissionState.usageAccess,
@@ -94,15 +92,11 @@ class SettingsViewModel(
 
     private data class SettingsValues(
         val sensitivity: Float,
-        val requireLivePhoto: Boolean,
         val dailySummary: Boolean,
         val userName: String,
     )
 
     fun setSensitivity(value: Float) = viewModelScope.launch { settings.setSensitivity(value) }
-
-    fun setRequireLivePhoto(value: Boolean) =
-        viewModelScope.launch { settings.setRequireLivePhoto(value) }
 
     fun setDailySummary(value: Boolean) = viewModelScope.launch { settings.setDailySummary(value) }
 
