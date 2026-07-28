@@ -49,6 +49,8 @@ class CameraViewModel(
     private val detector: CatDetector,
     private val usageRepository: UsageRepository,
     private val blockSession: BlockSession,
+    /** Supplies the current reward grant; a lambda so the VM reads it fresh, like [CatDetector]'s gate. */
+    private val earnedMinutesPerCat: () -> Int = { BONUS_MINUTES_PER_CAT },
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CameraUiState())
@@ -105,10 +107,12 @@ class CameraViewModel(
      */
     private suspend fun creditBlockedApp(): EarnedTime? {
         val packageName = blockSession.blockedPackage.value ?: return null
-        usageRepository.addEarnedMinutes(packageName, BONUS_MINUTES_PER_CAT)
+        // Read at credit time, so changing the Settings stepper applies to the very next capture.
+        val minutes = earnedMinutesPerCat()
+        usageRepository.addEarnedMinutes(packageName, minutes)
         val label = usageRepository.appLabel(packageName) ?: packageName
         blockSession.clear()
-        return EarnedTime(appLabel = label, minutes = BONUS_MINUTES_PER_CAT)
+        return EarnedTime(appLabel = label, minutes = minutes)
     }
 
     override fun onCleared() {
@@ -144,6 +148,7 @@ class CameraViewModel(
                     detector = detector,
                     usageRepository = container.usageRepository,
                     blockSession = container.blockSession,
+                    earnedMinutesPerCat = { container.earnedMinutesPerCat.value },
                 )
             }
         }

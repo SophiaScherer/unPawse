@@ -32,6 +32,14 @@ internal class FakeUsageDao : UsageDao() {
         apps.remove(packageName)
     }
 
+    override suspend fun clearMonitoredApps() {
+        apps.clear()
+    }
+
+    override suspend fun clearUsage() {
+        usage.clear()
+    }
+
     override fun observeUsageForDate(date: String): Flow<List<DailyUsageEntity>> =
         flowOf(usage.values.filter { it.date == date })
 
@@ -40,6 +48,9 @@ internal class FakeUsageDao : UsageDao() {
 
     override suspend fun usageFor(packageName: String, date: String): DailyUsageEntity? =
         usage[packageName to date]
+
+    override suspend fun allUsage(): List<DailyUsageEntity> =
+        usage.values.sortedWith(compareBy({ it.date }, { it.packageName }))
 
     override suspend fun insertUsageIfAbsent(row: DailyUsageEntity) {
         usage.putIfAbsent(row.packageName to row.date, row)

@@ -1,38 +1,54 @@
 package com.example.unpawse.ui.settings
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.unpawse.BuildConfig
 import com.example.unpawse.appContainer
+import com.example.unpawse.data.ResetRepository
+import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.export.ExportRepository
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
+import com.example.unpawse.service.Notifications
 import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /**
- * Backs the (stateless) [SettingsScreen] with persisted values from [SettingsRepository]. Replaces
- * the session-only `rememberSaveable` state that previously lived in the NavHost.
+ * Backs the (stateless) [SettingsScreen] with persisted values from [SettingsRepository]. Wires
+ * flows together only; the shaping lives in the pure [toSettingsUiState].
  *
  * Dark mode is intentionally *not* owned here — it is resolved against the system theme and drives
- * the whole app from `UnPawseApp`, which persists its own override through the same repository. The
- * remaining static labels (daily limit, break duration, confidence, etc.) come from
- * [SettingsUiState.sample] for now; later phases replace them with real data.
+ * the whole app from `UnPawseApp`, which persists its own override through the same repository.
  */
 class SettingsViewModel(
     private val settings: SettingsRepository,
     usageRepository: UsageRepository,
+    captureRepository: CaptureRepository,
+    private val exportRepository: ExportRepository,
+    private val resetRepository: ResetRepository,
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
+    private val notificationsGranted: () -> Boolean,
+    versionName: String,
+    versionCode: Int,
 ) : ViewModel() {
+
+    /** Compile-time constants, so this never changes and is safe to seed the initial state with. */
+    private val version = versionLabel(versionName, versionCode)
 
     /**
      * Both permissions are system-Settings toggles rather than runtime dialogs, so there's nothing
@@ -40,35 +56,65 @@ class SettingsViewModel(
      */
     private val permissions = MutableStateFlow(readPermissions())
 
-    // `combine` has typed overloads up to five flows; there are six sources, so the four
-    // repository-backed scalar settings are pre-combined into one holder.
+    /** One-shot user-facing messages, mirroring `CameraViewModel`'s event channel. */
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages = _messages.receiveAsFlow()
+
+    // `combine` has typed overloads up to five flows, so the repository-backed scalar settings are
+    // pre-combined into one holder rather than being added as top-level arguments below.
     private val settingsValues = combine(
         settings.sensitivity,
-        settings.requireLivePhoto,
         settings.dailySummaryEnabled,
         settings.userName,
-    ) { sensitivity, requireLivePhoto, dailySummary, userName ->
-        SettingsValues(sensitivity, requireLivePhoto, dailySummary, userName)
+        settings.earnedMinutesPerCat,
+        settings.warningMinutes,
+    ) { sensitivity, dailySummary, userName, earnedMinutes, warningMinutes ->
+        SettingsValues(sensitivity, dailySummary, userName, earnedMinutes, warningMinutes)
     }
+
+    // The photo row's subtitle needs both a count and a measured size; pre-combined like the
+    // settings scalars so the top-level `combine` below stays within its typed arity.
+    private val photoStats = combine(
+        captureRepository.observeCaptures(),
+        captureRepository.observeStorageBytes(),
+    ) { captures, bytes -> PhotoStats(captures.size, bytes) }
 
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsValues,
         usageRepository.observeMonitoredApps(),
         permissions,
-    ) { values, monitoredApps, permissionState ->
-        SettingsUiState.sample().copy(
-            sensitivity = values.sensitivity,
-            requireLivePhoto = values.requireLivePhoto,
-            dailySummaryEnabled = values.dailySummary,
+        photoStats,
+        // The fifth and last top-level slot; further settings go into `settingsValues` or a holder
+        // beside it, not here.
+        settings.reminderMinutes,
+    ) { values, monitoredApps, permissionState, photos, reminderMinutes ->
+        toSettingsUiState(
             userName = values.userName,
-            appLimitsSummary = monitoredAppsSummary(monitoredApps),
+            sensitivity = values.sensitivity,
+            dailySummaryEnabled = values.dailySummary,
+            earnedMinutesPerCat = values.earnedMinutesPerCat,
+            warningMinutes = values.warningMinutes,
+            reminderMinutes = reminderMinutes,
+            photoCount = photos.count,
+            photoStorageBytes = photos.bytes,
+            monitoredApps = monitoredApps,
             usageAccessGranted = permissionState.usageAccess,
             overlayAccessGranted = permissionState.overlayAccess,
+            notificationsGranted = permissionState.notifications,
+            versionLabel = version,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-        initialValue = SettingsUiState.sample(),
+        // Shown for the one frame before DataStore's first read lands. The permissions are read
+        // synchronously above, so seed them — otherwise the two access rows flash red "Required"
+        // at a user who has in fact granted them.
+        initialValue = SettingsUiState(
+            usageAccessGranted = permissions.value.usageAccess,
+            overlayAccessGranted = permissions.value.overlayAccess,
+            notificationsGranted = permissions.value.notifications,
+            versionLabel = version,
+        ),
     )
 
     /** Re-reads both special permissions; call when the screen resumes (e.g. back from Settings). */
@@ -76,23 +122,58 @@ class SettingsViewModel(
         permissions.value = readPermissions()
     }
 
-    private fun readPermissions() = PermissionState(usageAccessGranted(), overlayAccessGranted())
+    private fun readPermissions() =
+        PermissionState(usageAccessGranted(), overlayAccessGranted(), notificationsGranted())
 
-    private data class PermissionState(val usageAccess: Boolean, val overlayAccess: Boolean)
+    private data class PermissionState(
+        val usageAccess: Boolean,
+        val overlayAccess: Boolean,
+        val notifications: Boolean,
+    )
+
+    private data class PhotoStats(val count: Int, val bytes: Long)
 
     private data class SettingsValues(
         val sensitivity: Float,
-        val requireLivePhoto: Boolean,
         val dailySummary: Boolean,
         val userName: String,
+        val earnedMinutesPerCat: Int,
+        val warningMinutes: Int,
     )
 
     fun setSensitivity(value: Float) = viewModelScope.launch { settings.setSensitivity(value) }
 
-    fun setRequireLivePhoto(value: Boolean) =
-        viewModelScope.launch { settings.setRequireLivePhoto(value) }
-
     fun setDailySummary(value: Boolean) = viewModelScope.launch { settings.setDailySummary(value) }
+
+    fun setEarnedMinutesPerCat(value: Int) =
+        viewModelScope.launch { settings.setEarnedMinutesPerCat(value) }
+
+    fun setWarningMinutes(value: Int) = viewModelScope.launch { settings.setWarningMinutes(value) }
+
+    fun setReminderMinutes(value: Int) = viewModelScope.launch { settings.setReminderMinutes(value) }
+
+    /**
+     * Writes the data export to the document the user picked, then reports the outcome. A file write
+     * has no visible result of its own, so without the message an export is indistinguishable from
+     * the dead row this replaced.
+     */
+    fun exportTo(uri: Uri) = viewModelScope.launch {
+        val ok = exportRepository.exportTo(uri)
+        _messages.send(if (ok) "Data exported" else "Couldn't write the export file")
+    }
+
+    /** Default filename offered by the picker. */
+    fun exportFileName(): String = ExportRepository.defaultFileName(LocalDate.now())
+
+    /**
+     * Erases every store. The caller is expected to have confirmed first, and to leave Settings
+     * afterwards — the screen it returns to would otherwise be rendering data that no longer exists.
+     */
+    fun eraseEverything(onFinished: () -> Unit) = viewModelScope.launch {
+        resetRepository.eraseEverything()
+        _messages.send("All data deleted")
+        onFinished()
+    }
 
     /** Trimmed so trailing spaces don't produce a blank-looking name that still counts as "set". */
     fun setUserName(value: String) = viewModelScope.launch { settings.setUserName(value.trim()) }
@@ -107,8 +188,14 @@ class SettingsViewModel(
                 SettingsViewModel(
                     settings = container.settingsRepository,
                     usageRepository = container.usageRepository,
+                    captureRepository = container.captureRepository,
+                    exportRepository = container.exportRepository,
+                    resetRepository = container.resetRepository,
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
+                    notificationsGranted = { Notifications.canPost(appContext) },
+                    versionName = BuildConfig.VERSION_NAME,
+                    versionCode = BuildConfig.VERSION_CODE,
                 )
             }
         }

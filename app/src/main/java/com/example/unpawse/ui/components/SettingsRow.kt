@@ -1,25 +1,25 @@
 package com.example.unpawse.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+
+/** Material's standard dimming for an unavailable control. */
+private const val DISABLED_ALPHA = 0.38f
 
 /**
  * Groups related [SettingsRow]s inside a single [PawCard], matching the mockup's Settings screen.
@@ -49,10 +49,11 @@ fun SettingsRow(
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     iconBackground: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
+    enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val rowModifier = if (onClick != null) {
+    val rowModifier = if (onClick != null && enabled) {
         modifier
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
@@ -60,25 +61,18 @@ fun SettingsRow(
         modifier
     }
 
+    // Dimmed rather than hidden: a setting that vanishes when unavailable is harder to find again
+    // than one that is visibly waiting on something.
+    val contentAlpha = if (enabled) 1f else DISABLED_ALPHA
+
     Row(
-        modifier = rowModifier.padding(horizontal = 12.dp, vertical = 12.dp),
+        modifier = rowModifier
+            .alpha(contentAlpha)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leadingIcon != null) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(iconBackground),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = leadingIcon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+            IconTile(icon = leadingIcon, tint = iconTint, background = iconBackground)
             Spacer(Modifier.width(16.dp))
         }
 

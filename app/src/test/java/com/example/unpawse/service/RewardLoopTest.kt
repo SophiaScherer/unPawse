@@ -1,5 +1,6 @@
 package com.example.unpawse.service
 
+import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.FakeUsageDao
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.runBlocking
@@ -13,8 +14,9 @@ import kotlin.time.Duration.Companion.minutes
 /**
  * The product guarantee the whole app exists for: photograph a cat, get back into the app.
  *
- * This pins the reward to the real [BONUS_MINUTES_PER_CAT] constant, so changing the grant without
- * thinking about the unblock behaviour trips a test.
+ * The grant is now a Settings value rather than a hardcoded one, so these run against
+ * [BONUS_MINUTES_PER_CAT] — its shipped default — plus a case at a user-chosen value, pinning that
+ * the unblock behaviour holds for whatever the stepper is set to and not just for 15.
  */
 class RewardLoopTest {
 
@@ -54,6 +56,28 @@ class RewardLoopTest {
         repo.addEarnedMinutes("com.ig", BONUS_MINUTES_PER_CAT)
 
         assertEquals(BONUS_MINUTES_PER_CAT * 2, repo.remainingMinutes("com.ig"))
+    }
+
+    @Test
+    fun `a custom grant unblocks by exactly what the user chose`() = runBlocking {
+        val customGrant = 30
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 15)
+        repo.addUsage("com.ig", 15.minutes)
+
+        repo.addEarnedMinutes("com.ig", customGrant)
+
+        assertFalse(repo.isLimitReached("com.ig"))
+        assertEquals(customGrant, repo.remainingMinutes("com.ig"))
+    }
+
+    @Test
+    fun `the smallest grant still lifts the block`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 15)
+        repo.addUsage("com.ig", 15.minutes)
+
+        repo.addEarnedMinutes("com.ig", SettingsRepository.MIN_EARNED_MINUTES_PER_CAT)
+
+        assertFalse(repo.isLimitReached("com.ig"))
     }
 
     @Test

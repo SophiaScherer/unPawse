@@ -27,9 +27,18 @@ object Routes {
 
     /** Settings sub-screen: choose monitored apps and their daily limits. */
     const val APP_PICKER = "app_picker"
+
+    /** Settings sub-screen: the in-app privacy policy. */
+    const val PRIVACY_POLICY = "privacy_policy"
+
+    /** Settings sub-screen: cat-photo library size, retention window and bulk delete. */
+    const val PHOTO_STORAGE = "photo_storage"
 }
 
-/** Row ids emitted by `SettingsScreen.onRowClick`; only the wired ones are listed. */
+/**
+ * Every row id `SettingsScreen.onRowClick` can emit. `SettingsRoute` maps them to a destination or
+ * a system intent; ids marked "not yet handled" are rows whose behaviour a later phase supplies.
+ */
 object SettingsRowIds {
     const val APP_LIMITS = "app_limits"
 
@@ -38,6 +47,15 @@ object SettingsRowIds {
 
     /** Opens system Settings — "display over other apps" is likewise not a runtime permission. */
     const val OVERLAY_ACCESS = "overlay_access"
+
+    /** Requests POST_NOTIFICATIONS, or opens system Settings once it can no longer be asked for. */
+    const val NOTIFICATION_ACCESS = "notification_access"
+
+    const val MANAGE_PHOTOS = "manage_photos"
+    const val EXPORT = "export"
+
+    /** Opens the in-app policy at [Routes.PRIVACY_POLICY]. */
+    const val PRIVACY_POLICY = "privacy_policy_row"
 }
 
 /**

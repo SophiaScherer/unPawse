@@ -17,8 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -39,7 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.PawCard
+import com.example.unpawse.ui.components.ValueStepper
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
@@ -94,34 +94,18 @@ fun AppPickerScreen(
 
 @Composable
 private fun AppPickerHeader(monitoredCount: Int, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Dimens.ScreenHMargin - 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-        Spacer(Modifier.width(4.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                "App limits",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                if (monitoredCount == 0) "No apps limited yet" else "$monitoredCount app${if (monitoredCount == 1) "" else "s"} limited",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    BackHeader(
+        title = "App limits",
+        subtitle = if (monitoredCount == 0) {
+            "No apps limited yet"
+        } else {
+            "$monitoredCount app${if (monitoredCount == 1) "" else "s"} limited"
+        },
+        onBack = onBack,
+        // This header sits outside the list, so it pads itself; the 12dp back-off aligns the arrow
+        // glyph (not the IconButton's touch target) with the rows below.
+        modifier = Modifier.padding(horizontal = Dimens.ScreenHMargin - 12.dp),
+    )
 }
 
 /** Functional search field styled to match the Gallery's (decorative) search bar. */
@@ -191,71 +175,16 @@ private fun AppLimitRow(
 
         if (item.monitored) {
             Spacer(Modifier.size(8.dp))
-            LimitStepper(
-                minutes = item.dailyLimitMinutes,
+            ValueStepper(
+                label = "Daily limit",
+                value = item.dailyLimitMinutes,
                 onChange = onLimitChange,
+                step = LIMIT_STEP_MINUTES,
+                min = MIN_LIMIT_MINUTES,
+                max = MAX_LIMIT_MINUTES,
+                format = ::formatMinutes,
             )
         }
-    }
-}
-
-@Composable
-private fun LimitStepper(minutes: Int, onChange: (Int) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Daily limit",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.weight(1f),
-        )
-        StepperButton(
-            icon = Icons.Filled.Remove,
-            contentDescription = "Decrease limit",
-            enabled = minutes > MIN_LIMIT_MINUTES,
-            onClick = { onChange(adjustLimit(minutes, -1)) },
-        )
-        Text(
-            text = formatMinutes(minutes),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.width(64.dp),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
-        StepperButton(
-            icon = Icons.Filled.Add,
-            contentDescription = "Increase limit",
-            enabled = minutes < MAX_LIMIT_MINUTES,
-            onClick = { onChange(adjustLimit(minutes, +1)) },
-        )
-    }
-}
-
-@Composable
-private fun StepperButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(32.dp)) {
-        Icon(
-            icon,
-            contentDescription = contentDescription,
-            tint = if (enabled) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-            },
-            modifier = Modifier.size(18.dp),
-        )
     }
 }
 

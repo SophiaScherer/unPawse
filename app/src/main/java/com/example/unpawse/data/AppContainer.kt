@@ -1,17 +1,20 @@
 package com.example.unpawse.data
 
 import android.content.Context
+import com.example.unpawse.BuildConfig
 import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.apps.PackageManagerInstalledAppsProvider
 import com.example.unpawse.data.capture.CaptureDatabase
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.PhotoStorage
+import com.example.unpawse.data.export.ExportRepository
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.ml.sensitivityToMinConfidence
 import com.example.unpawse.service.BlockOverlayController
 import com.example.unpawse.service.BlockSession
+import com.example.unpawse.service.DailySummaryWorker
 import com.example.unpawse.service.FocusSession
 import com.example.unpawse.service.ForegroundAppMonitor
 import com.example.unpawse.service.UsageStatsForegroundAppMonitor
@@ -39,6 +42,12 @@ interface AppContainer {
     val settingsRepository: SettingsRepository
     val usageRepository: UsageRepository
     val installedAppsProvider: InstalledAppsProvider
+
+    /** Gathers every store into one JSON document for Settings → Export data. */
+    val exportRepository: ExportRepository
+
+    /** Erases every store for Settings → Delete history. */
+    val resetRepository: ResetRepository
     val foregroundAppMonitor: ForegroundAppMonitor
 
     /**
@@ -71,6 +80,23 @@ interface AppContainer {
      * camera pipeline; the detector reads `.value` on each capture.
      */
     val catDetectorMinConfidence: StateFlow<Float>
+
+    /**
+     * How many minutes one verified cat buys back, from the Settings stepper. Held app-wide for the
+     * same reason as [catDetectorMinConfidence]: the camera reads `.value` at the moment it credits,
+     * so a change applies to the next capture without rebuilding anything.
+     */
+    val earnedMinutesPerCat: StateFlow<Int>
+
+    /**
+     * Minutes of remaining budget at which to warn before a block. Held app-wide for the same
+     * reason as the two above: [UsageTracker] reads `.value` on each tick and stays free of
+     * DataStore.
+     */
+    val warningMinutes: StateFlow<Int>
+
+    /** How often to remind the user while they sit in a limited app; 0 is off. */
+    val reminderMinutes: StateFlow<Int>
 }
 
 /** Production [AppContainer]; builds every dependency lazily off the singleton Room database. */
@@ -99,12 +125,37 @@ class DefaultAppContainer(context: Context) : AppContainer {
         PackageManagerInstalledAppsProvider(appContext)
     }
 
+    override val exportRepository: ExportRepository by lazy {
+        ExportRepository(
+            settings = settingsRepository,
+            usage = usageRepository,
+            captures = captureRepository,
+            contentResolver = appContext.contentResolver,
+            appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        )
+    }
+
+    override val resetRepository: ResetRepository by lazy {
+        ResetRepository(
+            usage = usageRepository,
+            captures = captureRepository,
+            focusSession = focusSession,
+            blockSession = blockSession,
+            clearSettings = settingsRepository::clearAll,
+        )
+    }
+
     override val foregroundAppMonitor: ForegroundAppMonitor by lazy {
         UsageStatsForegroundAppMonitor(appContext)
     }
 
     override val usageTracker: UsageTracker by lazy {
-        UsageTracker(usageRepository, foregroundAppMonitor, focusSession = focusSession)
+        UsageTracker(
+            usageRepository,
+            foregroundAppMonitor,
+            focusSession = focusSession,
+            warningMinutes = { warningMinutes.value },
+        )
     }
 
     override val blockOverlayController: BlockOverlayController by lazy {
@@ -122,11 +173,39 @@ class DefaultAppContainer(context: Context) : AppContainer {
             focusSession.restore(settingsRepository.focusEndMillis.first())
             focusSession.endTimeMillis.collect { settingsRepository.setFocusEndMillis(it) }
         }
+
+        // Keep the recap job in step with its toggle. Owning this here rather than in the Settings
+        // ViewModel means the schedule is correct even for a process that never opens Settings, and
+        // leaves the UI with nothing to know about WorkManager.
+        appScope.launch {
+            settingsRepository.dailySummaryEnabled.collect { enabled ->
+                if (enabled) {
+                    DailySummaryWorker.schedule(appContext)
+                } else {
+                    DailySummaryWorker.cancel(appContext)
+                }
+            }
+        }
     }
 
     override val catDetectorMinConfidence: StateFlow<Float> by lazy {
         settingsRepository.sensitivity
             .map(::sensitivityToMinConfidence)
             .stateIn(appScope, SharingStarted.Eagerly, CatDetector.DEFAULT_MIN_CONFIDENCE)
+    }
+
+    override val earnedMinutesPerCat: StateFlow<Int> by lazy {
+        settingsRepository.earnedMinutesPerCat
+            .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_EARNED_MINUTES_PER_CAT)
+    }
+
+    override val warningMinutes: StateFlow<Int> by lazy {
+        settingsRepository.warningMinutes
+            .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_WARNING_MINUTES)
+    }
+
+    override val reminderMinutes: StateFlow<Int> by lazy {
+        settingsRepository.reminderMinutes
+            .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_REMINDER_MINUTES)
     }
 }

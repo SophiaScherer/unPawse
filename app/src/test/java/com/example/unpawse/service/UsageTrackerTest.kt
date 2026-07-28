@@ -57,8 +57,14 @@ class UsageTrackerTest {
 
     private val focusSession = FocusSession(now = { clockMillis })
 
-    private fun tracker(ticks: List<String?>) =
-        UsageTracker(repo, monitorOf(ticks), now = { clockMillis }, focusSession = focusSession)
+    private fun tracker(ticks: List<String?>, warningMinutes: Int = UsageTracker.WARNING_OFF) =
+        UsageTracker(
+            repo,
+            monitorOf(ticks),
+            now = { clockMillis },
+            focusSession = focusSession,
+            warningMinutes = { warningMinutes },
+        )
 
     private suspend fun usedSecondsFor(pkg: String) = dao.usageFor(pkg, today.toString())?.usedSeconds
 
@@ -155,6 +161,116 @@ class UsageTrackerTest {
         assertEquals(listOf(BlockEvent("com.ig", BlockReason.FOCUS)), signals)
     }
 
+    // --- Warning before lock --------------------------------------------------------------------
+
+    @Test
+    fun `a warning fires once as the budget runs low`() = runBlocking {
+        // A 2-minute limit: after the first credited second, 119s remain — 1 whole minute once
+        // floored, i.e. exactly at the threshold. Five ticks would warn five times if it weren't
+        // armed once.
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 2)
+        val tracker = tracker(List(5) { "com.ig" }, warningMinutes = 1)
+
+        val (warnings, collector) = collectWarnings(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(listOf(WarningEvent("com.ig", remainingMinutes = 1)), warnings)
+    }
+
+    /**
+     * Remaining minutes are floored, so the last sub-minute of budget reads as 0 while the app is
+     * still usable. That is the sharpest moment to warn — an earlier `>= 1` guard skipped it.
+     */
+    @Test
+    fun `the final sub-minute still warns`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 1)
+        val tracker = tracker(List(3) { "com.ig" }, warningMinutes = 1)
+
+        val (warnings, collector) = collectWarnings(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(listOf(WarningEvent("com.ig", remainingMinutes = 0)), warnings)
+    }
+
+    @Test
+    fun `no warning fires when the setting is off`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 1)
+        val tracker = tracker(List(5) { "com.ig" }, warningMinutes = UsageTracker.WARNING_OFF)
+
+        val (warnings, collector) = collectWarnings(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(emptyList<WarningEvent>(), warnings)
+    }
+
+    @Test
+    fun `no warning while the budget is still comfortable`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 60)
+        val tracker = tracker(List(5) { "com.ig" }, warningMinutes = 5)
+
+        val (warnings, collector) = collectWarnings(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(emptyList<WarningEvent>(), warnings)
+    }
+
+    /** Once the app is blocked, the block itself is the message — warning too would duplicate it. */
+    @Test
+    fun `an already-blocked app is not also warned about`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+        val tracker = tracker(List(5) { "com.ig" }, warningMinutes = 5)
+
+        val (warnings, collector) = collectWarnings(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(emptyList<WarningEvent>(), warnings)
+    }
+
+    /** Unlike a block, a warning must not repeat just because the user switched apps and back. */
+    @Test
+    fun `returning to a warned app does not warn again`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 2)
+        val tracker = tracker(
+            listOf("com.ig", "com.ig", "com.other", "com.ig", "com.ig"),
+            warningMinutes = 1,
+        )
+
+        val (warnings, collector) = collectWarnings(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(1, warnings.size)
+    }
+
+    /**
+     * A run's warned-set lives for that run, so this exercises the rule that matters across a
+     * grant: once a cat lifts the app clear of the threshold, it is no longer in warning range.
+     */
+    @Test
+    fun `earning time back lifts the app out of warning range`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 2)
+
+        val first = tracker(List(2) { "com.ig" }, warningMinutes = 1)
+        val (warnings, collector) = collectWarnings(first)
+        first.run()
+        collector.cancel()
+        assertEquals("precondition: warned once", 1, warnings.size)
+
+        repo.addEarnedMinutes("com.ig", 30)
+
+        val second = tracker(List(3) { "com.ig" }, warningMinutes = 1)
+        val (moreWarnings, secondCollector) = collectWarnings(second)
+        second.run()
+        secondCollector.cancel()
+
+        assertEquals(emptyList<WarningEvent>(), moreWarnings)
+    }
+
     /**
      * Subscribes to [UsageTracker.blockRequired] on [Dispatchers.Unconfined] so each emission is
      * handled inline at the emit point. The fake DAO never really suspends, so `run()` would
@@ -164,6 +280,29 @@ class UsageTrackerTest {
         val signals = mutableListOf<BlockEvent>()
         val job = launch(Dispatchers.Unconfined) { tracker.blockRequired.collect { signals.add(it) } }
         return signals to job
+    }
+
+    /** Same dispatcher reasoning as [collectSignals]. */
+    private fun CoroutineScope.collectWarnings(tracker: UsageTracker): Pair<List<WarningEvent>, Job> {
+        val warnings = mutableListOf<WarningEvent>()
+        val job = launch(Dispatchers.Unconfined) { tracker.warningRequired.collect { warnings.add(it) } }
+        return warnings to job
+    }
+}
+
+/** Copy for the warning notification. */
+class WarningTextTest {
+
+    @Test
+    fun `minutes are pluralised`() {
+        assertEquals(
+            "5 minutes of Instagram left today. Photograph a cat to earn more.",
+            warningText("Instagram", 5),
+        )
+        assertEquals(
+            "1 minute of Instagram left today. Photograph a cat to earn more.",
+            warningText("Instagram", 1),
+        )
     }
 }
 

@@ -33,6 +33,9 @@ abstract class UsageDao {
     @Query("DELETE FROM monitored_apps WHERE packageName = :packageName")
     abstract suspend fun removeMonitoredApp(packageName: String)
 
+    @Query("DELETE FROM monitored_apps")
+    abstract suspend fun clearMonitoredApps()
+
     // --- Daily usage ----------------------------------------------------------------------------
 
     @Query("SELECT * FROM daily_usage WHERE date = :date")
@@ -47,6 +50,13 @@ abstract class UsageDao {
 
     @Query("SELECT * FROM daily_usage WHERE packageName = :packageName AND date = :date LIMIT 1")
     abstract suspend fun usageFor(packageName: String, date: String): DailyUsageEntity?
+
+    /** Every row, oldest first — the whole history, for the data export. */
+    @Query("SELECT * FROM daily_usage ORDER BY date, packageName")
+    abstract suspend fun allUsage(): List<DailyUsageEntity>
+
+    @Query("DELETE FROM daily_usage")
+    abstract suspend fun clearUsage()
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertUsageIfAbsent(row: DailyUsageEntity)

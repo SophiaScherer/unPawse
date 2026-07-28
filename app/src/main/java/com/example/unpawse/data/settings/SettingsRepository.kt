@@ -6,9 +6,14 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.unpawse.data.capture.CaptureRetention
+import com.example.unpawse.service.BONUS_MINUTES_PER_CAT
+import com.example.unpawse.service.REMINDER_OFF
+import com.example.unpawse.service.UsageTracker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -31,11 +36,34 @@ class SettingsRepository(context: Context) {
 
     val sensitivity: Flow<Float> = dataStore.data.map { it[Keys.SENSITIVITY] ?: DEFAULT_SENSITIVITY }
 
-    val requireLivePhoto: Flow<Boolean> =
-        dataStore.data.map { it[Keys.REQUIRE_LIVE_PHOTO] ?: DEFAULT_REQUIRE_LIVE_PHOTO }
-
     val dailySummaryEnabled: Flow<Boolean> =
         dataStore.data.map { it[Keys.DAILY_SUMMARY] ?: DEFAULT_DAILY_SUMMARY }
+
+    /** How much time one verified cat buys back; the reward loop reads this instead of a constant. */
+    val earnedMinutesPerCat: Flow<Int> =
+        dataStore.data.map { it[Keys.EARNED_MINUTES_PER_CAT] ?: DEFAULT_EARNED_MINUTES_PER_CAT }
+
+    /**
+     * Days a non-favorite photo is kept before the purge worker removes it;
+     * [CaptureRetention.KEEP_FOREVER] disables the purge.
+     */
+    val retentionDays: Flow<Int> =
+        dataStore.data.map { it[Keys.RETENTION_DAYS] ?: CaptureRetention.DEFAULT_WINDOW_DAYS }
+
+    /**
+     * Minutes of remaining budget at which to warn before an app is blocked;
+     * [UsageTracker.WARNING_OFF] disables the warning.
+     */
+    val warningMinutes: Flow<Int> =
+        dataStore.data.map { it[Keys.WARNING_MINUTES] ?: DEFAULT_WARNING_MINUTES }
+
+    /**
+     * How often to nudge the user while they sit in a limited app; [REMINDER_OFF] disables it.
+     * Defaults to off — an unasked-for recurring notification is the kind of thing that gets an app
+     * uninstalled.
+     */
+    val reminderMinutes: Flow<Int> =
+        dataStore.data.map { it[Keys.REMINDER_MINUTES] ?: DEFAULT_REMINDER_MINUTES }
 
     /** The user's display name for the Home greeting/avatar; blank until they set one. */
     val userName: Flow<String> = dataStore.data.map { it[Keys.USER_NAME] ?: DEFAULT_USER_NAME }
@@ -46,14 +74,25 @@ class SettingsRepository(context: Context) {
      */
     val focusEndMillis: Flow<Long?> = dataStore.data.map { it[Keys.FOCUS_END_MILLIS] }
 
-    suspend fun setDarkModeOverride(enabled: Boolean) =
-        edit { it[Keys.DARK_MODE_OVERRIDE] = enabled }
+    /**
+     * Persists (or, with null, clears) the dark-mode override. Clearing is what returns the app to
+     * following the system — the previous non-null-only signature made that a one-way door.
+     */
+    suspend fun setDarkModeOverride(enabled: Boolean?) = edit {
+        if (enabled == null) it.remove(Keys.DARK_MODE_OVERRIDE) else it[Keys.DARK_MODE_OVERRIDE] = enabled
+    }
 
     suspend fun setSensitivity(value: Float) = edit { it[Keys.SENSITIVITY] = value }
 
-    suspend fun setRequireLivePhoto(value: Boolean) = edit { it[Keys.REQUIRE_LIVE_PHOTO] = value }
-
     suspend fun setDailySummary(value: Boolean) = edit { it[Keys.DAILY_SUMMARY] = value }
+
+    suspend fun setEarnedMinutesPerCat(value: Int) = edit { it[Keys.EARNED_MINUTES_PER_CAT] = value }
+
+    suspend fun setRetentionDays(value: Int) = edit { it[Keys.RETENTION_DAYS] = value }
+
+    suspend fun setWarningMinutes(value: Int) = edit { it[Keys.WARNING_MINUTES] = value }
+
+    suspend fun setReminderMinutes(value: Int) = edit { it[Keys.REMINDER_MINUTES] = value }
 
     suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
 
@@ -62,6 +101,12 @@ class SettingsRepository(context: Context) {
         if (value == null) it.remove(Keys.FOCUS_END_MILLIS) else it[Keys.FOCUS_END_MILLIS] = value
     }
 
+    /**
+     * Drops every stored preference, returning the app to first-launch defaults. Used only by the
+     * full reset in Settings.
+     */
+    suspend fun clearAll() = edit { it.clear() }
+
     private suspend fun edit(transform: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         dataStore.edit(transform)
     }
@@ -69,8 +114,11 @@ class SettingsRepository(context: Context) {
     private object Keys {
         val DARK_MODE_OVERRIDE = booleanPreferencesKey("dark_mode_override")
         val SENSITIVITY = floatPreferencesKey("sensitivity")
-        val REQUIRE_LIVE_PHOTO = booleanPreferencesKey("require_live_photo")
         val DAILY_SUMMARY = booleanPreferencesKey("daily_summary")
+        val EARNED_MINUTES_PER_CAT = intPreferencesKey("earned_minutes_per_cat")
+        val RETENTION_DAYS = intPreferencesKey("retention_days")
+        val WARNING_MINUTES = intPreferencesKey("warning_minutes")
+        val REMINDER_MINUTES = intPreferencesKey("reminder_minutes")
         val USER_NAME = stringPreferencesKey("user_name")
         val FOCUS_END_MILLIS = longPreferencesKey("focus_end_millis")
     }
@@ -78,8 +126,29 @@ class SettingsRepository(context: Context) {
     companion object {
         /** Defaults match the previous `SettingsUiState.sample()` values so behaviour is unchanged. */
         const val DEFAULT_SENSITIVITY = 0.65f
-        const val DEFAULT_REQUIRE_LIVE_PHOTO = false
         const val DEFAULT_DAILY_SUMMARY = false
+
+        /**
+         * Aliased to the reward loop's own constant rather than repeated, so the shipped default and
+         * the value the loop documents can't drift apart.
+         */
+        const val DEFAULT_EARNED_MINUTES_PER_CAT = BONUS_MINUTES_PER_CAT
+
+        /** Bounds for the Settings stepper, in minutes. */
+        const val MIN_EARNED_MINUTES_PER_CAT = 5
+        const val MAX_EARNED_MINUTES_PER_CAT = 60
+        const val EARNED_MINUTES_STEP = 5
+
+        /** Warn five minutes out by default — enough time to finish what you're doing. */
+        const val DEFAULT_WARNING_MINUTES = 5
+
+        /** The choices offered in Settings; [UsageTracker.WARNING_OFF] first. */
+        val WARNING_MINUTE_CHOICES = listOf(UsageTracker.WARNING_OFF, 1, 5, 10, 15)
+
+        /** Off unless asked for; see [reminderMinutes]. */
+        const val DEFAULT_REMINDER_MINUTES = REMINDER_OFF
+
+        val REMINDER_MINUTE_CHOICES = listOf(REMINDER_OFF, 15, 30, 60)
 
         /** Blank means "no name set yet"; the UI substitutes a friendly fallback. */
         const val DEFAULT_USER_NAME = ""

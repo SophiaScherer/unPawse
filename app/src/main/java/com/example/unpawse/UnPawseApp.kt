@@ -22,6 +22,9 @@ import com.example.unpawse.ui.navigation.UnPawseBottomBar
 import com.example.unpawse.ui.navigation.UnPawseNavHost
 import com.example.unpawse.ui.navigation.navigateToTab
 import com.example.unpawse.ui.theme.UnPawseTheme
+import com.example.unpawse.ui.theme.isDark
+import com.example.unpawse.ui.theme.overrideFor
+import com.example.unpawse.ui.theme.themeModeFrom
 
 /**
  * Root composable: owns the theme, the persisted dark-mode override, and the app scaffold
@@ -38,7 +41,8 @@ fun UnPawseApp(initialRoute: String? = null) {
     val settings = remember(context) { context.appContainer().settingsRepository }
     val scope = rememberCoroutineScope()
     val darkThemeOverride by settings.darkModeOverride.collectAsStateWithLifecycle(initialValue = null)
-    val darkMode = darkThemeOverride ?: isSystemInDarkTheme()
+    val themeMode = themeModeFrom(darkThemeOverride)
+    val darkMode = themeMode.isDark(isSystemInDarkTheme())
 
     // Monitoring starts here, at the root, rather than from any one screen: usage access is granted
     // in system Settings, so we only learn about it on the way back — and the user may well come
@@ -80,8 +84,10 @@ fun UnPawseApp(initialRoute: String? = null) {
         ) { innerPadding ->
             UnPawseNavHost(
                 navController = navController,
-                darkMode = darkMode,
-                onToggleDarkMode = { enabled -> scope.launch { settings.setDarkModeOverride(enabled) } },
+                themeMode = themeMode,
+                onThemeModeChange = { mode ->
+                    scope.launch { settings.setDarkModeOverride(overrideFor(mode)) }
+                },
                 modifier = Modifier.padding(innerPadding),
             )
         }

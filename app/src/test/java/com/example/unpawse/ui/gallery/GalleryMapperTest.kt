@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.gallery
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.capture.CaptureRetention
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
@@ -73,6 +74,35 @@ class GalleryMapperTest {
         val kept = captures.matchingFilter(GalleryFilter.ALL, now).map { it.id }
 
         assertEquals(listOf("recent"), kept)
+    }
+
+    @Test
+    fun `matchingFilter ALL follows the user's retention window`() {
+        val captures = listOf(
+            capture("thisWeek", daysAgo = 3),
+            capture("lastMonth", daysAgo = 20),
+        )
+        val now = millis(daysAgo = 0)
+
+        val kept = captures.matchingFilter(GalleryFilter.ALL, now, retentionDays = 7).map { it.id }
+
+        assertEquals(listOf("thisWeek"), kept)
+    }
+
+    /** "Keep forever" must show everything, not silently hide old photos it will never delete. */
+    @Test
+    fun `matchingFilter ALL keeps every capture when retention is forever`() {
+        val captures = listOf(
+            capture("ancient", daysAgo = 900),
+            capture("fresh", daysAgo = 1),
+        )
+        val now = millis(daysAgo = 0)
+
+        val kept = captures
+            .matchingFilter(GalleryFilter.ALL, now, retentionDays = CaptureRetention.KEEP_FOREVER)
+            .map { it.id }
+
+        assertEquals(listOf("ancient", "fresh"), kept.sorted())
     }
 
     @Test

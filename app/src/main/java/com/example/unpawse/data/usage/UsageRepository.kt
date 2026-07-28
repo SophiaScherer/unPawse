@@ -1,6 +1,7 @@
 package com.example.unpawse.data.usage
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import kotlin.time.Duration
@@ -38,6 +39,13 @@ class UsageRepository(
             .map { rows -> rows.map(DailyUsageEntity::toDomain) }
     }
 
+    /** The complete usage history, oldest first. Used by the data export, not by any screen. */
+    suspend fun allUsage(): List<DailyUsage> = dao.allUsage().map(DailyUsageEntity::toDomain)
+
+    /** The monitored apps as a one-shot list, for callers that aren't observing. */
+    suspend fun monitoredApps(): List<MonitoredApp> =
+        observeMonitoredApps().first()
+
     /** Adds (or updates) a monitored app and its daily limit. */
     suspend fun setLimit(
         packageName: String,
@@ -53,6 +61,12 @@ class UsageRepository(
 
     suspend fun removeMonitoredApp(packageName: String) =
         dao.removeMonitoredApp(packageName)
+
+    /** Drops the entire screen-time history and every monitored app. Used only by the full reset. */
+    suspend fun clearAll() {
+        dao.clearUsage()
+        dao.clearMonitoredApps()
+    }
 
     /** Accrues foreground time against today's budget (called by the foreground monitor). */
     suspend fun addUsage(packageName: String, duration: Duration) =
@@ -71,6 +85,10 @@ class UsageRepository(
         val usage = dao.usageFor(packageName, todayKey())
         return remainingMinutes(app.dailyLimitMinutes, usage.used, usage.earned)
     }
+
+    /** Minutes spent in [packageName] today, ignoring earned time. Drives the reminder copy. */
+    suspend fun usedMinutes(packageName: String): Int =
+        (dao.usageFor(packageName, todayKey()).used / SECONDS_PER_MINUTE).toInt()
 
     /** Whether [packageName] is being watched right now — the monitor's per-tick gate. */
     suspend fun isMonitoredAndEnabled(packageName: String): Boolean =

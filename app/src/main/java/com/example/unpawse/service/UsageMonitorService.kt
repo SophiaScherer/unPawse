@@ -21,8 +21,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Foreground service that drives [UsageTracker] for as long as monitoring is on. It has to be a
@@ -47,6 +49,8 @@ class UsageMonitorService : Service() {
             val tracker = appContainer().usageTracker
             trackerJob = scope.launch {
                 launch { observeBlockRequired() }
+                launch { observeWarningRequired() }
+                launch { runUsageReminders() }
                 launch { dismissBlockWhenUserLeaves() }
                 launch { runFocusSessionLifecycle() }
                 runCatching { tracker.run() }
@@ -61,6 +65,67 @@ class UsageMonitorService : Service() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * Notifies the user shortly before an app runs out of budget. Deliberately a notification and
+     * not an overlay: the point is to give warning without interrupting, so it can be ignored.
+     */
+    private suspend fun observeWarningRequired() {
+        val container = appContainer()
+        container.usageTracker.warningRequired.collect { event ->
+            val label = container.usageRepository.appLabel(event.packageName) ?: event.packageName
+            Notifications.post(
+                context = this,
+                channelId = Notifications.CHANNEL_ALERTS,
+                id = Notifications.ID_WARNING,
+                title = "$label is nearly up",
+                text = warningText(label, event.remainingMinutes),
+            )
+        }
+    }
+
+    /**
+     * Periodically reminds the user how long they have been in the limited app they're using.
+     *
+     * Driven by the foreground app rather than by a scheduled job: a reminder is only worth sending
+     * while the user is actually in one of these apps, and WorkManager's 15-minute floor can't
+     * express the shorter intervals anyway. This runs inside a service that is already awake, so it
+     * costs nothing extra.
+     *
+     * [kotlinx.coroutines.flow.collectLatest] restarts the timer whenever the foreground app or the
+     * interval changes, which gives the semantics we want: the countdown measures one continuous
+     * stretch in one app, and changing the setting takes effect immediately.
+     */
+    private suspend fun runUsageReminders() {
+        val container = appContainer()
+        combine(
+            container.usageTracker.foregroundApp,
+            container.reminderMinutes,
+        ) { packageName, intervalMinutes -> packageName to intervalMinutes }
+            .collectLatest { (packageName, intervalMinutes) ->
+                if (packageName == null || intervalMinutes <= REMINDER_OFF) return@collectLatest
+                if (!container.usageRepository.isMonitoredAndEnabled(packageName)) return@collectLatest
+
+                while (true) {
+                    delay(intervalMinutes.minutes)
+                    // Limits can change while the timer runs; don't nag about an app that stopped
+                    // being monitored in the meantime.
+                    if (!container.usageRepository.isMonitoredAndEnabled(packageName)) break
+
+                    val label = container.usageRepository.appLabel(packageName) ?: packageName
+                    Notifications.post(
+                        context = this@UsageMonitorService,
+                        channelId = Notifications.CHANNEL_ALERTS,
+                        id = Notifications.ID_REMINDER,
+                        title = reminderTitle(label),
+                        text = reminderText(
+                            usedMinutes = container.usageRepository.usedMinutes(packageName),
+                            remainingMinutes = container.usageRepository.remainingMinutes(packageName),
+                        ),
+                    )
+                }
+            }
     }
 
     /**
@@ -187,40 +252,28 @@ class UsageMonitorService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                "Screen time monitoring",
-                // Low: this notification is a platform requirement, not something to interrupt with.
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = "Shows while unPawse is watching your app limits."
-                setShowBadge(false)
-            },
-        )
-
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("unPawse is watching your limits")
-            .setContentText("Tap to open unPawse")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(contentIntent)
-            .setOngoing(true)
-            .build()
+        Notifications.ensureChannels(this)
+        return Notifications.monitoringNotification(this)
     }
 
     companion object {
         private const val TAG = "UsageMonitorService"
-        private const val CHANNEL_ID = "usage_monitoring"
-        private const val NOTIFICATION_ID = 1
+        private const val NOTIFICATION_ID = Notifications.ID_MONITORING
     }
+}
+
+/**
+ * Warning copy, e.g. "5 minutes of Instagram left today. Photograph a cat to earn more." Pure, so
+ * the singular/plural and the wording are unit-tested.
+ */
+internal fun warningText(appLabel: String, remainingMinutes: Int): String {
+    // Remaining minutes are floored, so 0 means "under a minute" rather than "none".
+    val left = when (remainingMinutes) {
+        0 -> "Less than a minute"
+        1 -> "1 minute"
+        else -> "$remainingMinutes minutes"
+    }
+    return "$left of $appLabel left today. Photograph a cat to earn more."
 }
 
 /**

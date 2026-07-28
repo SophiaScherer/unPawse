@@ -35,6 +35,9 @@ android {
     }
     buildFeatures {
         compose = true
+        // Generates BuildConfig, which the Settings "Version" row reads so the shipped version can
+        // never drift from defaultConfig above.
+        buildConfig = true
     }
 }
 
@@ -83,6 +86,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     testImplementation(libs.junit)
+    testImplementation(libs.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.ui.test.junit4)

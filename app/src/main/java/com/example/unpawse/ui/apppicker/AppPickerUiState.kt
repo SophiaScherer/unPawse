@@ -1,5 +1,7 @@
 package com.example.unpawse.ui.apppicker
 
+import com.example.unpawse.ui.components.steppedValue
+
 /**
  * Immutable UI state for the app picker. [apps] is already filtered by [searchQuery] and sorted;
  * the screen just renders it.
@@ -42,6 +44,9 @@ const val LIMIT_STEP_MINUTES = 15
 const val MIN_LIMIT_MINUTES = 15
 const val MAX_LIMIT_MINUTES = 480
 
-/** Clamps a stepper adjustment to the allowed band. */
+/**
+ * Clamps a stepper adjustment to the allowed band. Kept as a named function (rather than callers
+ * using [steppedValue] directly) so the limit band lives in one place next to its constants.
+ */
 fun adjustLimit(current: Int, deltaSteps: Int): Int =
-    (current + deltaSteps * LIMIT_STEP_MINUTES).coerceIn(MIN_LIMIT_MINUTES, MAX_LIMIT_MINUTES)
+    steppedValue(current, deltaSteps, LIMIT_STEP_MINUTES, MIN_LIMIT_MINUTES, MAX_LIMIT_MINUTES)
