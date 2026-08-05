@@ -100,13 +100,14 @@ class CameraViewModel(
     /**
      * Pays off the blocked app, if the user came here from a block: credits bonus minutes and
      * settles the session so a second photo can't be spent on the same debt. Returns what was
-     * earned, or null when this was just a casual capture.
+     * earned, or null when this was just a casual capture — or when the block's redemption window
+     * had already closed, which reads the same to the user as never having been blocked.
      *
      * Crediting raises the budget above what's been used, so the tracker stops reporting the app as
      * over-limit and won't re-block when the user goes back to it.
      */
     private suspend fun creditBlockedApp(): EarnedTime? {
-        val packageName = blockSession.blockedPackage.value ?: return null
+        val packageName = blockSession.current()?.packageName ?: return null
         // Read at credit time, so changing the Settings stepper applies to the very next capture.
         val minutes = earnedMinutesPerCat()
         usageRepository.addEarnedMinutes(packageName, minutes)

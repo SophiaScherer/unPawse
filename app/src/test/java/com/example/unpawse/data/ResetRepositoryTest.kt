@@ -105,11 +105,11 @@ class ResetRepositoryTest {
     @Test
     fun `an armed block session is cleared`() = runBlocking {
         seedEverything()
-        assertEquals("com.ig", blockSession.blockedPackage.value)
+        assertEquals("com.ig", blockSession.armed.value?.packageName)
 
         reset.eraseEverything()
 
-        assertNull(blockSession.blockedPackage.value)
+        assertNull(blockSession.armed.value)
     }
 
     @Test
