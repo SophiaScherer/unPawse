@@ -6,6 +6,7 @@ import com.example.unpawse.data.usage.FakeUsageDao
 import com.example.unpawse.data.usage.REWARD_COOLDOWN_MINUTES
 import com.example.unpawse.data.usage.RewardDecision
 import com.example.unpawse.data.usage.UsageRepository
+import com.example.unpawse.ui.block.BlockUiState
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -204,6 +205,24 @@ class RewardLoopTest {
         repo.tryEarnMinutes("com.ig", SettingsRepository.MIN_EARNED_MINUTES_PER_CAT)
 
         assertFalse(repo.isLimitReached("com.ig"))
+    }
+
+    /**
+     * The overlay's last honest state: with the allowance spent, offering "Open Camera" would only
+     * lead to a refusal, so the button goes away rather than the user finding out the hard way.
+     */
+    @Test
+    fun `the overlay stops offering the camera once the cap is spent`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 15)
+        repo.addUsage("com.ig", 15.minutes)
+
+        assertTrue(repo.earnableMinutes("com.ig") > 0)
+        assertTrue(BlockUiState.forApp("Instagram").showCamera)
+
+        repo.tryEarnMinutes("com.ig", DAILY_EARNED_CAP_MINUTES)
+
+        assertEquals(0, repo.earnableMinutes("com.ig"))
+        assertFalse(BlockUiState.forAppOutOfRewards("Instagram").showCamera)
     }
 
     @Test

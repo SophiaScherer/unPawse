@@ -22,16 +22,30 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Bonus time bought back by a verified cat while an app was blocked. */
-data class EarnedTime(val appLabel: String, val minutes: Int)
+/**
+ * What a saved cat actually did for the user. Every case but [Earned] means the photo is in the
+ * gallery but bought no time, and each says something different about *why* — a refusal the user
+ * can't explain reads as the app being broken.
+ */
+sealed interface RewardOutcome {
+
+    /** A casual capture: no block was armed, or its redemption window had already closed. */
+    data object NoActiveBlock : RewardOutcome
+
+    /** Bonus time bought back by a verified cat while an app was blocked. */
+    data class Earned(val appLabel: String, val minutes: Int) : RewardOutcome
+
+    /** The app has earned everything it can today; nothing until tomorrow. */
+    data class DailyCapReached(val appLabel: String, val capMinutes: Int) : RewardOutcome
+
+    /** Too soon after the last grant. The block stays armed, so a retry later still counts. */
+    data class CoolingDown(val appLabel: String, val retrySeconds: Long) : RewardOutcome
+}
 
 /** One-shot outcomes of a capture, consumed by [CameraRoute] (state changes go through [uiState]). */
 sealed interface CameraEvent {
-    /**
-     * A cat was confirmed and saved to the gallery. [earned] is non-null only when the capture also
-     * paid off a blocked app — i.e. the user got here from the block overlay.
-     */
-    data class Saved(val earned: EarnedTime?) : CameraEvent
+    /** A cat was confirmed and saved to the gallery; [outcome] says what it was worth. */
+    data class Saved(val outcome: RewardOutcome) : CameraEvent
 
     /** The shot wasn't a cat (or was below the threshold); nothing was stored. */
     data class NotACat(val confidence: Float) : CameraEvent
@@ -81,9 +95,9 @@ class CameraViewModel(
                     // isBonus stays false: that flag marks a *streak* bonus in the Gallery (no AI
                     // badge, "Daily streak bonus!"). An unblock capture is an ordinary verified cat.
                     repository.saveCapture(captured.jpegBytes, result.confidence)
-                    val earned = creditBlockedApp()
-                    _uiState.update { it.copy(hintText = savedHint(earned)) }
-                    _events.send(CameraEvent.Saved(earned))
+                    val outcome = creditBlockedApp()
+                    _uiState.update { it.copy(hintText = savedHint(outcome)) }
+                    _events.send(CameraEvent.Saved(outcome))
                 } else {
                     _uiState.update { it.copy(hintText = NOT_CAT_HINT) }
                     _events.send(CameraEvent.NotACat(result.confidence))
@@ -99,34 +113,33 @@ class CameraViewModel(
     }
 
     /**
-     * Pays off the blocked app, if the user came here from a block: credits bonus minutes and
-     * settles the session so a second photo can't be spent on the same debt. Returns what was
-     * earned, or null when this was just a casual capture — or when the block's redemption window
-     * had already closed, which reads the same to the user as never having been blocked.
+     * Pays off the blocked app, if the user came here from a live block. Returns
+     * [RewardOutcome.NoActiveBlock] for a casual capture — or for one taken after the block's
+     * redemption window closed, which to the user reads the same as never having been blocked.
      *
      * Crediting raises the budget above what's been used, so the tracker stops reporting the app as
-     * over-limit and won't re-block when the user goes back to it.
+     * over-limit and won't re-block when the user goes back to it. There is no explicit unblock.
      */
-    private suspend fun creditBlockedApp(): EarnedTime? {
-        val packageName = blockSession.current()?.packageName ?: return null
+    private suspend fun creditBlockedApp(): RewardOutcome {
+        val packageName = blockSession.current()?.packageName ?: return RewardOutcome.NoActiveBlock
         // Read at credit time, so changing the Settings stepper applies to the very next capture.
-        return when (val decision = usageRepository.tryEarnMinutes(packageName, earnedMinutesPerCat())) {
+        val decision = usageRepository.tryEarnMinutes(packageName, earnedMinutesPerCat())
+        val label = usageRepository.appLabel(packageName) ?: packageName
+        return when (decision) {
             is RewardDecision.Granted -> {
                 blockSession.clear()
-                EarnedTime(
-                    appLabel = usageRepository.appLabel(packageName) ?: packageName,
-                    minutes = decision.minutes,
-                )
+                RewardOutcome.Earned(appLabel = label, minutes = decision.minutes)
             }
             // Nothing left to redeem today; keeping the debt armed would only let a later photo
             // look like it mattered.
             is RewardDecision.Capped -> {
                 blockSession.clear()
-                null
+                RewardOutcome.DailyCapReached(appLabel = label, capMinutes = decision.dailyCapMinutes)
             }
             // Left armed on purpose: the wait is temporary, so a retry once it's up should still
             // pay out against this same block.
-            is RewardDecision.CoolingDown -> null
+            is RewardDecision.CoolingDown ->
+                RewardOutcome.CoolingDown(appLabel = label, retrySeconds = decision.retrySeconds)
         }
     }
 
@@ -138,17 +151,8 @@ class CameraViewModel(
         private const val TAG = "CameraViewModel"
 
         private const val ANALYZING_HINT = "Checking for a cat..."
-        private const val SAVED_HINT = "Purrfect! Saved to your gallery."
         private const val NOT_CAT_HINT = "Hmm, that's not a cat — try again."
         private const val ERROR_HINT = "Couldn't take that shot — try again."
-
-        /** Tells the user what their cat just bought them, when it bought anything. */
-        private fun savedHint(earned: EarnedTime?): String =
-            if (earned == null) {
-                SAVED_HINT
-            } else {
-                "Purrfect! +${earned.minutes} min of ${earned.appLabel}."
-            }
 
         /**
          * Manual-DI factory: pulls shared dependencies from the [AppContainer]. The VM owns its

@@ -139,14 +139,24 @@ class UsageMonitorService : Service() {
             val label = container.usageRepository.appLabel(event.packageName) ?: event.packageName
             when (event.reason) {
                 BlockReason.LIMIT -> {
-                    // Arm the debt before showing, so the camera knows what it's earning back for.
-                    container.blockSession.start(event.packageName)
+                    // An app that has spent its daily bonus allowance can't be bought back today,
+                    // so don't offer the camera — and don't arm a debt no cat could settle, which
+                    // would only let a later capture appear to matter.
+                    val canEarn = container.usageRepository.earnableMinutes(event.packageName) > 0
+                    if (canEarn) {
+                        // Arm the debt before showing, so the camera knows what it's earning for.
+                        container.blockSession.start(event.packageName)
+                    }
                     // WindowManager.addView is main-thread only.
                     withContext(Dispatchers.Main) {
                         container.blockOverlayController.show(
                             packageName = event.packageName,
                             reason = BlockReason.LIMIT,
-                            state = BlockUiState.forApp(label),
+                            state = if (canEarn) {
+                                BlockUiState.forApp(label)
+                            } else {
+                                BlockUiState.forAppOutOfRewards(label)
+                            },
                             onOpenCamera = { onOpenCamera(container.blockOverlayController) },
                             onExit = { onExit(container) },
                         )

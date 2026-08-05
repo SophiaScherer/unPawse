@@ -55,6 +55,18 @@ data class BlockUiState(
         )
 
         /**
+         * The limit is reached *and* today's bonus allowance for this app is spent, so the camera
+         * genuinely cannot help until tomorrow. Hiding the button is the honest thing to do —
+         * offering an escape that would refuse the photo is worse than offering none.
+         */
+        fun forAppOutOfRewards(appName: String) = BlockUiState(
+            appName = appName,
+            subtitle = "You've used all of today's bonus time for $appName.",
+            body = "Even a very good cat can't buy more today. Come back tomorrow.",
+            showCamera = false,
+        )
+
+        /**
          * A focus-session hard block: no camera escape (the "+15 min cat" path is hidden), the app
          * unlocks only when the timer ends. The user can still leave via "Exit App".
          */
