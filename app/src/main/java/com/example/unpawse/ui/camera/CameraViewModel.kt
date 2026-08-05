@@ -110,16 +110,23 @@ class CameraViewModel(
     private suspend fun creditBlockedApp(): EarnedTime? {
         val packageName = blockSession.current()?.packageName ?: return null
         // Read at credit time, so changing the Settings stepper applies to the very next capture.
-        val decision = usageRepository.tryEarnMinutes(packageName, earnedMinutesPerCat())
-        // Settled either way: a capped app has nothing left to redeem today, so keeping the debt
-        // armed would only let a later photo look like it mattered.
-        blockSession.clear()
-        return when (decision) {
-            is RewardDecision.Granted -> EarnedTime(
-                appLabel = usageRepository.appLabel(packageName) ?: packageName,
-                minutes = decision.minutes,
-            )
-            is RewardDecision.Capped -> null
+        return when (val decision = usageRepository.tryEarnMinutes(packageName, earnedMinutesPerCat())) {
+            is RewardDecision.Granted -> {
+                blockSession.clear()
+                EarnedTime(
+                    appLabel = usageRepository.appLabel(packageName) ?: packageName,
+                    minutes = decision.minutes,
+                )
+            }
+            // Nothing left to redeem today; keeping the debt armed would only let a later photo
+            // look like it mattered.
+            is RewardDecision.Capped -> {
+                blockSession.clear()
+                null
+            }
+            // Left armed on purpose: the wait is temporary, so a retry once it's up should still
+            // pay out against this same block.
+            is RewardDecision.CoolingDown -> null
         }
     }
 

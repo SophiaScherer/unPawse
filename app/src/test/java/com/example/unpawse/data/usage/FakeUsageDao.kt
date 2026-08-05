@@ -62,9 +62,17 @@ internal class FakeUsageDao : UsageDao() {
         }
     }
 
-    override suspend fun addEarnedSeconds(packageName: String, date: String, seconds: Long) {
+    override suspend fun addEarnedSecondsAt(
+        packageName: String,
+        date: String,
+        seconds: Long,
+        atMillis: Long,
+    ) {
         usage[packageName to date]?.let {
-            usage[packageName to date] = it.copy(earnedSeconds = it.earnedSeconds + seconds)
+            usage[packageName to date] = it.copy(
+                earnedSeconds = it.earnedSeconds + seconds,
+                lastEarnedAtMillis = atMillis,
+            )
         }
     }
 }

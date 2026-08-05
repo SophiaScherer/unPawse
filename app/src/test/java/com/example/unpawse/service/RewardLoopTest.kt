@@ -3,6 +3,7 @@ package com.example.unpawse.service
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.DAILY_EARNED_CAP_MINUTES
 import com.example.unpawse.data.usage.FakeUsageDao
+import com.example.unpawse.data.usage.REWARD_COOLDOWN_MINUTES
 import com.example.unpawse.data.usage.RewardDecision
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.runBlocking
@@ -23,11 +24,23 @@ import kotlin.time.Duration.Companion.minutes
  *
  * Reward-loop cases go through `tryEarnMinutes`, the capped path the camera actually uses;
  * `addEarnedMinutes` appears only where a test needs to seed earned time directly.
+ *
+ * Consecutive grants advance [nowMillis] past the cooldown via [waitOutCooldown], so a case about
+ * the *cap* isn't quietly asserting the cooldown instead.
  */
 class RewardLoopTest {
 
     private val dao = FakeUsageDao()
-    private val repo = UsageRepository(dao, today = { LocalDate.of(2026, 7, 15) })
+    private var nowMillis = 1_000_000_000L
+    private val repo = UsageRepository(
+        dao,
+        today = { LocalDate.of(2026, 7, 15) },
+        now = { nowMillis },
+    )
+
+    private fun waitOutCooldown() {
+        nowMillis += REWARD_COOLDOWN_MINUTES * 60_000L
+    }
 
     @Test
     fun `a verified cat unblocks a maxed-out app`() = runBlocking {
@@ -65,15 +78,17 @@ class RewardLoopTest {
                 "cat ${it + 1} should still pay out",
                 repo.tryEarnMinutes("com.ig", BONUS_MINUTES_PER_CAT) is RewardDecision.Granted,
             )
+            waitOutCooldown()
         }
         assertEquals(DAILY_EARNED_CAP_MINUTES, repo.remainingMinutes("com.ig"))
 
-        // The fifth buys nothing, however many times it's tried.
+        // The fifth buys nothing, however many times it's tried and however long it waits.
         repeat(3) {
             assertEquals(
                 RewardDecision.Capped(DAILY_EARNED_CAP_MINUTES),
                 repo.tryEarnMinutes("com.ig", BONUS_MINUTES_PER_CAT),
             )
+            waitOutCooldown()
         }
         assertEquals(DAILY_EARNED_CAP_MINUTES, repo.remainingMinutes("com.ig"))
     }
@@ -85,6 +100,7 @@ class RewardLoopTest {
 
         // A 45-minute grant leaves 15 of the 60-minute cap; the next cat gets that, not 45.
         repo.tryEarnMinutes("com.ig", 45)
+        waitOutCooldown()
 
         assertEquals(RewardDecision.Granted(15), repo.tryEarnMinutes("com.ig", 45))
         assertEquals(DAILY_EARNED_CAP_MINUTES, repo.remainingMinutes("com.ig"))
@@ -101,6 +117,54 @@ class RewardLoopTest {
 
         assertEquals(0, repo.earnableMinutes("com.ig"))
         assertEquals(DAILY_EARNED_CAP_MINUTES, repo.earnableMinutes("com.tiktok"))
+        assertEquals(
+            RewardDecision.Granted(BONUS_MINUTES_PER_CAT),
+            repo.tryEarnMinutes("com.tiktok", BONUS_MINUTES_PER_CAT),
+        )
+    }
+
+    @Test
+    fun `a second cat inside the cooldown earns nothing`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 15)
+        repo.addUsage("com.ig", 15.minutes)
+        repo.tryEarnMinutes("com.ig", BONUS_MINUTES_PER_CAT)
+
+        nowMillis += 60_000L // one minute later
+
+        val decision = repo.tryEarnMinutes("com.ig", BONUS_MINUTES_PER_CAT)
+
+        assertTrue("expected a cooldown, got $decision", decision is RewardDecision.CoolingDown)
+        assertEquals(
+            "the refused cat must not have been credited",
+            BONUS_MINUTES_PER_CAT,
+            repo.remainingMinutes("com.ig"),
+        )
+    }
+
+    @Test
+    fun `waiting out the cooldown earns again`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 15)
+        repo.addUsage("com.ig", 15.minutes)
+        repo.tryEarnMinutes("com.ig", BONUS_MINUTES_PER_CAT)
+
+        waitOutCooldown()
+
+        assertEquals(
+            RewardDecision.Granted(BONUS_MINUTES_PER_CAT),
+            repo.tryEarnMinutes("com.ig", BONUS_MINUTES_PER_CAT),
+        )
+        assertEquals(BONUS_MINUTES_PER_CAT * 2, repo.remainingMinutes("com.ig"))
+    }
+
+    @Test
+    fun `the cooldown is per app, so one blocked app does not gate another`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 15)
+        repo.setLimit("com.tiktok", "TikTok", dailyLimitMinutes = 15)
+        repo.addUsage("com.ig", 15.minutes)
+        repo.addUsage("com.tiktok", 15.minutes)
+
+        repo.tryEarnMinutes("com.ig", BONUS_MINUTES_PER_CAT)
+
         assertEquals(
             RewardDecision.Granted(BONUS_MINUTES_PER_CAT),
             repo.tryEarnMinutes("com.tiktok", BONUS_MINUTES_PER_CAT),
