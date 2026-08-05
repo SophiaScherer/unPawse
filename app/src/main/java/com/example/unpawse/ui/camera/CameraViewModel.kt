@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.usage.RewardDecision
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.service.BONUS_MINUTES_PER_CAT
@@ -109,11 +110,17 @@ class CameraViewModel(
     private suspend fun creditBlockedApp(): EarnedTime? {
         val packageName = blockSession.current()?.packageName ?: return null
         // Read at credit time, so changing the Settings stepper applies to the very next capture.
-        val minutes = earnedMinutesPerCat()
-        usageRepository.addEarnedMinutes(packageName, minutes)
-        val label = usageRepository.appLabel(packageName) ?: packageName
+        val decision = usageRepository.tryEarnMinutes(packageName, earnedMinutesPerCat())
+        // Settled either way: a capped app has nothing left to redeem today, so keeping the debt
+        // armed would only let a later photo look like it mattered.
         blockSession.clear()
-        return EarnedTime(appLabel = label, minutes = minutes)
+        return when (decision) {
+            is RewardDecision.Granted -> EarnedTime(
+                appLabel = usageRepository.appLabel(packageName) ?: packageName,
+                minutes = decision.minutes,
+            )
+            is RewardDecision.Capped -> null
+        }
     }
 
     override fun onCleared() {

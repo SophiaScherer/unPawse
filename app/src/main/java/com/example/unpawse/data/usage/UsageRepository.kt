@@ -72,9 +72,33 @@ class UsageRepository(
     suspend fun addUsage(packageName: String, duration: Duration) =
         dao.addUsage(packageName, todayKey(), duration.inWholeSeconds)
 
-    /** Credits bonus minutes back (called when a cat capture is verified). */
+    /**
+     * Credits bonus minutes back **unconditionally**. The raw primitive behind [tryEarnMinutes];
+     * the reward loop must not call it directly or the daily cap is bypassed.
+     */
     suspend fun addEarnedMinutes(packageName: String, minutes: Int) =
         dao.addEarned(packageName, todayKey(), minutes.toLong() * SECONDS_PER_MINUTE)
+
+    /**
+     * The reward loop's only credit path: applies the per-app daily cap, then credits whatever
+     * survives it. Returns the decision so the camera can tell the user *why* a cat paid nothing.
+     *
+     * Read-then-write rather than a single statement, which is safe here because a grant only ever
+     * happens on a shutter press — there is no concurrent writer to race with, unlike the
+     * once-a-second usage accrual.
+     */
+    suspend fun tryEarnMinutes(packageName: String, minutes: Int): RewardDecision {
+        val decision = decideReward(
+            requestedMinutes = minutes,
+            earnedSecondsToday = dao.usageFor(packageName, todayKey()).earned,
+        )
+        if (decision is RewardDecision.Granted) addEarnedMinutes(packageName, decision.minutes)
+        return decision
+    }
+
+    /** Bonus minutes [packageName] can still earn today; 0 once its cap is spent. */
+    suspend fun earnableMinutes(packageName: String): Int =
+        earnableMinutes(dao.usageFor(packageName, todayKey()).earned)
 
     /**
      * Remaining minutes for [packageName] today (floored at 0), or `null` if it isn't a monitored,

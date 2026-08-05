@@ -41,6 +41,21 @@ class UsageRepositoryTest {
     }
 
     @Test
+    fun `the earning cap resets with the new day`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.tryEarnMinutes("com.ig", DAILY_EARNED_CAP_MINUTES)
+        assertEquals(0, repo.earnableMinutes("com.ig"))
+
+        today = today.plusDays(1)
+
+        assertEquals(DAILY_EARNED_CAP_MINUTES, repo.earnableMinutes("com.ig"))
+        assertEquals(
+            RewardDecision.Granted(15),
+            repo.tryEarnMinutes("com.ig", 15),
+        )
+    }
+
+    @Test
     fun `a new day resets usage`() = runBlocking {
         repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
         repo.addUsage("com.ig", 10.minutes)
