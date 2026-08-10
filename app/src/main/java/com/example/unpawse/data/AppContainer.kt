@@ -188,24 +188,35 @@ class DefaultAppContainer(context: Context) : AppContainer {
         }
     }
 
-    override val catDetectorMinConfidence: StateFlow<Float> by lazy {
+    // --- Settings mirrored as app-wide state -------------------------------------------------
+    //
+    // Deliberately NOT `by lazy`, unlike everything above. `stateIn` seeds the flow with the
+    // *default* and only replaces it once DataStore's first emission lands, so a lazy property
+    // whose first read is also the read that matters returns the default forever after — the
+    // value arrives microseconds too late.
+    //
+    // That is not hypothetical: every one of these is consumed as a `() -> T` lambda whose first
+    // invocation is the decision itself, so the camera granted `BONUS_MINUTES_PER_CAT` instead of
+    // the user's chosen minutes, and judged the first photo of each process against the default
+    // 0.7 gate instead of their sensitivity setting. Both were reproduced on-device.
+    //
+    // Initialising here means collection starts in `Application.onCreate`, long before any UI can
+    // ask — the launch-into-camera path from the block overlay included.
+
+    override val catDetectorMinConfidence: StateFlow<Float> =
         settingsRepository.sensitivity
             .map(::sensitivityToMinConfidence)
             .stateIn(appScope, SharingStarted.Eagerly, CatDetector.DEFAULT_MIN_CONFIDENCE)
-    }
 
-    override val earnedMinutesPerCat: StateFlow<Int> by lazy {
+    override val earnedMinutesPerCat: StateFlow<Int> =
         settingsRepository.earnedMinutesPerCat
             .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_EARNED_MINUTES_PER_CAT)
-    }
 
-    override val warningMinutes: StateFlow<Int> by lazy {
+    override val warningMinutes: StateFlow<Int> =
         settingsRepository.warningMinutes
             .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_WARNING_MINUTES)
-    }
 
-    override val reminderMinutes: StateFlow<Int> by lazy {
+    override val reminderMinutes: StateFlow<Int> =
         settingsRepository.reminderMinutes
             .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_REMINDER_MINUTES)
-    }
 }

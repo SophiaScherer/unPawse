@@ -13,10 +13,13 @@ import kotlin.time.Duration
  * @param today supplies the current local date, injected so tests can pin "today" and exercise the
  * daily rollover without a real clock. Each call reads it fresh, so a long-lived process crossing
  * midnight naturally starts writing to the new day's row.
+ * @param now supplies epoch millis for the reward cooldown, injected for the same reason (and in
+ * the same shape as `UsageTracker`/`FocusSession`).
  */
 class UsageRepository(
     private val dao: UsageDao,
     private val today: () -> LocalDate = { LocalDate.now() },
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
     private fun todayKey(): String = today().toString()
 
@@ -72,9 +75,37 @@ class UsageRepository(
     suspend fun addUsage(packageName: String, duration: Duration) =
         dao.addUsage(packageName, todayKey(), duration.inWholeSeconds)
 
-    /** Credits bonus minutes back (called when a cat capture is verified). */
+    /**
+     * Credits bonus minutes back **unconditionally**. The raw primitive behind [tryEarnMinutes];
+     * the reward loop must not call it directly or the daily cap is bypassed.
+     */
     suspend fun addEarnedMinutes(packageName: String, minutes: Int) =
-        dao.addEarned(packageName, todayKey(), minutes.toLong() * SECONDS_PER_MINUTE)
+        dao.addEarned(packageName, todayKey(), minutes.toLong() * SECONDS_PER_MINUTE, now())
+
+    /**
+     * The reward loop's only credit path: applies the per-app daily cap and the cooldown, then
+     * credits whatever survives them. Returns the decision so the camera can tell the user *why* a
+     * cat paid nothing.
+     *
+     * Read-then-write rather than a single statement, which is safe here because a grant only ever
+     * happens on a shutter press — there is no concurrent writer to race with, unlike the
+     * once-a-second usage accrual.
+     */
+    suspend fun tryEarnMinutes(packageName: String, minutes: Int): RewardDecision {
+        val row = dao.usageFor(packageName, todayKey())
+        val decision = decideReward(
+            requestedMinutes = minutes,
+            earnedSecondsToday = row.earned,
+            lastEarnedAtMillis = row.lastEarnedAt,
+            nowMillis = now(),
+        )
+        if (decision is RewardDecision.Granted) addEarnedMinutes(packageName, decision.minutes)
+        return decision
+    }
+
+    /** Bonus minutes [packageName] can still earn today; 0 once its cap is spent. */
+    suspend fun earnableMinutes(packageName: String): Int =
+        earnableMinutes(dao.usageFor(packageName, todayKey()).earned)
 
     /**
      * Remaining minutes for [packageName] today (floored at 0), or `null` if it isn't a monitored,
@@ -112,3 +143,4 @@ class UsageRepository(
 /** Null-usage-safe accessors so callers read 0 when there's no row for today yet. */
 private val DailyUsageEntity?.used: Long get() = this?.usedSeconds ?: 0
 private val DailyUsageEntity?.earned: Long get() = this?.earnedSeconds ?: 0
+private val DailyUsageEntity?.lastEarnedAt: Long get() = this?.lastEarnedAtMillis ?: 0

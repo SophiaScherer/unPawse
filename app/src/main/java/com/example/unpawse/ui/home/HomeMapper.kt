@@ -145,12 +145,29 @@ private fun buildActivities(
         ActivityItem(
             kind = ActivityKind.VERIFIED,
             title = "Cat Verified",
-            subtitle = "${(capture.confidence * 100).toInt()}% match. Time earned back.",
+            subtitle = captureSubtitle(capture),
             time = Instant.ofEpochMilli(capture.capturedAt).atZone(zone).format(TIME_FORMAT),
         )
     }
 
     return blocked + verified
+}
+
+/**
+ * What a capture is reported as having done. This used to read "Time earned back." for *every*
+ * cat, which was simply untrue for the common case: a cat photographed while nothing is blocked
+ * earns nothing, and saying otherwise made spamming the shutter look like it was working.
+ *
+ * [Capture.earnedMinutes] is the recorded truth, so an unearned capture now says only what did
+ * happen — the photo was saved.
+ */
+internal fun captureSubtitle(capture: Capture): String {
+    val match = "${(capture.confidence * 100).toInt()}% match."
+    return if (capture.earnedMinutes > 0) {
+        "$match +${formatMinutes(capture.earnedMinutes)} earned back."
+    } else {
+        "$match Saved to your gallery."
+    }
 }
 
 /**

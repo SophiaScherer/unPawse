@@ -64,8 +64,20 @@ abstract class UsageDao {
     @Query("UPDATE daily_usage SET usedSeconds = usedSeconds + :seconds WHERE packageName = :packageName AND date = :date")
     abstract suspend fun addUsedSeconds(packageName: String, date: String, seconds: Long)
 
-    @Query("UPDATE daily_usage SET earnedSeconds = earnedSeconds + :seconds WHERE packageName = :packageName AND date = :date")
-    abstract suspend fun addEarnedSeconds(packageName: String, date: String, seconds: Long)
+    /**
+     * Credits earned seconds and stamps when it happened, in one statement — the cooldown is only
+     * enforceable if the timestamp can't be lost between the two.
+     */
+    @Query(
+        "UPDATE daily_usage SET earnedSeconds = earnedSeconds + :seconds, lastEarnedAtMillis = :atMillis " +
+            "WHERE packageName = :packageName AND date = :date",
+    )
+    abstract suspend fun addEarnedSecondsAt(
+        packageName: String,
+        date: String,
+        seconds: Long,
+        atMillis: Long,
+    )
 
     @Transaction
     open suspend fun addUsage(packageName: String, date: String, seconds: Long) {
@@ -74,8 +86,8 @@ abstract class UsageDao {
     }
 
     @Transaction
-    open suspend fun addEarned(packageName: String, date: String, seconds: Long) {
+    open suspend fun addEarned(packageName: String, date: String, seconds: Long, atMillis: Long) {
         insertUsageIfAbsent(DailyUsageEntity(packageName, date, usedSeconds = 0, earnedSeconds = 0))
-        addEarnedSeconds(packageName, date, seconds)
+        addEarnedSecondsAt(packageName, date, seconds, atMillis)
     }
 }

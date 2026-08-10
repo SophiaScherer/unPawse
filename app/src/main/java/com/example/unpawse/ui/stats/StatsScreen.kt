@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Celebration
@@ -68,7 +69,7 @@ fun StatsScreen(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 PreventedCard(state.preventedCount, Modifier.weight(1f))
-                TrendCard(state.trendLabel, state.trendBars, Modifier.weight(1f))
+                TrendCard(state.trendLabel, state.trendIsUp, state.trendBars, Modifier.weight(1f))
             }
         }
         item { UsageBreakdownCard(state, onDetails) }
@@ -81,12 +82,16 @@ fun StatsScreen(
             }
         }
         item { CapturedPhotosBanner(state.capturedPhotos) }
-        item {
-            SectionLabel(text = "Recent Achievements")
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
-                state.achievements.forEach { achievement ->
-                    AchievementCard(achievement, Modifier.weight(1f))
+        // Achievements are deliberately empty until the feature behind them exists (see
+        // StatsMapper); a bare heading over blank space reads as content that failed to load.
+        if (state.achievements.isNotEmpty()) {
+            item {
+                SectionLabel(text = "Recent Achievements")
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
+                    state.achievements.forEach { achievement ->
+                        AchievementCard(achievement, Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -150,13 +155,19 @@ private fun PreventedCard(count: Int, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TrendCard(label: String, bars: List<Float>, modifier: Modifier = Modifier) {
+private fun TrendCard(label: String, isUp: Boolean, bars: List<Float>, modifier: Modifier = Modifier) {
     PawCard(modifier = modifier, containerColor = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 0.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Trend", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f))
-            Icon(Icons.AutoMirrored.Filled.TrendingDown, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
+            // Follows the sign in [label]; this was pinned to TrendingDown, so a week where usage
+            // rose showed "+0.6h" beside a downward arrow.
+            Icon(
+                if (isUp) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
+                contentDescription = if (isUp) "Usage up week over week" else "Usage down week over week",
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(18.dp),
+            )
         }
         Text(label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimaryContainer)

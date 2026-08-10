@@ -56,6 +56,17 @@ class CaptureRepository(
     }
 
     /**
+     * Records what a capture bought back, called once the reward loop has decided.
+     *
+     * A second write rather than a parameter on [saveCapture] because the photo is stored *before*
+     * the credit is attempted: keeping that order means a crediting failure can't cost the user
+     * their photo, and a row that never gets updated reads as "earned nothing", which is true.
+     */
+    suspend fun recordEarnedMinutes(id: String, minutes: Int) {
+        dao.setEarnedMinutes(id, minutes)
+    }
+
+    /**
      * Deletes every non-favorite capture older than [cutoffMillis] (epoch millis), removing both the
      * row and its JPEG via [deleteCapture]. Favorites are excluded by the query, so "favorites are
      * never auto-deleted" holds. Called on a schedule by

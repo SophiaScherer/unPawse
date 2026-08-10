@@ -39,6 +39,22 @@ class CaptureRepositoryTest {
     }
 
     @Test
+    fun `a fresh capture is recorded as having earned nothing`() = runBlocking {
+        val capture = repo.saveCapture(byteArrayOf(1, 2, 3), confidence = 0.9f)
+
+        assertEquals(0, capture.earnedMinutes)
+    }
+
+    @Test
+    fun `recordEarnedMinutes stamps what the capture bought back`() = runBlocking {
+        val capture = repo.saveCapture(byteArrayOf(1, 2, 3), confidence = 0.9f)
+
+        repo.recordEarnedMinutes(capture.id, 15)
+
+        assertEquals(15, dao.findById(capture.id)?.earnedMinutes)
+    }
+
+    @Test
     fun `purgeExpired removes old non-favorites and their files`() = runBlocking {
         val cutoff = 10_000L
         val oldPlain = seed("old", capturedAt = cutoff - 1)

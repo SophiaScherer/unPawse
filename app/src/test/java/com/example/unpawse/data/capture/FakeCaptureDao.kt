@@ -25,6 +25,10 @@ internal class FakeCaptureDao : CaptureDao {
         rows[id]?.let { rows[id] = it.copy(isFavorite = favorite) }
     }
 
+    override suspend fun setEarnedMinutes(id: String, minutes: Int) {
+        rows[id]?.let { rows[id] = it.copy(earnedMinutes = minutes) }
+    }
+
     override suspend fun findExpired(cutoff: Long): List<CaptureEntity> =
         rows.values.filter { it.capturedAt < cutoff && !it.isFavorite }
 

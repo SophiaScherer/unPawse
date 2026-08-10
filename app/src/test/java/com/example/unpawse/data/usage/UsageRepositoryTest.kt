@@ -17,7 +17,8 @@ class UsageRepositoryTest {
 
     private val dao = FakeUsageDao()
     private var today = LocalDate.of(2026, 7, 15)
-    private val repo = UsageRepository(dao, today = { today })
+    private var nowMillis = 1_000_000_000L
+    private val repo = UsageRepository(dao, today = { today }, now = { nowMillis })
 
     @Test
     fun `usage accrues against the daily limit`() = runBlocking {
@@ -38,6 +39,36 @@ class UsageRepositoryTest {
 
         assertFalse(repo.isLimitReached("com.ig"))
         assertEquals(5, repo.remainingMinutes("com.ig"))
+    }
+
+    @Test
+    fun `the earning cap resets with the new day`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.tryEarnMinutes("com.ig", DAILY_EARNED_CAP_MINUTES)
+        assertEquals(0, repo.earnableMinutes("com.ig"))
+
+        today = today.plusDays(1)
+
+        assertEquals(DAILY_EARNED_CAP_MINUTES, repo.earnableMinutes("com.ig"))
+        assertEquals(
+            RewardDecision.Granted(15),
+            repo.tryEarnMinutes("com.ig", 15),
+        )
+    }
+
+    /**
+     * The cooldown stamp lives on the day's row, so a new day starts clean without a reset job —
+     * even for a process that has been running since yesterday and never restarted the clock.
+     */
+    @Test
+    fun `the cooldown does not carry across midnight`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.tryEarnMinutes("com.ig", 15)
+
+        today = today.plusDays(1)
+        nowMillis += 60_000L // one minute later in wall-clock terms
+
+        assertEquals(RewardDecision.Granted(15), repo.tryEarnMinutes("com.ig", 15))
     }
 
     @Test

@@ -23,13 +23,19 @@ class HomeMapperTest {
     private fun usage(pkg: String, usedMinutes: Int, earnedMinutes: Int = 0) =
         DailyUsage(pkg, today.toString(), usedMinutes * 60L, earnedMinutes * 60L)
 
-    private fun capture(daysAgo: Long, hour: Int = 10, confidence: Float = 0.9f) = Capture(
+    private fun capture(
+        daysAgo: Long,
+        hour: Int = 10,
+        confidence: Float = 0.9f,
+        earnedMinutes: Int = 0,
+    ) = Capture(
         id = "id-$daysAgo-$hour",
         filePath = "/tmp/x.jpg",
         capturedAt = ZonedDateTime.of(today.minusDays(daysAgo).atTime(hour, 0), zone)
             .toInstant().toEpochMilli(),
         confidence = confidence,
         isBonus = false,
+        earnedMinutes = earnedMinutes,
     )
 
     private fun map(
@@ -183,11 +189,56 @@ class HomeMapperTest {
 
     @Test
     fun `todays captures appear as verified activity with a real time`() {
-        val state = map(apps = emptyList(), captures = listOf(capture(daysAgo = 0, hour = 14, confidence = 0.83f)))
+        val state = map(
+            apps = emptyList(),
+            captures = listOf(capture(daysAgo = 0, hour = 14, confidence = 0.83f, earnedMinutes = 15)),
+        )
 
         val verified = state.activities.single { it.kind == ActivityKind.VERIFIED }
         assertEquals("Cat Verified", verified.title)
-        assertEquals("83% match. Time earned back.", verified.subtitle)
+        assertEquals("83% match. +15m earned back.", verified.subtitle)
         assertEquals("2:00 PM", verified.time)
+    }
+
+    /**
+     * The feed used to claim "Time earned back." for every cat, so spamming the shutter on a fresh
+     * day looked like it was working. A capture that earned nothing must not say it did.
+     */
+    @Test
+    fun `a capture that earned nothing does not claim time back`() {
+        val state = map(
+            apps = emptyList(),
+            captures = listOf(capture(daysAgo = 0, hour = 14, confidence = 0.83f, earnedMinutes = 0)),
+        )
+
+        val verified = state.activities.single { it.kind == ActivityKind.VERIFIED }
+        assertEquals("83% match. Saved to your gallery.", verified.subtitle)
+    }
+
+    @Test
+    fun `spamming the shutter while nothing is blocked never claims earned time`() {
+        val captures = (9..13).map { hour -> capture(daysAgo = 0, hour = hour) }
+
+        val state = map(apps = emptyList(), captures = captures)
+
+        assertEquals(5, state.catCount)
+        assertTrue(
+            "no verified row may claim time back",
+            state.activities
+                .filter { it.kind == ActivityKind.VERIFIED }
+                .none { it.subtitle.contains("earned") },
+        )
+    }
+
+    @Test
+    fun `the subtitle reports whatever the capture actually earned`() {
+        assertEquals(
+            "90% match. +5m earned back.",
+            captureSubtitle(capture(daysAgo = 0, earnedMinutes = 5)),
+        )
+        assertEquals(
+            "90% match. +1h earned back.",
+            captureSubtitle(capture(daysAgo = 0, earnedMinutes = 60)),
+        )
     }
 }

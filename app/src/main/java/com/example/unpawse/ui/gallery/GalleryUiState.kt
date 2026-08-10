@@ -52,7 +52,9 @@ data class GalleryUiState(
 enum class GalleryFilter(val label: String) {
     THIS_WEEK("This Week"),
     ALL("All"),
-    FAVORITES("Favorites"),
+    // Copy is British ("Favourites") to match Photo storage, the reset dialog and the privacy
+    // policy; the identifiers stay American to match `isFavorite` throughout the data layer.
+    FAVORITES("Favourites"),
 }
 
 data class GallerySection(val title: String, val items: List<CaptureItem>)

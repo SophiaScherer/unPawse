@@ -48,11 +48,12 @@ fun CameraRoute(
 
     // Capture outcomes surface through the hint text in [state], so we deliberately keep the user on
     // the camera after a save rather than yanking them elsewhere. The one thing worth acting on is a
-    // capture that paid off a block: the crediting itself happens in the ViewModel, but the overlay
-    // is a window this side owns, so take it down here.
+    // capture that actually bought time: the crediting itself happens in the ViewModel, but the
+    // overlay is a window this side owns, so take it down here. A capped or cooling-down capture
+    // leaves it up on purpose — the app is still blocked, so hiding it would be a lie.
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
-            if (event is CameraEvent.Saved && event.earned != null) {
+            if (event is CameraEvent.Saved && event.outcome is RewardOutcome.Earned) {
                 context.appContainer().blockOverlayController.hide()
             }
         }

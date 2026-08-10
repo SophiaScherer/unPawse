@@ -22,6 +22,10 @@ interface CaptureDao {
     @Query("UPDATE captures SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: String, favorite: Boolean)
 
+    /** Records what a capture bought back, once the reward loop has decided. */
+    @Query("UPDATE captures SET earnedMinutes = :minutes WHERE id = :id")
+    suspend fun setEarnedMinutes(id: String, minutes: Int)
+
     /**
      * Non-favorite captures older than [cutoff] (epoch millis). Selected (not bulk-deleted) so the
      * repository can also remove each backing JPEG. Favorites are excluded, so they never expire.

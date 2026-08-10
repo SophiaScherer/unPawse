@@ -62,7 +62,7 @@ fun CaptureActionsSheet(
 
             ActionRow(
                 icon = if (capture.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                label = if (capture.isFavorite) "Remove from favorites" else "Add to favorites",
+                label = if (capture.isFavorite) "Remove from favourites" else "Add to favourites",
                 tint = MaterialTheme.colorScheme.primary,
                 onClick = { onToggleFavorite(capture) },
             )
