@@ -94,8 +94,13 @@ class CameraViewModel(
                 if (result.isCat) {
                     // isBonus stays false: that flag marks a *streak* bonus in the Gallery (no AI
                     // badge, "Daily streak bonus!"). An unblock capture is an ordinary verified cat.
-                    repository.saveCapture(captured.jpegBytes, result.confidence)
+                    val capture = repository.saveCapture(captured.jpegBytes, result.confidence)
                     val outcome = creditBlockedApp()
+                    // Record what this photo was worth, so the Home feed can report it instead of
+                    // assuming every cat earned time. Only a real grant is worth a second write.
+                    if (outcome is RewardOutcome.Earned) {
+                        repository.recordEarnedMinutes(capture.id, outcome.minutes)
+                    }
                     _uiState.update { it.copy(hintText = savedHint(outcome)) }
                     _events.send(CameraEvent.Saved(outcome))
                 } else {

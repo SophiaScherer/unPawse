@@ -10,6 +10,8 @@ package com.example.unpawse.data.capture
  * @param isBonus reserved for streak/bonus captures (no AI badge in the Gallery).
  * @param isFavorite user-starred; favorites are exempt from the rolling retention purge (see
  *   [com.example.unpawse.service.CaptureRetentionWorker]) and only surface under the Favorites filter.
+ * @param earnedMinutes bonus minutes this capture bought back, or 0 when it bought none. Lets the
+ *   Home feed report what a cat was actually worth instead of assuming every cat earned time.
  */
 data class Capture(
     val id: String,
@@ -18,4 +20,5 @@ data class Capture(
     val confidence: Float,
     val isBonus: Boolean = false,
     val isFavorite: Boolean = false,
+    val earnedMinutes: Int = 0,
 )

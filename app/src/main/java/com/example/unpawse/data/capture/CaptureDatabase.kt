@@ -19,7 +19,7 @@ import com.example.unpawse.data.usage.UsageDao
  */
 @Database(
     entities = [CaptureEntity::class, MonitoredAppEntity::class, DailyUsageEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class CaptureDatabase : RoomDatabase() {
