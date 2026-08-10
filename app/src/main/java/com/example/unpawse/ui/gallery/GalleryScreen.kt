@@ -16,11 +16,13 @@ import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
@@ -235,6 +237,21 @@ private fun CaptureCard(capture: CaptureItem, onClick: () -> Unit) {
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .padding(8.dp),
+                )
+            }
+            // Without this, a favourited photo looks identical to any other and the only way to
+            // tell was to switch to the Favourites filter.
+            if (capture.isFavorite) {
+                Icon(
+                    Icons.Filled.Favorite,
+                    contentDescription = "Favourite",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), CircleShape)
+                        .padding(4.dp)
+                        .size(16.dp),
                 )
             }
         }

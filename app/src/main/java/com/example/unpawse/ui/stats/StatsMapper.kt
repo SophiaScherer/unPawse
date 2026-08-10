@@ -8,6 +8,7 @@ import com.example.unpawse.ui.home.longestStreakDays
 import com.example.unpawse.ui.home.toLocalDate
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -51,9 +52,12 @@ internal fun toStatsUiState(
     val todaySeconds = usedOn(today)
     val yesterdaySeconds = usedOn(today.minusDays(1))
 
-    val thisWeekSeconds = (0 until DAYS_IN_WEEK).sumOf { usedOn(today.minusDays(it.toLong())) }
-    val lastWeekSeconds = (DAYS_IN_WEEK until DAYS_IN_WEEK * 2)
-        .sumOf { usedOn(today.minusDays(it.toLong())) }
+    // Calendar weeks, deliberately the *same* Mon–Sun weeks the chart draws. These used to be
+    // rolling 7-day windows, so on a Monday the trend counted days that the chart didn't show at
+    // all — "usage up 0.6h this week" sat next to a chart that was flat all week.
+    val thisWeekSeconds = week.sumOf(::usedOn)
+    val lastWeekSeconds = (1..DAYS_IN_WEEK).sumOf { usedOn(monday.minusDays(it.toLong())) }
+    val trendDeltaSeconds = thisWeekSeconds - lastWeekSeconds
 
     val enabled = monitoredApps.filter { it.enabled }
     val captureDates = captures.map { it.capturedAt.toLocalDate(zone) }.toSet()
@@ -65,11 +69,13 @@ internal fun toStatsUiState(
         deltaIsPositive = todaySeconds > yesterdaySeconds,
         weeklyPoints = week.map { usedOn(it) / SECONDS_PER_HOUR },
         highlightDayIndex = today.dayOfWeek.value - 1,
-        trendLabel = trendLabel(thisWeekSeconds - lastWeekSeconds),
+        trendLabel = trendLabel(trendDeltaSeconds),
+        // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
+        trendIsUp = trendDeltaSeconds > 0,
         trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
         productivePercent = budgetLeftPercent(enabled, recentUsage, today),
         breakdown = topAppsBreakdown(enabled, recentUsage, today),
-        longestStreak = "${longestStreakDays(captureDates)} Days",
+        longestStreak = dayCountLabel(longestStreakDays(captureDates)),
         capturedPhotos = "${captures.size} Photos",
         // Blanked until there's data behind them — see the KDoc above.
         preventedCount = 0,
@@ -89,10 +95,22 @@ private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String = when
     }
 }
 
-private fun trendLabel(deltaSeconds: Long): String {
+/** "3 Days", but "1 Day" — the count used to be pluralised unconditionally. */
+internal fun dayCountLabel(days: Int): String = if (days == 1) "1 Day" else "$days Days"
+
+/**
+ * Week-over-week change, signed. Zero is written without a sign: `-0.0h` was reachable whenever
+ * the two weeks matched exactly, which reads as a decrease that didn't happen.
+ */
+internal fun trendLabel(deltaSeconds: Long): String {
     val hours = deltaSeconds / SECONDS_PER_HOUR
-    val sign = if (hours > 0) "+" else "-"
-    return "$sign${String.format("%.1f", abs(hours))}h"
+    val rounded = String.format(Locale.US, "%.1f", abs(hours))
+    val sign = when {
+        rounded == "0.0" -> ""
+        hours > 0 -> "+"
+        else -> "-"
+    }
+    return "$sign${rounded}h"
 }
 
 /** Last [TREND_BAR_COUNT] days, oldest first, normalised against the busiest of them. */

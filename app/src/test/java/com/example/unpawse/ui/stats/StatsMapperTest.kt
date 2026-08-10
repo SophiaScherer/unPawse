@@ -138,4 +138,64 @@ class StatsMapperTest {
 
         assertEquals("3 Photos", map(captures = captures).capturedPhotos)
     }
+
+    // --- Trend direction ------------------------------------------------------------------------
+    // The arrow used to be hardcoded to TrendingDown, so a week where usage rose rendered "+0.6h"
+    // beside a downward arrow.
+
+    @Test
+    fun `a heavier week is flagged as trending up`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 120), usage("a", 8, 60)))
+
+        assertEquals("+1.0h", state.trendLabel)
+        assertTrue(state.trendIsUp)
+    }
+
+    @Test
+    fun `a lighter week is flagged as trending down`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 8, 120)))
+
+        assertEquals("-1.0h", state.trendLabel)
+        assertFalse(state.trendIsUp)
+    }
+
+    @Test
+    fun `two identical weeks are neither up nor signed`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 8, 60)))
+
+        assertEquals("0.0h", state.trendLabel)
+        assertFalse(state.trendIsUp)
+    }
+
+    @Test
+    fun `an unchanged zero week reads as no change rather than a decrease`() {
+        assertEquals("0.0h", trendLabel(0))
+    }
+
+    /**
+     * The trend used to sum rolling 7-day windows while the chart drew Mon–Sun, so on a Monday it
+     * counted days the chart didn't show — "usage up" beside a flat week.
+     */
+    @Test
+    fun `the trend uses the same calendar week the chart draws`() {
+        // today is Thursday 2026-07-16; Monday of this week is the 13th, so 4 days ago (the 12th)
+        // is last week and must not count toward this week.
+        val state = map(recentUsage = listOf(usage("a", 4, 60)))
+
+        assertEquals("this week saw no usage, last week saw an hour", "-1.0h", state.trendLabel)
+        assertFalse(state.trendIsUp)
+    }
+
+    // --- Streak label ---------------------------------------------------------------------------
+
+    @Test
+    fun `a one-day streak is singular`() {
+        assertEquals("1 Day", dayCountLabel(1))
+    }
+
+    @Test
+    fun `other day counts are plural`() {
+        assertEquals("0 Days", dayCountLabel(0))
+        assertEquals("2 Days", dayCountLabel(2))
+    }
 }

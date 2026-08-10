@@ -10,6 +10,8 @@ data class StatsUiState(
     val highlightDayIndex: Int,
     val preventedCount: Int,
     val trendLabel: String,
+    /** Whether week-over-week usage rose. Drives the arrow direction, which used to be hardcoded. */
+    val trendIsUp: Boolean,
     val trendBars: List<Float>,
     val productivePercent: Int,
     /**
@@ -33,6 +35,7 @@ data class StatsUiState(
             highlightDayIndex = 4,
             preventedCount = 42,
             trendLabel = "-5.2h",
+            trendIsUp = false,
             trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f),
             productivePercent = 75,
             productiveLabel = "Budget left",
