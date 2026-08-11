@@ -1,11 +1,13 @@
 package com.example.unpawse.ui.settings
 
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ml.sensitivityToMinConfidence
 import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.photos.photoStorageSummary
+import com.example.unpawse.ui.schedules.schedulesSummary
 import kotlin.math.roundToInt
 
 /** How many app names to spell out before collapsing the rest into "+N others". */
@@ -97,6 +99,7 @@ internal fun toSettingsUiState(
     photoCount: Int,
     photoStorageBytes: Long,
     monitoredApps: List<MonitoredApp>,
+    scheduleWindows: List<ScheduleWindow>,
     usageAccessGranted: Boolean,
     overlayAccessGranted: Boolean,
     notificationsGranted: Boolean,
@@ -105,6 +108,7 @@ internal fun toSettingsUiState(
     userName = userName,
     dailyLimitLabel = dailyLimitSummary(monitoredApps),
     appLimitsSummary = monitoredAppsSummary(monitoredApps),
+    schedulesSummary = schedulesSummary(scheduleWindows),
     usageAccessGranted = usageAccessGranted,
     overlayAccessGranted = overlayAccessGranted,
     notificationsGranted = notificationsGranted,

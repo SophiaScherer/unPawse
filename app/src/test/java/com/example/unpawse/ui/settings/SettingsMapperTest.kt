@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.settings
 
 import com.example.unpawse.BuildConfig
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ui.theme.ThemeMode
 import org.junit.Assert.assertEquals
@@ -23,6 +24,7 @@ class SettingsMapperTest {
         photoCount: Int = 0,
         photoStorageBytes: Long = 0L,
         monitoredApps: List<MonitoredApp> = emptyList(),
+        scheduleWindows: List<ScheduleWindow> = emptyList(),
         usageAccessGranted: Boolean = false,
         overlayAccessGranted: Boolean = false,
         notificationsGranted: Boolean = false,
@@ -37,6 +39,7 @@ class SettingsMapperTest {
         photoCount = photoCount,
         photoStorageBytes = photoStorageBytes,
         monitoredApps = monitoredApps,
+        scheduleWindows = scheduleWindows,
         usageAccessGranted = usageAccessGranted,
         overlayAccessGranted = overlayAccessGranted,
         notificationsGranted = notificationsGranted,

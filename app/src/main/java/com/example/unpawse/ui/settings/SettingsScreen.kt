@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.LightMode
@@ -243,6 +244,15 @@ fun SettingsScreen(
                     iconTint = MaterialTheme.colorScheme.secondary,
                     iconBackground = MaterialTheme.colorScheme.secondaryContainer,
                     onClick = { onRowClick(SettingsRowIds.APP_LIMITS) }, trailing = { Chevron() },
+                )
+                // The other half of a limit: not how much, but when. Sits beside the per-app
+                // budgets because that's the row a user compares it against.
+                SettingsRow(
+                    title = "Blocking schedules", subtitle = state.schedulesSummary,
+                    leadingIcon = Icons.Filled.Bedtime,
+                    iconTint = MaterialTheme.colorScheme.tertiary,
+                    iconBackground = MaterialTheme.colorScheme.tertiaryContainer,
+                    onClick = { onRowClick(SettingsRowIds.SCHEDULES) }, trailing = { Chevron() },
                 )
                 EarnedTimeControl(
                     minutesPerCat = state.earnedMinutesPerCat,

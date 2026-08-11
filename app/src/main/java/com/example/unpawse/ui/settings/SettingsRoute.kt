@@ -86,6 +86,7 @@ fun SettingsRoute(
         onRowClick = { rowId ->
             when (rowId) {
                 SettingsRowIds.APP_LIMITS -> onNavigate(Routes.APP_PICKER)
+                SettingsRowIds.SCHEDULES -> onNavigate(Routes.SCHEDULES)
                 SettingsRowIds.PRIVACY_POLICY -> onNavigate(Routes.PRIVACY_POLICY)
                 SettingsRowIds.MANAGE_PHOTOS -> onNavigate(Routes.PHOTO_STORAGE)
                 SettingsRowIds.EXPORT -> exportLauncher.launch(viewModel.exportFileName())

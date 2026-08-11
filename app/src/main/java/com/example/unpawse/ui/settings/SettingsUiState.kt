@@ -17,6 +17,8 @@ data class SettingsUiState(
     /** Derived total of the enabled per-app limits, e.g. "4h 15m across 5 apps". */
     val dailyLimitLabel: String = "No limits set yet",
     val appLimitsSummary: String = "No apps limited yet",
+    /** Blocking-window summary, e.g. "2 schedules · Bedtime 10:00 PM". */
+    val schedulesSummary: String = "No schedules yet",
     /** Whether the user has granted usage access — without it nothing can be monitored at all. */
     val usageAccessGranted: Boolean = false,
     /** Whether we can draw over other apps — without it a reached limit can't be blocked. */
@@ -50,6 +52,7 @@ data class SettingsUiState(
             userName = "Sophia",
             dailyLimitLabel = "4h 15m across 5 apps",
             appLimitsSummary = "Instagram, TikTok, 3 others",
+            schedulesSummary = "2 schedules · Bedtime 10:00 PM",
             usageAccessGranted = true,
             overlayAccessGranted = true,
             notificationsGranted = true,

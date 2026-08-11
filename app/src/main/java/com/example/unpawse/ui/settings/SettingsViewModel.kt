@@ -12,7 +12,10 @@ import com.example.unpawse.appContainer
 import com.example.unpawse.data.ResetRepository
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.export.ExportRepository
+import com.example.unpawse.data.schedule.ScheduleRepository
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.Notifications
 import com.example.unpawse.service.OverlayPermission
@@ -37,6 +40,7 @@ import java.time.LocalDate
 class SettingsViewModel(
     private val settings: SettingsRepository,
     usageRepository: UsageRepository,
+    scheduleRepository: ScheduleRepository,
     captureRepository: CaptureRepository,
     private val exportRepository: ExportRepository,
     private val resetRepository: ResetRepository,
@@ -79,15 +83,22 @@ class SettingsViewModel(
         captureRepository.observeStorageBytes(),
     ) { captures, bytes -> PhotoStats(captures.size, bytes) }
 
+    // The Screen Time group summarises both halves of a limit — how much (per-app budgets) and when
+    // (blocking windows) — so they travel together rather than each taking a top-level slot.
+    private val limits = combine(
+        usageRepository.observeMonitoredApps(),
+        scheduleRepository.observeWindows(),
+    ) { monitoredApps, windows -> Limits(monitoredApps, windows) }
+
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsValues,
-        usageRepository.observeMonitoredApps(),
+        limits,
         permissions,
         photoStats,
         // The fifth and last top-level slot; further settings go into `settingsValues` or a holder
         // beside it, not here.
         settings.reminderMinutes,
-    ) { values, monitoredApps, permissionState, photos, reminderMinutes ->
+    ) { values, limitState, permissionState, photos, reminderMinutes ->
         toSettingsUiState(
             userName = values.userName,
             sensitivity = values.sensitivity,
@@ -97,7 +108,8 @@ class SettingsViewModel(
             reminderMinutes = reminderMinutes,
             photoCount = photos.count,
             photoStorageBytes = photos.bytes,
-            monitoredApps = monitoredApps,
+            monitoredApps = limitState.monitoredApps,
+            scheduleWindows = limitState.scheduleWindows,
             usageAccessGranted = permissionState.usageAccess,
             overlayAccessGranted = permissionState.overlayAccess,
             notificationsGranted = permissionState.notifications,
@@ -132,6 +144,11 @@ class SettingsViewModel(
     )
 
     private data class PhotoStats(val count: Int, val bytes: Long)
+
+    private data class Limits(
+        val monitoredApps: List<MonitoredApp>,
+        val scheduleWindows: List<ScheduleWindow>,
+    )
 
     private data class SettingsValues(
         val sensitivity: Float,
@@ -188,6 +205,7 @@ class SettingsViewModel(
                 SettingsViewModel(
                     settings = container.settingsRepository,
                     usageRepository = container.usageRepository,
+                    scheduleRepository = container.scheduleRepository,
                     captureRepository = container.captureRepository,
                     exportRepository = container.exportRepository,
                     resetRepository = container.resetRepository,
