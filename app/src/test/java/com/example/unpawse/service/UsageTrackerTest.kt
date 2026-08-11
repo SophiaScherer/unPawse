@@ -1,5 +1,7 @@
 package com.example.unpawse.service
 
+import com.example.unpawse.data.schedule.EVERY_DAY_MASK
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.usage.FakeUsageDao
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.CoroutineScope
@@ -57,6 +59,8 @@ class UsageTrackerTest {
 
     private val focusSession = FocusSession(now = { clockMillis })
 
+    // No scheduleBlock: these cover the limit/focus paths, and the tracker's default reports no
+    // window. Schedule behaviour lives in [ScheduledBlockTest].
     private fun tracker(ticks: List<String?>, warningMinutes: Int = UsageTracker.WARNING_OFF) =
         UsageTracker(
             repo,
@@ -287,6 +291,221 @@ class UsageTrackerTest {
         val warnings = mutableListOf<WarningEvent>()
         val job = launch(Dispatchers.Unconfined) { tracker.warningRequired.collect { warnings.add(it) } }
         return warnings to job
+    }
+}
+
+/**
+ * Schedule windows as a third block reason, and the precedence between all three. Shares the fixture
+ * shape of [UsageTrackerTest] — a scripted monitor and a fake clock, no device.
+ */
+class ScheduledBlockTest {
+
+    private val dao = FakeUsageDao()
+    private val today = LocalDate.of(2026, 7, 15)
+    private val repo = UsageRepository(dao, today = { today })
+    private var clockMillis = 0L
+    private var activeWindow: ScheduleWindow? = null
+
+    private fun monitorOf(ticks: List<String?>) = object : ForegroundAppMonitor {
+        override fun foregroundApp(): Flow<String?> = flow {
+            ticks.forEach { pkg ->
+                clockMillis += 1_000L
+                emit(pkg)
+            }
+        }
+    }
+
+    private val focusSession = FocusSession(now = { clockMillis })
+
+    private fun tracker(ticks: List<String?>) = UsageTracker(
+        repo,
+        monitorOf(ticks),
+        now = { clockMillis },
+        focusSession = focusSession,
+        scheduleBlock = { activeWindow },
+    )
+
+    private fun window(endHour: Int = 7) = ScheduleWindow(
+        id = 1,
+        label = "Bedtime",
+        packageName = null,
+        startMinuteOfDay = 22 * 60,
+        endMinuteOfDay = endHour * 60,
+        daysMask = EVERY_DAY_MASK,
+        enabled = true,
+    )
+
+    private fun CoroutineScope.collectSignals(tracker: UsageTracker): Pair<List<BlockEvent>, Job> {
+        val signals = mutableListOf<BlockEvent>()
+        val job = launch(Dispatchers.Unconfined) { tracker.blockRequired.collect { signals.add(it) } }
+        return signals to job
+    }
+
+    private fun CoroutineScope.collectReleases(tracker: UsageTracker): Pair<List<String>, Job> {
+        val released = mutableListOf<String>()
+        val job = launch(Dispatchers.Unconfined) { tracker.blockReleased.collect { released.add(it) } }
+        return released to job
+    }
+
+    @Test
+    fun `a schedule window blocks an app that is well under its limit`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        activeWindow = window()
+        val tracker = tracker(List(3) { "com.ig" })
+
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(
+            listOf(BlockEvent("com.ig", BlockReason.SCHEDULE, endsAtMinuteOfDay = 7 * 60)),
+            signals,
+        )
+    }
+
+    @Test
+    fun `the window's end travels with the event`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        activeWindow = window(endHour = 6)
+        val tracker = tracker(List(2) { "com.ig" })
+
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(6 * 60, signals.single().endsAtMinuteOfDay)
+    }
+
+    @Test
+    fun `a schedule takes precedence over an exhausted limit`() = runBlocking {
+        // Over budget, so this would normally be a LIMIT block with a camera escape. A schedule is
+        // escape-less, and offering the camera here would be a promise we couldn't keep.
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+        activeWindow = window()
+        val tracker = tracker(List(3) { "com.ig" })
+
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(BlockReason.SCHEDULE, signals.single().reason)
+    }
+
+    @Test
+    fun `focus takes precedence over a schedule`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        activeWindow = window()
+        focusSession.start(durationMinutes = 30)
+        val tracker = tracker(List(3) { "com.ig" })
+
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(BlockReason.FOCUS, signals.single().reason)
+        assertNull("focus blocks carry no window end", signals.single().endsAtMinuteOfDay)
+    }
+
+    @Test
+    fun `an unmonitored app is untouched by a global window`() = runBlocking {
+        activeWindow = window()
+        val tracker = tracker(List(3) { "com.ig" })
+
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(emptyList<BlockEvent>(), signals)
+    }
+
+    @Test
+    fun `a schedule block fires once per breach not once per tick`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        activeWindow = window()
+        val tracker = tracker(List(6) { "com.ig" })
+
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(1, signals.size)
+    }
+
+    @Test
+    fun `the window ending releases the block while the user is still in the app`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        activeWindow = window()
+
+        // Two ticks blocked, then the window ends without the user going anywhere. Nothing else
+        // would take the overlay down — dismissBlockWhenUserLeaves only fires on an app switch.
+        val ticks = listOf("com.ig", "com.ig", "com.ig", "com.ig")
+        val monitor = object : ForegroundAppMonitor {
+            override fun foregroundApp(): Flow<String?> = flow {
+                ticks.forEachIndexed { index, pkg ->
+                    clockMillis += 1_000L
+                    if (index == 2) activeWindow = null
+                    emit(pkg)
+                }
+            }
+        }
+        val tracker = UsageTracker(
+            repo,
+            monitor,
+            now = { clockMillis },
+            focusSession = focusSession,
+            scheduleBlock = { activeWindow },
+        )
+
+        val (signals, signalCollector) = collectSignals(tracker)
+        val (released, releaseCollector) = collectReleases(tracker)
+        tracker.run()
+        signalCollector.cancel()
+        releaseCollector.cancel()
+
+        assertEquals(BlockReason.SCHEDULE, signals.single().reason)
+        assertEquals(listOf("com.ig"), released)
+    }
+
+    @Test
+    fun `no release is emitted for an app that was never blocked`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        val tracker = tracker(List(4) { "com.ig" })
+
+        val (released, collector) = collectReleases(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(emptyList<String>(), released)
+    }
+
+    @Test
+    fun `earning time back also releases a limit block`() = runBlocking {
+        // The release signal is not schedule-specific: it fires whenever every reason has cleared.
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+        // Tick 1 attributes nothing (no previous app), tick 2 is the one that blocks. Credit after
+        // that, so tick 3 is the first to see the app back in budget.
+        val monitor = object : ForegroundAppMonitor {
+            override fun foregroundApp(): Flow<String?> = flow {
+                repeat(3) { index ->
+                    clockMillis += 1_000L
+                    emit("com.ig")
+                    if (index == 1) repo.addEarnedMinutes("com.ig", 30)
+                }
+            }
+        }
+        val tracker = UsageTracker(
+            repo,
+            monitor,
+            now = { clockMillis },
+            focusSession = focusSession,
+            scheduleBlock = { null },
+        )
+
+        val (released, collector) = collectReleases(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(listOf("com.ig"), released)
     }
 }
 
