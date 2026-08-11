@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.apps.InstalledApp
 import com.example.unpawse.data.apps.InstalledAppsProvider
+import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +29,7 @@ import kotlinx.coroutines.launch
 class AppPickerViewModel(
     private val usageRepository: UsageRepository,
     private val installedAppsProvider: InstalledAppsProvider,
+    scheduleRepository: ScheduleRepository,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
@@ -41,13 +43,14 @@ class AppPickerViewModel(
         installedApps,
         usageRepository.observeMonitoredApps(),
         searchQuery,
-    ) { installed, monitored, query ->
+        scheduleRepository.observeWindows(),
+    ) { installed, monitored, query, windows ->
         if (installed == null) {
             AppPickerUiState(searchQuery = query, isLoading = true)
         } else {
             AppPickerUiState(
                 searchQuery = query,
-                apps = toAppLimitItems(installed, monitored, query),
+                apps = toAppLimitItems(installed, monitored, query, windows),
                 isLoading = false,
             )
         }
@@ -93,13 +96,24 @@ class AppPickerViewModel(
         }
     }
 
+    /** A null [minutes] clears the override, putting weekends back on the everyday budget. */
+    fun onWeekendLimitChange(item: AppLimitItem, minutes: Int?) {
+        viewModelScope.launch {
+            usageRepository.setWeekendLimit(item.packageName, minutes)
+        }
+    }
+
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L
 
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = context.appContainer()
-                AppPickerViewModel(container.usageRepository, container.installedAppsProvider)
+                AppPickerViewModel(
+                    container.usageRepository,
+                    container.installedAppsProvider,
+                    container.scheduleRepository,
+                )
             }
         }
     }

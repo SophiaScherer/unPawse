@@ -14,6 +14,7 @@ import com.example.unpawse.R
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.AppContainer
 import com.example.unpawse.ui.block.BlockUiState
+import com.example.unpawse.ui.format.formatMinuteOfDay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,6 +50,7 @@ class UsageMonitorService : Service() {
             val tracker = appContainer().usageTracker
             trackerJob = scope.launch {
                 launch { observeBlockRequired() }
+                launch { observeBlockReleased() }
                 launch { observeWarningRequired() }
                 launch { runUsageReminders() }
                 launch { dismissBlockWhenUserLeaves() }
@@ -174,6 +176,39 @@ class UsageMonitorService : Service() {
                         )
                     }
                 }
+                BlockReason.SCHEDULE -> {
+                    // Also escape-less, so also no blockSession. The tracker sends the window's end
+                    // along with the event; without one there is nothing honest to promise, so fall
+                    // back to the focus copy rather than inventing a time.
+                    val state = event.endsAtMinuteOfDay
+                        ?.let { BlockUiState.forSchedule(label, formatMinuteOfDay(it)) }
+                        ?: BlockUiState.forFocus(label)
+                    withContext(Dispatchers.Main) {
+                        container.blockOverlayController.show(
+                            packageName = event.packageName,
+                            reason = BlockReason.SCHEDULE,
+                            state = state,
+                            onOpenCamera = {},
+                            onExit = { onFocusExit(container) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Takes the overlay down when the reason for it clears while the user is still in the app.
+     *
+     * [dismissBlockWhenUserLeaves] only covers app switches, and [runFocusSessionLifecycle] only
+     * covers focus. A schedule window ends by the clock simply moving on, with nothing to wait on —
+     * so the tracker, which is already evaluating every tick, says when it has.
+     */
+    private suspend fun observeBlockReleased() {
+        val container = appContainer()
+        container.usageTracker.blockReleased.collect { packageName ->
+            if (container.blockOverlayController.blockedPackage == packageName) {
+                withContext(Dispatchers.Main) { container.blockOverlayController.hide() }
             }
         }
     }

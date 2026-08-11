@@ -4,13 +4,15 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.unpawse.data.schedule.ScheduleDao
+import com.example.unpawse.data.schedule.ScheduleWindowEntity
 import com.example.unpawse.data.usage.DailyUsageEntity
 import com.example.unpawse.data.usage.MonitoredAppEntity
 import com.example.unpawse.data.usage.UsageDao
 
 /**
- * The app's single Room database (named for its first entity, but now app-wide: captures + the
- * usage-tracking tables). The manual-DI [Companion.getInstance] singleton is owned by the
+ * The app's single Room database (named for its first entity, but now app-wide: captures, the
+ * usage-tracking tables, and blocking schedules). The manual-DI [Companion.getInstance] singleton is owned by the
  * [com.example.unpawse.data.AppContainer] and is the seam a DI framework (Hilt) would later replace.
  *
  * Pre-release migration policy: schema changes bump [version] and rely on
@@ -18,13 +20,19 @@ import com.example.unpawse.data.usage.UsageDao
  * [androidx.room.migration.Migration]s (and `exportSchema = true`) before shipping.
  */
 @Database(
-    entities = [CaptureEntity::class, MonitoredAppEntity::class, DailyUsageEntity::class],
-    version = 5,
+    entities = [
+        CaptureEntity::class,
+        MonitoredAppEntity::class,
+        DailyUsageEntity::class,
+        ScheduleWindowEntity::class,
+    ],
+    version = 6,
     exportSchema = false,
 )
 abstract class CaptureDatabase : RoomDatabase() {
     abstract fun captureDao(): CaptureDao
     abstract fun usageDao(): UsageDao
+    abstract fun scheduleDao(): ScheduleDao
 
     companion object {
         @Volatile

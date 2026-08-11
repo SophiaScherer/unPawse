@@ -8,6 +8,8 @@ import com.example.unpawse.data.capture.CaptureDatabase
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.PhotoStorage
 import com.example.unpawse.data.export.ExportRepository
+import com.example.unpawse.data.schedule.ScheduleRepository
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
@@ -17,6 +19,7 @@ import com.example.unpawse.service.BlockSession
 import com.example.unpawse.service.DailySummaryWorker
 import com.example.unpawse.service.FocusSession
 import com.example.unpawse.service.ForegroundAppMonitor
+import com.example.unpawse.service.ScheduleGate
 import com.example.unpawse.service.UsageStatsForegroundAppMonitor
 import com.example.unpawse.service.UsageTracker
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +44,7 @@ interface AppContainer {
     val captureRepository: CaptureRepository
     val settingsRepository: SettingsRepository
     val usageRepository: UsageRepository
+    val scheduleRepository: ScheduleRepository
     val installedAppsProvider: InstalledAppsProvider
 
     /** Gathers every store into one JSON document for Settings → Export data. */
@@ -75,6 +79,12 @@ interface AppContainer {
     val focusSession: FocusSession
 
     /**
+     * Decides whether a schedule window is blocking an app right now. Shared so the enforcement
+     * service reads the same windows the Schedules UI edits.
+     */
+    val scheduleGate: ScheduleGate
+
+    /**
      * The [CatDetector] confidence gate, derived live from the Settings sensitivity slider. Held
      * app-wide (rather than per detector) so a settings change takes effect without recreating the
      * camera pipeline; the detector reads `.value` on each capture.
@@ -97,6 +107,12 @@ interface AppContainer {
 
     /** How often to remind the user while they sit in a limited app; 0 is off. */
     val reminderMinutes: StateFlow<Int>
+
+    /**
+     * Every blocking window, mirrored app-wide so [scheduleGate] can read the current set on each
+     * enforcement tick without holding a subscription of its own.
+     */
+    val scheduleWindows: StateFlow<List<ScheduleWindow>>
 }
 
 /** Production [AppContainer]; builds every dependency lazily off the singleton Room database. */
@@ -121,6 +137,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
         UsageRepository(database.usageDao())
     }
 
+    override val scheduleRepository: ScheduleRepository by lazy {
+        ScheduleRepository(database.scheduleDao())
+    }
+
     override val installedAppsProvider: InstalledAppsProvider by lazy {
         PackageManagerInstalledAppsProvider(appContext)
     }
@@ -129,6 +149,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
         ExportRepository(
             settings = settingsRepository,
             usage = usageRepository,
+            schedules = scheduleRepository,
             captures = captureRepository,
             contentResolver = appContext.contentResolver,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
@@ -138,6 +159,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val resetRepository: ResetRepository by lazy {
         ResetRepository(
             usage = usageRepository,
+            schedules = scheduleRepository,
             captures = captureRepository,
             focusSession = focusSession,
             blockSession = blockSession,
@@ -155,7 +177,12 @@ class DefaultAppContainer(context: Context) : AppContainer {
             foregroundAppMonitor,
             focusSession = focusSession,
             warningMinutes = { warningMinutes.value },
+            scheduleBlock = scheduleGate::activeWindowFor,
         )
+    }
+
+    override val scheduleGate: ScheduleGate by lazy {
+        ScheduleGate(windows = { scheduleWindows.value })
     }
 
     override val blockOverlayController: BlockOverlayController by lazy {
@@ -219,4 +246,14 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val reminderMinutes: StateFlow<Int> =
         settingsRepository.reminderMinutes
             .stateIn(appScope, SharingStarted.Eagerly, SettingsRepository.DEFAULT_REMINDER_MINUTES)
+
+    /**
+     * Same eager treatment, and for the same reason as the settings above: `ScheduleGate` reads
+     * `.value` on every enforcement tick, and the first read is a real blocking decision. A lazy
+     * property would answer with the empty seed until Room's first emission landed — which is
+     * exactly the window in which someone opens a blocked app.
+     */
+    override val scheduleWindows: StateFlow<List<ScheduleWindow>> =
+        scheduleRepository.observeWindows()
+            .stateIn(appScope, SharingStarted.Eagerly, emptyList())
 }

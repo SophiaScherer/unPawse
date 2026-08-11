@@ -2,8 +2,10 @@ package com.example.unpawse.data.usage
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
 
 /** Pure limit arithmetic — no Room, no device. */
 class UsageMathTest {
@@ -50,5 +52,55 @@ class UsageMathTest {
     @Test
     fun `signed remaining seconds go negative when over`() {
         assertEquals(-120L, remainingSeconds(limitMinutes = 10, usedSeconds = 12 * 60L, earnedSeconds = 0))
+    }
+
+    @Test
+    fun `a zero limit is still over budget from the first second`() {
+        // The sentinel for "no cap" is negative precisely so this stays true.
+        assertTrue(isLimitReached(limitMinutes = 0, usedSeconds = 1L, earnedSeconds = 0))
+    }
+
+    @Test
+    fun `an uncapped day is never limit-reached however long it runs`() {
+        assertFalse(isLimitReached(UNLIMITED_MINUTES, usedSeconds = 12 * 60 * 60L, earnedSeconds = 0))
+    }
+
+    @Test
+    fun `an uncapped day has no remaining minutes to show`() {
+        assertNull(remainingMinutes(UNLIMITED_MINUTES, usedSeconds = 60L, earnedSeconds = 0))
+    }
+}
+
+/** The weekday/weekend split — which of an app's two budgets applies on a given day. */
+class EffectiveLimitTest {
+
+    @Test
+    fun `without an override every day uses the everyday budget`() {
+        DayOfWeek.values().forEach { day ->
+            assertEquals(30, effectiveLimitMinutes(dailyLimitMinutes = 30, weekendLimitMinutes = null, day = day))
+        }
+    }
+
+    @Test
+    fun `an override applies on Saturday and Sunday only`() {
+        assertEquals(120, effectiveLimitMinutes(30, weekendLimitMinutes = 120, day = DayOfWeek.SATURDAY))
+        assertEquals(120, effectiveLimitMinutes(30, weekendLimitMinutes = 120, day = DayOfWeek.SUNDAY))
+        assertEquals(30, effectiveLimitMinutes(30, weekendLimitMinutes = 120, day = DayOfWeek.FRIDAY))
+        assertEquals(30, effectiveLimitMinutes(30, weekendLimitMinutes = 120, day = DayOfWeek.MONDAY))
+    }
+
+    @Test
+    fun `an unlimited override leaves weekends uncapped but keeps weekdays limited`() {
+        // "Weekday-only limits": 30m Mon–Fri, no cap at the weekend.
+        val saturday = effectiveLimitMinutes(30, UNLIMITED_MINUTES, DayOfWeek.SATURDAY)
+        val wednesday = effectiveLimitMinutes(30, UNLIMITED_MINUTES, DayOfWeek.WEDNESDAY)
+
+        assertFalse(isLimitReached(saturday, usedSeconds = 5 * 60 * 60L, earnedSeconds = 0))
+        assertTrue(isLimitReached(wednesday, usedSeconds = 31 * 60L, earnedSeconds = 0))
+    }
+
+    @Test
+    fun `an override can also tighten the weekend`() {
+        assertEquals(15, effectiveLimitMinutes(60, weekendLimitMinutes = 15, day = DayOfWeek.SUNDAY))
     }
 }

@@ -28,6 +28,9 @@ object Routes {
     /** Settings sub-screen: choose monitored apps and their daily limits. */
     const val APP_PICKER = "app_picker"
 
+    /** Settings sub-screen: recurring windows during which apps are blocked outright. */
+    const val SCHEDULES = "schedules"
+
     /** Settings sub-screen: the in-app privacy policy. */
     const val PRIVACY_POLICY = "privacy_policy"
 
@@ -41,6 +44,9 @@ object Routes {
  */
 object SettingsRowIds {
     const val APP_LIMITS = "app_limits"
+
+    /** Opens [Routes.SCHEDULES], where blocking windows are created and edited. */
+    const val SCHEDULES = "schedules_row"
 
     /** Opens system Settings — usage access is an app-op, not a runtime permission. */
     const val USAGE_ACCESS = "usage_access"

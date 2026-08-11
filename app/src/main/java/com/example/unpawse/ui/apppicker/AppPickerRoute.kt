@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun AppPickerRoute(
     onBack: () -> Unit,
+    onOpenSchedules: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -27,5 +28,7 @@ fun AppPickerRoute(
         onSearchChange = viewModel::onSearchChange,
         onToggleMonitored = viewModel::onToggleMonitored,
         onLimitChange = viewModel::onLimitChange,
+        onWeekendLimitChange = viewModel::onWeekendLimitChange,
+        onOpenSchedules = onOpenSchedules,
     )
 }

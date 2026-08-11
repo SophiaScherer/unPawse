@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.apppicker
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +58,8 @@ fun AppPickerScreen(
     onSearchChange: (String) -> Unit = {},
     onToggleMonitored: (AppLimitItem, Boolean) -> Unit = { _, _ -> },
     onLimitChange: (AppLimitItem, Int) -> Unit = { _, _ -> },
+    onWeekendLimitChange: (AppLimitItem, Int?) -> Unit = { _, _ -> },
+    onOpenSchedules: () -> Unit = {},
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         AppPickerHeader(monitoredCount = state.monitoredCount, onBack = onBack)
@@ -85,6 +88,8 @@ fun AppPickerScreen(
                         item = app,
                         onToggleMonitored = { onToggleMonitored(app, it) },
                         onLimitChange = { onLimitChange(app, it) },
+                        onWeekendLimitChange = { onWeekendLimitChange(app, it) },
+                        onOpenSchedules = onOpenSchedules,
                     )
                 }
             }
@@ -151,12 +156,17 @@ private fun SearchField(
     }
 }
 
-/** One app: icon, name, monitor switch, and (when monitored) a daily-limit stepper. */
+/**
+ * One app: icon, name, monitor switch, and — when monitored — its everyday limit, its weekend
+ * override, and which blocking schedules cover it.
+ */
 @Composable
 private fun AppLimitRow(
     item: AppLimitItem,
     onToggleMonitored: (Boolean) -> Unit,
     onLimitChange: (Int) -> Unit,
+    onWeekendLimitChange: (Int?) -> Unit,
+    onOpenSchedules: () -> Unit,
 ) {
     PawCard(contentPadding = 12.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -184,7 +194,41 @@ private fun AppLimitRow(
                 max = MAX_LIMIT_MINUTES,
                 format = ::formatMinutes,
             )
+            Spacer(Modifier.size(4.dp))
+            WeekendLimitControl(item = item, onWeekendLimitChange = onWeekendLimitChange)
+            ScheduleSummaryRow(summary = item.scheduleSummary, onClick = onOpenSchedules)
         }
+    }
+}
+
+/**
+ * The "when" half of this app's limit, surfaced here so windows are discoverable from where budgets
+ * are set. Tapping it hands over to the Schedules screen, which owns the editing.
+ */
+@Composable
+private fun ScheduleSummaryRow(summary: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Schedules",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = summary,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
     }
 }
 
@@ -232,6 +276,13 @@ private fun AppPickerPreviewContent() {
             state = state.copy(
                 apps = state.apps.map {
                     if (it.packageName == item.packageName) it.copy(dailyLimitMinutes = minutes) else it
+                },
+            )
+        },
+        onWeekendLimitChange = { item, minutes ->
+            state = state.copy(
+                apps = state.apps.map {
+                    if (it.packageName == item.packageName) it.copy(weekendLimitMinutes = minutes) else it
                 },
             )
         },

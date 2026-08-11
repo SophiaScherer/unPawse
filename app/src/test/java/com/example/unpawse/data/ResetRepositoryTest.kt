@@ -4,6 +4,10 @@ import com.example.unpawse.data.capture.CaptureEntity
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.FakeCaptureDao
 import com.example.unpawse.data.capture.PhotoStorage
+import com.example.unpawse.data.schedule.EVERY_DAY_MASK
+import com.example.unpawse.data.schedule.FakeScheduleDao
+import com.example.unpawse.data.schedule.ScheduleRepository
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.usage.FakeUsageDao
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.BlockSession
@@ -35,6 +39,7 @@ class ResetRepositoryTest {
     private val captureDao = FakeCaptureDao()
     private val storage by lazy { PhotoStorage(tmp.root) }
     private val usage = UsageRepository(usageDao, today = { LocalDate.of(2026, 7, 27) })
+    private val schedules = ScheduleRepository(FakeScheduleDao())
     private val captures by lazy { CaptureRepository(captureDao, storage) }
     private val focusSession = FocusSession()
     private val blockSession = BlockSession()
@@ -44,6 +49,7 @@ class ResetRepositoryTest {
     private val reset by lazy {
         ResetRepository(
             usage = usage,
+            schedules = schedules,
             captures = captures,
             focusSession = focusSession,
             blockSession = blockSession,
@@ -68,6 +74,18 @@ class ResetRepositoryTest {
             ),
         )
 
+        schedules.save(
+            ScheduleWindow(
+                id = ScheduleRepository.NEW_WINDOW_ID,
+                label = "Bedtime",
+                packageName = null,
+                startMinuteOfDay = 22 * 60,
+                endMinuteOfDay = 7 * 60,
+                daysMask = EVERY_DAY_MASK,
+                enabled = true,
+            ),
+        )
+
         focusSession.start(durationMinutes = 30)
         blockSession.start("com.ig")
         return path
@@ -84,6 +102,21 @@ class ResetRepositoryTest {
         assertTrue("capture rows", captureDao.all().isEmpty())
         assertFalse("capture JPEG", File(photoPath).exists())
         assertTrue("preferences", settingsCleared)
+        assertTrue("blocking schedules", schedules.allWindows().isEmpty())
+    }
+
+    /**
+     * A window left behind would keep blocking apps the app no longer has any record of monitoring —
+     * the same failure mode as a surviving focus session, just persisted rather than in memory.
+     */
+    @Test
+    fun `blocking schedules do not survive the wipe`() = runBlocking {
+        seedEverything()
+        assertEquals("precondition: one window", 1, schedules.allWindows().size)
+
+        reset.eraseEverything()
+
+        assertTrue(schedules.allWindows().isEmpty())
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.apppicker
 
 import com.example.unpawse.data.apps.InstalledApp
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.usage.MonitoredApp
 
 /**
@@ -15,6 +16,7 @@ internal fun toAppLimitItems(
     installed: List<InstalledApp>,
     monitored: List<MonitoredApp>,
     searchQuery: String,
+    scheduleWindows: List<ScheduleWindow> = emptyList(),
 ): List<AppLimitItem> {
     val monitoredByPackage = monitored.associateBy { it.packageName }
     val query = searchQuery.trim()
@@ -28,6 +30,31 @@ internal fun toAppLimitItems(
                 label = app.label,
                 monitored = row?.enabled == true,
                 dailyLimitMinutes = row?.dailyLimitMinutes ?: DEFAULT_LIMIT_MINUTES,
+                weekendLimitMinutes = row?.weekendLimitMinutes,
+                scheduleSummary = scheduleSummaryFor(app.packageName, scheduleWindows),
             )
         }
+}
+
+/** How many window names to spell out before collapsing the rest into a count. */
+private const val WINDOWS_SHOWN = 2
+
+/**
+ * Names the enabled windows that would block [packageName] — its own plus every global one. Paused
+ * windows are left out for the same reason a switched-off app is left out of the Settings summary:
+ * it isn't blocking anything right now, so advertising it would be wrong.
+ */
+internal fun scheduleSummaryFor(packageName: String, windows: List<ScheduleWindow>): String {
+    val covering = windows.filter {
+        it.enabled && (it.packageName == null || it.packageName == packageName)
+    }
+    if (covering.isEmpty()) return NO_SCHEDULES_SUMMARY
+
+    val shown = covering.take(WINDOWS_SHOWN).joinToString(", ") { it.label }
+    val others = covering.size - WINDOWS_SHOWN
+    return when {
+        others <= 0 -> shown
+        others == 1 -> "$shown, 1 more"
+        else -> "$shown, $others more"
+    }
 }

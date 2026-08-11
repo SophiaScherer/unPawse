@@ -1,5 +1,6 @@
 package com.example.unpawse.service
 
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,10 +13,10 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Turns [ForegroundAppMonitor] ticks into accrued screen time and signals when a monitored app must
- * be blocked — either its daily budget is spent or a [FocusSession] is running. Deliberately knows
- * nothing about *showing* a block — it only emits [blockRequired]; the overlay service consumes it.
- * Held as a singleton by the AppContainer so the UI can observe the signal while the service drives
- * [run].
+ * be blocked — its daily budget is spent, a [FocusSession] is running, or a schedule window covers
+ * this moment. Deliberately knows nothing about *showing* a block — it only emits [blockRequired];
+ * the overlay service consumes it. Held as a singleton by the AppContainer so the UI can observe the
+ * signal while the service drives [run].
  */
 class UsageTracker(
     private val usageRepository: UsageRepository,
@@ -27,6 +28,12 @@ class UsageTracker(
      * fresh each tick, keeping DataStore out of the tracker (see `AppContainer.warningMinutes`).
      */
     private val warningMinutes: () -> Int = { 0 },
+    /**
+     * The schedule window blocking an app right now, or null. Same lambda shape and reasoning as
+     * [warningMinutes]: read fresh each tick so an edit takes effect immediately, and Room stays out
+     * of the tracker (see `AppContainer.scheduleGate`).
+     */
+    private val scheduleBlock: (String) -> ScheduleWindow? = { null },
 ) {
     private val _blockRequired = MutableSharedFlow<BlockEvent>(extraBufferCapacity = EVENT_BUFFER)
 
@@ -44,6 +51,18 @@ class UsageTracker(
      * breach, not once per tick; the overlay differs by [BlockReason].
      */
     val blockRequired: SharedFlow<BlockEvent> = _blockRequired.asSharedFlow()
+
+    private val _blockReleased = MutableSharedFlow<String>(extraBufferCapacity = EVENT_BUFFER)
+
+    /**
+     * Apps that were blocked and no longer are, while the user is still sitting on them.
+     *
+     * The overlay otherwise has no way down without an app switch: [BlockReason.FOCUS] has a session
+     * end time the service can wait on, but a schedule window simply stops covering the current
+     * minute, and a limit can be lifted by earned time. This fires on the first tick after the
+     * reason clears, so the block lifts within a poll interval.
+     */
+    val blockReleased: SharedFlow<String> = _blockReleased.asSharedFlow()
 
     private val _foregroundApp = MutableStateFlow<String?>(null)
 
@@ -78,20 +97,36 @@ class UsageTracker(
             if (attributedTo != null && elapsed > 0 && usageRepository.isMonitoredAndEnabled(attributedTo)) {
                 usageRepository.addUsage(attributedTo, elapsed.milliseconds)
 
-                // A focus session hard-blocks every monitored app; otherwise the daily limit does.
-                // Focus wins when both apply, so an over-budget app still shows the escape-less block.
+                // Three reasons to block, in descending precedence: a focus session the user
+                // started, a schedule window they set, then the daily budget. The order decides
+                // which overlay they see when several apply at once, and it runs from most
+                // deliberate to least — a focus block is a promise they just made to themselves,
+                // and both of the first two are escape-less, so offering the camera because the
+                // budget also happened to run out would be a lie.
                 val focusActive = focusSession.isActive()
+                val window = if (focusActive) null else scheduleBlock(attributedTo)
                 val overLimit = usageRepository.isLimitReached(attributedTo)
-                if (focusActive || overLimit) {
+                if (focusActive || window != null || overLimit) {
                     if (signalledFor != attributedTo) {
-                        val reason = if (focusActive) BlockReason.FOCUS else BlockReason.LIMIT
-                        _blockRequired.emit(BlockEvent(attributedTo, reason))
+                        val event = when {
+                            focusActive -> BlockEvent(attributedTo, BlockReason.FOCUS)
+                            window != null -> BlockEvent(
+                                packageName = attributedTo,
+                                reason = BlockReason.SCHEDULE,
+                                endsAtMinuteOfDay = window.endMinuteOfDay,
+                            )
+                            else -> BlockEvent(attributedTo, BlockReason.LIMIT)
+                        }
+                        _blockRequired.emit(event)
                         signalledFor = attributedTo
                     }
                 } else {
                     if (signalledFor == attributedTo) {
-                        // Back under budget (e.g. bonus minutes earned) — allow a fresh signal later.
+                        // Every reason has cleared — bonus minutes earned, a window ended, a focus
+                        // session stopped. Allow a fresh signal later, and tell the service to take
+                        // the overlay down: the user is still here, so nothing else will.
                         signalledFor = null
+                        _blockReleased.emit(attributedTo)
                     }
                     maybeWarn(attributedTo, warnedFor)
                 }
@@ -149,10 +184,25 @@ enum class BlockReason {
 
     /** A focus session is running; a hard block with no camera escape until the timer ends. */
     FOCUS,
+
+    /**
+     * A schedule window covers this moment; a hard block until the window ends. No camera escape:
+     * earned minutes raise a *budget*, which can't answer a rule about *when*.
+     */
+    SCHEDULE,
 }
 
-/** One "block this app now" signal from the tracker. */
-data class BlockEvent(val packageName: String, val reason: BlockReason)
+/**
+ * One "block this app now" signal from the tracker.
+ *
+ * [endsAtMinuteOfDay] is set only for [BlockReason.SCHEDULE], carrying the window's end so the
+ * service can say what the block is until without re-reading the schedule.
+ */
+data class BlockEvent(
+    val packageName: String,
+    val reason: BlockReason,
+    val endsAtMinuteOfDay: Int? = null,
+)
 
 /** One "this app is nearly out of budget" signal, carrying how many minutes are left. */
 data class WarningEvent(val packageName: String, val remainingMinutes: Int)

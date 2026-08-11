@@ -10,7 +10,10 @@ class ExportSnapshotTest {
 
     private fun snapshot(
         monitoredApps: List<ExportMonitoredApp> = listOf(
-            ExportMonitoredApp("com.instagram.android", "Instagram", 45, enabled = true),
+            ExportMonitoredApp("com.instagram.android", "Instagram", 45, enabled = true, weekendLimitMinutes = 90),
+        ),
+        schedules: List<ExportScheduleWindow> = listOf(
+            ExportScheduleWindow(1, "Bedtime", null, 22 * 60, 7 * 60, 0b111_1111, enabled = true),
         ),
         usage: List<ExportUsageDay> = listOf(
             ExportUsageDay("2026-07-15", "com.instagram.android", 2_700, 900),
@@ -32,6 +35,7 @@ class ExportSnapshotTest {
             dailySummaryEnabled = false,
         ),
         monitoredApps = monitoredApps,
+        schedules = schedules,
         usage = usage,
         captures = captures,
     )
@@ -69,6 +73,7 @@ class ExportSnapshotTest {
         assertEquals("Instagram", app.getString("appLabel"))
         assertEquals(45, app.getInt("dailyLimitMinutes"))
         assertTrue(app.getBoolean("enabled"))
+        assertEquals(90, app.getInt("weekendLimitMinutes"))
 
         val day = root.getJSONArray("usage").getJSONObject(0)
         assertEquals("2026-07-15", day.getString("date"))
@@ -104,12 +109,64 @@ class ExportSnapshotTest {
     @Test
     fun `an empty install still produces a well-formed document`() {
         val root = json(
-            snapshot(monitoredApps = emptyList(), usage = emptyList(), captures = emptyList()),
+            snapshot(
+                monitoredApps = emptyList(),
+                schedules = emptyList(),
+                usage = emptyList(),
+                captures = emptyList(),
+            ),
         )
 
         assertEquals(0, root.getJSONArray("monitoredApps").length())
         assertEquals(0, root.getJSONArray("usage").length())
         assertEquals(0, root.getJSONArray("captures").length())
+        assertEquals(0, root.getJSONArray("schedules").length())
+    }
+
+    @Test
+    fun `blocking schedules are carried through in the units the app stores`() {
+        val window = json().getJSONArray("schedules").getJSONObject(0)
+
+        assertEquals("Bedtime", window.getString("label"))
+        assertEquals(22 * 60, window.getInt("startMinuteOfDay"))
+        assertEquals(7 * 60, window.getInt("endMinuteOfDay"))
+        assertEquals(0b111_1111, window.getInt("daysMask"))
+        assertTrue(window.getBoolean("enabled"))
+    }
+
+    /**
+     * Both nullable fields are written through `put(String, Any?)`, which *removes* the key rather
+     * than writing a JSON null. An absent field reads as "not set", which is what null means in both
+     * cases — a global window and an app with no weekend override.
+     */
+    @Test
+    fun `unset optional fields are absent rather than null`() {
+        val root = json(
+            snapshot(
+                monitoredApps = listOf(ExportMonitoredApp("com.ig", "Instagram", 45, enabled = true)),
+                schedules = listOf(
+                    ExportScheduleWindow(1, "Bedtime", null, 22 * 60, 7 * 60, 0b111_1111, enabled = true),
+                ),
+            ),
+        )
+
+        assertFalse(root.getJSONArray("monitoredApps").getJSONObject(0).has("weekendLimitMinutes"))
+        assertFalse(root.getJSONArray("schedules").getJSONObject(0).has("packageName"))
+    }
+
+    @Test
+    fun `a per-app window keeps its package name`() {
+        val root = json(
+            snapshot(
+                schedules = listOf(
+                    ExportScheduleWindow(2, "School", "com.ig", 9 * 60, 15 * 60, 0b001_1111, enabled = false),
+                ),
+            ),
+        )
+
+        val window = root.getJSONArray("schedules").getJSONObject(0)
+        assertEquals("com.ig", window.getString("packageName"))
+        assertFalse(window.getBoolean("enabled"))
     }
 
     /** Names and app labels are user/OEM text; the serializer has to escape, not concatenate. */

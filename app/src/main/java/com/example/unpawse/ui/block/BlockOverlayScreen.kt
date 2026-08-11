@@ -78,6 +78,20 @@ data class BlockUiState(
             footer = "You've got this.",
             showCamera = false,
         )
+
+        /**
+         * A schedule hard block: this app is outside its allowed hours. No camera escape, for the
+         * same reason as [forFocus] — earned minutes raise a budget, and no amount of budget makes
+         * it not be bedtime. [untilLabel] is the window's end time, e.g. "7:00 AM".
+         */
+        fun forSchedule(appName: String, untilLabel: String) = BlockUiState(
+            appName = appName,
+            headline = "Not right now 🌙",
+            subtitle = "$appName is off limits",
+            body = "You've set this time aside. $appName unlocks at $untilLabel.",
+            footer = "Sleep well — the cats will still be here.",
+            showCamera = false,
+        )
     }
 }
 

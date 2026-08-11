@@ -3,8 +3,12 @@ package com.example.unpawse.data.export
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Bump when the shape below changes incompatibly, so an importer can tell the versions apart. */
-const val EXPORT_FORMAT_VERSION = 1
+/**
+ * Bump when the shape below changes incompatibly, so an importer can tell the versions apart.
+ *
+ * v2 added `schedules` and the `weekendLimitMinutes` field on each monitored app.
+ */
+const val EXPORT_FORMAT_VERSION = 2
 
 /**
  * Everything unPawse holds about you, in one plain structure.
@@ -18,6 +22,7 @@ data class ExportSnapshot(
     val appVersion: String,
     val settings: ExportSettings,
     val monitoredApps: List<ExportMonitoredApp>,
+    val schedules: List<ExportScheduleWindow>,
     val usage: List<ExportUsageDay>,
     val captures: List<ExportCapture>,
 )
@@ -36,6 +41,23 @@ data class ExportMonitoredApp(
     val packageName: String,
     val appLabel: String,
     val dailyLimitMinutes: Int,
+    val enabled: Boolean,
+    /** Null means weekends follow [dailyLimitMinutes]; a negative value means uncapped. */
+    val weekendLimitMinutes: Int? = null,
+)
+
+/**
+ * One recurring blocking window. Times are minutes since local midnight and [daysMask] is the ISO
+ * day bitmask (Monday = bit 0) — the same units the app stores, since translating them here would
+ * only lose the overnight-wrap meaning that `endMinuteOfDay <= startMinuteOfDay` carries.
+ */
+data class ExportScheduleWindow(
+    val id: Long,
+    val label: String,
+    val packageName: String?,
+    val startMinuteOfDay: Int,
+    val endMinuteOfDay: Int,
+    val daysMask: Int,
     val enabled: Boolean,
 )
 
@@ -68,6 +90,7 @@ fun buildExportJson(snapshot: ExportSnapshot): String {
         .put("appVersion", snapshot.appVersion)
         .put("settings", snapshot.settings.toJson())
         .put("monitoredApps", snapshot.monitoredApps.toJsonArray(ExportMonitoredApp::toJson))
+        .put("schedules", snapshot.schedules.toJsonArray(ExportScheduleWindow::toJson))
         .put("usage", snapshot.usage.toJsonArray(ExportUsageDay::toJson))
         .put("captures", snapshot.captures.toJsonArray(ExportCapture::toJson))
 
@@ -92,6 +115,19 @@ private fun ExportMonitoredApp.toJson() = JSONObject()
     .put("packageName", packageName)
     .put("appLabel", appLabel)
     .put("dailyLimitMinutes", dailyLimitMinutes)
+    .put("enabled", enabled)
+    // JSONObject.put(String, Any?) removes the key on null, which is what we want: an absent field
+    // reads as "no override" rather than as a null the reader has to interpret.
+    .put("weekendLimitMinutes", weekendLimitMinutes)
+
+private fun ExportScheduleWindow.toJson() = JSONObject()
+    .put("id", id)
+    .put("label", label)
+    // Likewise absent for a global window, matching how the column is stored.
+    .put("packageName", packageName)
+    .put("startMinuteOfDay", startMinuteOfDay)
+    .put("endMinuteOfDay", endMinuteOfDay)
+    .put("daysMask", daysMask)
     .put("enabled", enabled)
 
 private fun ExportUsageDay.toJson() = JSONObject()

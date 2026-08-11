@@ -49,15 +49,28 @@ class UsageRepository(
     suspend fun monitoredApps(): List<MonitoredApp> =
         observeMonitoredApps().first()
 
-    /** Adds (or updates) a monitored app and its daily limit. */
+    /**
+     * Adds (or updates) a monitored app and its daily limit.
+     *
+     * Any weekend override already on the row is carried across rather than reset, so the everyday
+     * callers (the monitor switch, the limit stepper) can't silently drop a setting made elsewhere.
+     * Use [setWeekendLimit] to change it.
+     */
     suspend fun setLimit(
         packageName: String,
         appLabel: String,
         dailyLimitMinutes: Int,
         enabled: Boolean = true,
-    ) = dao.upsertMonitoredApp(
-        MonitoredAppEntity(packageName, appLabel, dailyLimitMinutes, enabled),
-    )
+    ) {
+        val weekendLimitMinutes = dao.monitoredApp(packageName)?.weekendLimitMinutes
+        dao.upsertMonitoredApp(
+            MonitoredAppEntity(packageName, appLabel, dailyLimitMinutes, enabled, weekendLimitMinutes),
+        )
+    }
+
+    /** Sets (or clears, with `null`) the Saturday/Sunday override for an already-monitored app. */
+    suspend fun setWeekendLimit(packageName: String, weekendLimitMinutes: Int?) =
+        dao.setWeekendLimit(packageName, weekendLimitMinutes)
 
     suspend fun setEnabled(packageName: String, enabled: Boolean) =
         dao.setEnabled(packageName, enabled)
@@ -109,12 +122,14 @@ class UsageRepository(
 
     /**
      * Remaining minutes for [packageName] today (floored at 0), or `null` if it isn't a monitored,
-     * enabled app. For the precise limit-reached check use [isLimitReached].
+     * enabled app — or if today is uncapped. Both nulls mean the same thing to every caller ("no
+     * countdown to show, nothing to warn about"), so they deliberately aren't distinguished. For
+     * the precise limit-reached check use [isLimitReached].
      */
     suspend fun remainingMinutes(packageName: String): Int? {
         val app = enabledApp(packageName) ?: return null
         val usage = dao.usageFor(packageName, todayKey())
-        return remainingMinutes(app.dailyLimitMinutes, usage.used, usage.earned)
+        return remainingMinutes(app.limitForToday(), usage.used, usage.earned)
     }
 
     /** Minutes spent in [packageName] today, ignoring earned time. Drives the reminder copy. */
@@ -133,11 +148,22 @@ class UsageRepository(
     suspend fun isLimitReached(packageName: String): Boolean {
         val app = enabledApp(packageName) ?: return false
         val usage = dao.usageFor(packageName, todayKey())
-        return isLimitReached(app.dailyLimitMinutes, usage.used, usage.earned)
+        return isLimitReached(app.limitForToday(), usage.used, usage.earned)
     }
+
+    /** Today's budget for [packageName] in minutes, or `null` if it isn't monitored and enabled. */
+    suspend fun limitMinutesToday(packageName: String): Int? =
+        enabledApp(packageName)?.limitForToday()
 
     private suspend fun enabledApp(packageName: String): MonitoredAppEntity? =
         dao.monitoredApp(packageName)?.takeIf { it.enabled }
+
+    /**
+     * Resolves the weekday/weekend split against the same `today()` the usage row is keyed by, so a
+     * process that crosses into Saturday starts applying the weekend budget on the very next tick.
+     */
+    private fun MonitoredAppEntity.limitForToday(): Int =
+        effectiveLimitMinutes(dailyLimitMinutes, weekendLimitMinutes, today().dayOfWeek)
 }
 
 /** Null-usage-safe accessors so callers read 0 when there's no row for today yet. */
