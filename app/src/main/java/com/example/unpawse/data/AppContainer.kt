@@ -149,6 +149,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
         ExportRepository(
             settings = settingsRepository,
             usage = usageRepository,
+            schedules = scheduleRepository,
             captures = captureRepository,
             contentResolver = appContext.contentResolver,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
@@ -158,6 +159,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val resetRepository: ResetRepository by lazy {
         ResetRepository(
             usage = usageRepository,
+            schedules = scheduleRepository,
             captures = captureRepository,
             focusSession = focusSession,
             blockSession = blockSession,

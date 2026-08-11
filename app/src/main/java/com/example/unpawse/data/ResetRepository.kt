@@ -1,6 +1,7 @@
 package com.example.unpawse.data
 
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.BlockSession
@@ -8,7 +9,8 @@ import com.example.unpawse.service.FocusSession
 
 /**
  * Erases everything unPawse has stored, returning it to a first-launch state: screen-time history,
- * monitored apps and their limits, every cat photo (row and JPEG), and all preferences.
+ * monitored apps and their limits, blocking schedules, every cat photo (row and JPEG), and all
+ * preferences.
  *
  * In-memory session state is cleared too, and that is not incidental. A focus session hard-blocks
  * every monitored app and survives in `FocusSession` independently of the database — leaving it
@@ -22,6 +24,7 @@ import com.example.unpawse.service.FocusSession
  */
 class ResetRepository(
     private val usage: UsageRepository,
+    private val schedules: ScheduleRepository,
     private val captures: CaptureRepository,
     private val focusSession: FocusSession,
     private val blockSession: BlockSession,
@@ -43,6 +46,10 @@ class ResetRepository(
 
         captures.deleteAllCaptures()
         usage.clearAll()
+        // Schedules are plain rows with no in-memory counterpart, so unlike the sessions above they
+        // carry no ordering constraint — but they must go, or a window would keep blocking apps the
+        // app no longer has any record of monitoring.
+        schedules.clearAll()
         clearSettings()
     }
 }

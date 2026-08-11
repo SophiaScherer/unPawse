@@ -4,6 +4,8 @@ import android.content.ContentResolver
 import android.net.Uri
 import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.schedule.ScheduleRepository
+import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
@@ -27,6 +29,7 @@ import java.time.ZoneId
 class ExportRepository(
     private val settings: SettingsRepository,
     private val usage: UsageRepository,
+    private val schedules: ScheduleRepository,
     private val captures: CaptureRepository,
     private val contentResolver: ContentResolver,
     private val appVersion: String,
@@ -49,6 +52,7 @@ class ExportRepository(
                 dailySummaryEnabled = settings.dailySummaryEnabled.first(),
             ),
             monitoredApps = usage.monitoredApps().map(MonitoredApp::toExport),
+            schedules = schedules.allWindows().map(ScheduleWindow::toExport),
             usage = usage.allUsage().map(DailyUsage::toExport),
             captures = captures.observeCaptures().first().map(Capture::toExport),
         )
@@ -80,6 +84,17 @@ private fun MonitoredApp.toExport() = ExportMonitoredApp(
     packageName = packageName,
     appLabel = appLabel,
     dailyLimitMinutes = dailyLimitMinutes,
+    enabled = enabled,
+    weekendLimitMinutes = weekendLimitMinutes,
+)
+
+private fun ScheduleWindow.toExport() = ExportScheduleWindow(
+    id = id,
+    label = label,
+    packageName = packageName,
+    startMinuteOfDay = startMinuteOfDay,
+    endMinuteOfDay = endMinuteOfDay,
+    daysMask = daysMask,
     enabled = enabled,
 )
 

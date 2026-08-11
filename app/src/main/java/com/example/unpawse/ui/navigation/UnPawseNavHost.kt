@@ -71,7 +71,10 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.APP_PICKER) {
-            AppPickerRoute(onBack = { navController.popBackStack() })
+            AppPickerRoute(
+                onBack = { navController.popBackStack() },
+                onOpenSchedules = { navController.navigate(Routes.SCHEDULES) },
+            )
         }
 
         composable(Routes.SCHEDULES) {
