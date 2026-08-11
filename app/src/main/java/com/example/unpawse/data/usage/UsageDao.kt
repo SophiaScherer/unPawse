@@ -30,6 +30,10 @@ abstract class UsageDao {
     @Query("UPDATE monitored_apps SET enabled = :enabled WHERE packageName = :packageName")
     abstract suspend fun setEnabled(packageName: String, enabled: Boolean)
 
+    /** A null [minutes] clears the override, putting weekends back on the everyday budget. */
+    @Query("UPDATE monitored_apps SET weekendLimitMinutes = :minutes WHERE packageName = :packageName")
+    abstract suspend fun setWeekendLimit(packageName: String, minutes: Int?)
+
     @Query("DELETE FROM monitored_apps WHERE packageName = :packageName")
     abstract suspend fun removeMonitoredApp(packageName: String)
 
