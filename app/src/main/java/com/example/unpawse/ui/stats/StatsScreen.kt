@@ -78,8 +78,11 @@ fun StatsScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 MiniStatCard("Longest Streak", state.longestStreak, Icons.Filled.LocalFireDepartment,
                     MaterialTheme.colorScheme.surfaceContainerHigh, Modifier.weight(1f))
+                // The caption is part of the claim: unlocks are only seen while the monitor service
+                // is alive, so an uncaptioned number would imply a complete tally it isn't.
                 MiniStatCard("Unlocks", state.unlocks, Icons.Filled.PhoneAndroid,
-                    MaterialTheme.colorScheme.surfaceContainerLowest, Modifier.weight(1f))
+                    MaterialTheme.colorScheme.surfaceContainerLowest, Modifier.weight(1f),
+                    caption = "TODAY, WHILE MONITORING")
             }
         }
         item { CapturedPhotosBanner(state.capturedPhotos) }
@@ -250,13 +253,25 @@ private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
 }
 
 @Composable
-private fun MiniStatCard(label: String, value: String, icon: ImageVector, container: Color, modifier: Modifier = Modifier) {
+private fun MiniStatCard(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    container: Color,
+    modifier: Modifier = Modifier,
+    /** Optional scope line under the value, for a number that doesn't speak for itself. */
+    caption: String? = null,
+) {
     PawCard(modifier = modifier, containerColor = container) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(12.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface)
+        if (caption != null) {
+            Text(caption, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

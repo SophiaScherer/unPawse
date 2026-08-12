@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
@@ -27,16 +28,16 @@ private const val SECONDS_PER_HOUR = 3600f
  * [recentUsage] must cover the last [STATS_HISTORY_DAYS] days. Days with no usage have no row, so
  * everything here fills gaps with zero rather than assuming a dense series.
  *
- * Two fields still have **no data behind them** and are deliberately blanked rather than left showing
- * `sample()`'s invented figures — a fabricated "24/day" next to real numbers reads as fact and would
- * quietly ship as a lie. They need real features first:
- *  - `unlocks` — device unlocks aren't tracked at all.
+ * One field still has **no data behind it** and is deliberately blanked rather than left showing
+ * `sample()`'s invented figures — fabricated achievements next to real numbers read as fact and would
+ * quietly ship as a lie. It needs a real feature first:
  *  - `achievements` — there's no rules engine to award any.
  */
 internal fun toStatsUiState(
     monitoredApps: List<MonitoredApp>,
     recentUsage: List<DailyUsage>,
     captures: List<Capture>,
+    unlocks: List<DailyUnlocks> = emptyList(),
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
 ): StatsUiState {
@@ -84,14 +85,28 @@ internal fun toStatsUiState(
         longestStreak = dayCountLabel(longestStreakDays(captureDates)),
         capturedPhotos = "${captures.size} Photos",
         preventedCount = preventedThisWeek,
-        // Blanked until there's data behind them — see the KDoc above.
-        unlocks = NO_DATA,
+        unlocks = unlocksLabel(unlocks, today),
+        // Blanked until there's data behind it — see the KDoc above.
         achievements = emptyList(),
     )
 }
 
 /** Shown where a metric has no backing data yet, rather than an invented number. */
 private const val NO_DATA = "—"
+
+/**
+ * Today's unlock count, or [NO_DATA] when the store has never seen a single unlock — which is the
+ * honest reading of "the monitor service may never have run on this device".
+ *
+ * Deliberately **today's count, not the mockup's "24/day" average**. Unlocks are only observed while
+ * the service is alive, so an average would divide a partial tally by a number of days it wasn't
+ * really measuring — precisely the plausible-looking fabrication the blanking rule exists to stop.
+ * A day with rows but none today is a real zero, not missing data.
+ */
+private fun unlocksLabel(unlocks: List<DailyUnlocks>, today: LocalDate): String {
+    if (unlocks.isEmpty()) return NO_DATA
+    return unlocks.filter { it.date == today.toString() }.sumOf { it.unlockCount }.toString()
+}
 
 private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String = when {
     yesterdaySeconds == 0L -> "No data for yesterday"

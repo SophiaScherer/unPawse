@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
@@ -44,7 +45,11 @@ class StatsMapperTest {
         apps: List<MonitoredApp> = emptyList(),
         recentUsage: List<DailyUsage> = emptyList(),
         captures: List<Capture> = emptyList(),
-    ) = toStatsUiState(apps, recentUsage, captures, today, zone)
+        unlocks: List<DailyUnlocks> = emptyList(),
+    ) = toStatsUiState(apps, recentUsage, captures, unlocks, today, zone)
+
+    private fun unlocks(daysAgo: Long, count: Int) =
+        DailyUnlocks(today.minusDays(daysAgo).toString(), count)
 
     @Test
     fun `daily total sums todays usage across apps`() {
@@ -241,13 +246,44 @@ class StatsMapperTest {
 
     @Test
     fun `metrics with no backing data are blanked, not faked`() {
-        // sample() carries invented figures ("24/day" unlocks, two achievements). Showing those
-        // beside real numbers would read as fact, so they stay blanked until the features behind
-        // them exist. `preventedCount` graduated out of this list once blocks were recorded.
+        // sample() carries two invented achievements. Showing those beside real numbers would read
+        // as fact, so they stay blanked until a rules engine exists. `preventedCount` and `unlocks`
+        // have both graduated out of this list.
+        val state = map(recentUsage = listOf(usage("a", 0, 30)))
+
+        assertTrue(state.achievements.isEmpty())
+    }
+
+    // --- Unlocks --------------------------------------------------------------------------------
+
+    @Test
+    fun `never having seen an unlock reads as no data, not zero`() {
+        // The monitor service may never have run, so there is nothing to report — as opposed to a
+        // day on which the user genuinely didn't unlock.
         val state = map(recentUsage = listOf(usage("a", 0, 30)))
 
         assertEquals("—", state.unlocks)
-        assertTrue(state.achievements.isEmpty())
+    }
+
+    @Test
+    fun `todays unlocks are reported as a plain count`() {
+        val state = map(unlocks = listOf(unlocks(0, 17)))
+
+        assertEquals("17", state.unlocks)
+    }
+
+    @Test
+    fun `a day with history but none today is a real zero`() {
+        val state = map(unlocks = listOf(unlocks(1, 24)))
+
+        assertEquals("0", state.unlocks)
+    }
+
+    @Test
+    fun `yesterdays unlocks never leak into todays count`() {
+        val state = map(unlocks = listOf(unlocks(0, 3), unlocks(1, 40), unlocks(2, 40)))
+
+        assertEquals("3", state.unlocks)
     }
 
     // --- Prevented ------------------------------------------------------------------------------

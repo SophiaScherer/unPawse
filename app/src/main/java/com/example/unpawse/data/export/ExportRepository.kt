@@ -7,6 +7,8 @@ import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.unlocks.DailyUnlocks
+import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UsageRepository
@@ -29,6 +31,7 @@ import java.time.ZoneId
 class ExportRepository(
     private val settings: SettingsRepository,
     private val usage: UsageRepository,
+    private val unlocks: UnlockRepository,
     private val schedules: ScheduleRepository,
     private val captures: CaptureRepository,
     private val contentResolver: ContentResolver,
@@ -54,6 +57,7 @@ class ExportRepository(
             monitoredApps = usage.monitoredApps().map(MonitoredApp::toExport),
             schedules = schedules.allWindows().map(ScheduleWindow::toExport),
             usage = usage.allUsage().map(DailyUsage::toExport),
+            unlocks = unlocks.allUnlocks().map(DailyUnlocks::toExport),
             captures = captures.observeCaptures().first().map(Capture::toExport),
         )
     }
@@ -105,6 +109,11 @@ private fun DailyUsage.toExport() = ExportUsageDay(
     usedSeconds = usedSeconds,
     earnedSeconds = earnedSeconds,
     blockedCount = blockedCount,
+)
+
+private fun DailyUnlocks.toExport() = ExportUnlockDay(
+    date = date,
+    unlockCount = unlockCount,
 )
 
 /** Note the absence of `filePath` — see [ExportCapture]. */

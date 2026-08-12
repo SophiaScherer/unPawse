@@ -7,8 +7,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.IBinder
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.example.unpawse.MainActivity
 import com.example.unpawse.R
 import com.example.unpawse.appContainer
@@ -39,6 +41,7 @@ class UsageMonitorService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var trackerJob: Job? = null
+    private var unlockReceiver: UnlockReceiver? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -47,6 +50,7 @@ class UsageMonitorService : Service() {
 
         // Guard against re-delivery / repeated start intents spawning duplicate trackers.
         if (trackerJob?.isActive != true) {
+            registerUnlockReceiver()
             val tracker = appContainer().usageTracker
             trackerJob = scope.launch {
                 launch { observeBlockRequired() }
@@ -65,8 +69,34 @@ class UsageMonitorService : Service() {
     }
 
     override fun onDestroy() {
+        unlockReceiver?.let { runCatching { unregisterReceiver(it) } }
+        unlockReceiver = null
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * Starts counting device unlocks. Registered here rather than in the manifest because
+     * `ACTION_USER_PRESENT` is an implicit broadcast that a manifest receiver would never be handed
+     * — see [UnlockReceiver]. Guarded by the same check as the tracker job, so repeated start
+     * intents can't register a second copy and double-count every unlock.
+     */
+    private fun registerUnlockReceiver() {
+        if (unlockReceiver != null) return
+        val receiver = UnlockReceiver(scope, appContainer().unlockRepository)
+        // RECEIVER_EXPORTED, and it has to be: the flag gates which *sender UIDs* may reach this
+        // receiver, and ACTION_USER_PRESENT is sent by the system, not by us. Registering it
+        // NOT_EXPORTED registers cleanly and shows up in `dumpsys activity broadcasts` under the
+        // right action, but onReceive is simply never called — verified on an API-36 emulator.
+        // Exported is not a weakness here: USER_PRESENT is a protected broadcast, so only the
+        // system can send it and no third-party app can forge one.
+        ContextCompat.registerReceiver(
+            this,
+            receiver,
+            IntentFilter(Intent.ACTION_USER_PRESENT),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
+        unlockReceiver = receiver
     }
 
     /**

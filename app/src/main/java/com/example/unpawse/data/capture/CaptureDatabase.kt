@@ -6,6 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.unpawse.data.schedule.ScheduleDao
 import com.example.unpawse.data.schedule.ScheduleWindowEntity
+import com.example.unpawse.data.unlocks.DailyUnlocksEntity
+import com.example.unpawse.data.unlocks.UnlockDao
 import com.example.unpawse.data.usage.DailyUsageEntity
 import com.example.unpawse.data.usage.MonitoredAppEntity
 import com.example.unpawse.data.usage.UsageDao
@@ -25,14 +27,16 @@ import com.example.unpawse.data.usage.UsageDao
         MonitoredAppEntity::class,
         DailyUsageEntity::class,
         ScheduleWindowEntity::class,
+        DailyUnlocksEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class CaptureDatabase : RoomDatabase() {
     abstract fun captureDao(): CaptureDao
     abstract fun usageDao(): UsageDao
     abstract fun scheduleDao(): ScheduleDao
+    abstract fun unlockDao(): UnlockDao
 
     companion object {
         @Volatile

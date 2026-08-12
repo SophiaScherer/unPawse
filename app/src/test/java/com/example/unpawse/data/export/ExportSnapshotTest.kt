@@ -21,6 +21,9 @@ class ExportSnapshotTest {
         usage: List<ExportUsageDay> = listOf(
             ExportUsageDay("2026-07-15", "com.instagram.android", 2_700, 900, blockedCount = 3),
         ),
+        unlocks: List<ExportUnlockDay> = listOf(
+            ExportUnlockDay("2026-07-15", 24),
+        ),
         captures: List<ExportCapture> = listOf(
             ExportCapture("abc-123", 1_700_000_000_000, 0.93f, isBonus = false, isFavorite = true),
         ),
@@ -40,6 +43,7 @@ class ExportSnapshotTest {
         monitoredApps = monitoredApps,
         schedules = schedules,
         usage = usage,
+        unlocks = unlocks,
         captures = captures,
     )
 
@@ -84,6 +88,15 @@ class ExportSnapshotTest {
         assertEquals(2_700, day.getLong("usedSeconds"))
         assertEquals(900, day.getLong("earnedSeconds"))
         assertEquals(3, day.getInt("blockedCount"))
+    }
+
+    /** Unlocks are device-wide, so they are their own array rather than a field on a usage day. */
+    @Test
+    fun `unlocks export as their own daily series`() {
+        val unlockDay = json().getJSONArray("unlocks").getJSONObject(0)
+
+        assertEquals("2026-07-15", unlockDay.getString("date"))
+        assertEquals(24, unlockDay.getInt("unlockCount"))
     }
 
     @Test
