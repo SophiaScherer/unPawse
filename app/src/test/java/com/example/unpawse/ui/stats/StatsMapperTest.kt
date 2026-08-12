@@ -89,6 +89,33 @@ class StatsMapperTest {
         )
 
         assertEquals(listOf("Alpha"), state.breakdown.map { it.label })
+        assertEquals(listOf(600L), state.breakdown.map { it.seconds })
+    }
+
+    // --- Donut proportions ----------------------------------------------------------------------
+    // The screen used to size arcs from a `durationWeight()` table returning the mockup's literal
+    // 72/45/32 keyed off the palette slot, so the donut ignored the durations printed beside it.
+
+    @Test
+    fun `breakdown carries the raw seconds behind each duration`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 60), app("b", "Bravo", 60)),
+            recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
+        )
+
+        assertEquals(listOf(2700L, 600L), state.breakdown.map { it.seconds })
+    }
+
+    @Test
+    fun `donut proportions follow real durations`() {
+        // 3:1 usage must come back as a 3:1 ratio of arc values, whatever the palette says.
+        val state = map(
+            apps = listOf(app("a", "Alpha", 60), app("b", "Bravo", 60)),
+            recentUsage = listOf(usage("a", 0, 90), usage("b", 0, 30)),
+        )
+
+        val (larger, smaller) = state.breakdown.map { it.seconds }
+        assertEquals(3f, larger.toFloat() / smaller, 0.001f)
     }
 
     @Test

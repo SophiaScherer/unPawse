@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.LocalFireDepartment
@@ -109,16 +110,25 @@ private fun DailyScreenTimeCard(state: StatsUiState) {
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Follows deltaIsPositive, same rule as the trend arrow. This was pinned to a
+                    // green ArrowDownward, so a day where usage doubled rendered "100% from
+                    // yesterday" as though it were an improvement. The arrow and its colour both
+                    // encode the claim, so both are state-driven, and it is no longer decorative.
+                    val deltaTint = if (state.deltaIsPositive) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.secondary
+                    }
                     Icon(
-                        Icons.Filled.ArrowDownward,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
+                        if (state.deltaIsPositive) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                        contentDescription = if (state.deltaIsPositive) "Up from yesterday" else "Down from yesterday",
+                        tint = deltaTint,
                         modifier = Modifier.size(16.dp),
                     )
                     Text(
                         state.deltaText,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.secondary,
+                        color = deltaTint,
                     )
                 }
             }
@@ -193,7 +203,9 @@ private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             DonutChart(
-                segments = state.breakdown.map { DonutSegment(it.durationWeight(), it.color.toColor()) },
+                // Sized from the real durations. DonutChart normalises raw values itself, so the
+                // arcs track the legend beside them instead of a fixed palette-keyed weight table.
+                segments = state.breakdown.map { DonutSegment(it.seconds.toFloat(), it.color.toColor()) },
                 modifier = Modifier.size(180.dp),
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -310,13 +322,6 @@ private fun UsageColor.toColor(): Color = when (this) {
 private fun AchievementColor.toColor(): Color = when (this) {
     AchievementColor.CORAL -> MaterialTheme.colorScheme.tertiaryContainer
     AchievementColor.SAGE -> MaterialTheme.colorScheme.secondaryContainer
-}
-
-/** Rough weight for donut proportions derived from the displayed duration (Social>Prod>Ent). */
-private fun UsageCategory.durationWeight(): Float = when (color) {
-    UsageColor.SOCIAL -> 72f
-    UsageColor.PRODUCTIVITY -> 45f
-    UsageColor.ENTERTAINMENT -> 32f
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1600)

@@ -158,6 +158,7 @@ private fun topAppsBreakdown(
             UsageCategory(
                 label = app.appLabel,
                 duration = formatSeconds(seconds),
+                seconds = seconds,
                 color = palette[index % palette.size],
             )
         }

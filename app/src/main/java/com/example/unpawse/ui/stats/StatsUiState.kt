@@ -40,9 +40,9 @@ data class StatsUiState(
             productivePercent = 75,
             productiveLabel = "Budget left",
             breakdown = listOf(
-                UsageCategory("Social Media", "1h 12m", UsageColor.SOCIAL),
-                UsageCategory("Productivity", "45m", UsageColor.PRODUCTIVITY),
-                UsageCategory("Entertainment", "32m", UsageColor.ENTERTAINMENT),
+                UsageCategory("Social Media", "1h 12m", 72 * 60L, UsageColor.SOCIAL),
+                UsageCategory("Productivity", "45m", 45 * 60L, UsageColor.PRODUCTIVITY),
+                UsageCategory("Entertainment", "32m", 32 * 60L, UsageColor.ENTERTAINMENT),
             ),
             longestStreak = "12 Days",
             unlocks = "24/day",
@@ -55,7 +55,20 @@ data class StatsUiState(
     }
 }
 
-data class UsageCategory(val label: String, val duration: String, val color: UsageColor)
+/**
+ * One slice of the usage breakdown. [duration] is the formatted text beside the legend dot;
+ * [seconds] is the same quantity unformatted, and is what the donut sizes its arc from.
+ *
+ * The two are deliberately both here. The screen used to hold a `durationWeight()` table returning
+ * the mockup's literal 72/45/32 keyed off the palette slot, so every arc was drawn at a constant
+ * proportion regardless of the real duration printed next to it.
+ */
+data class UsageCategory(
+    val label: String,
+    val duration: String,
+    val seconds: Long,
+    val color: UsageColor,
+)
 enum class UsageColor { SOCIAL, PRODUCTIVITY, ENTERTAINMENT }
 
 data class Achievement(val title: String, val subtitle: String, val color: AchievementColor)
