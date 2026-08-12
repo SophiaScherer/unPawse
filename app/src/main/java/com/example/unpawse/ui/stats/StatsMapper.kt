@@ -21,6 +21,15 @@ private const val DAYS_IN_WEEK = 7
 private const val TREND_BAR_COUNT = 5
 private const val SECONDS_PER_HOUR = 3600f
 
+/** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
+private val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+
+/**
+ * Caption under the donut's percentage. The mockup said "Productive", which no app-category data
+ * could back at the time; budget left is the number the app can actually compute.
+ */
+private const val BUDGET_LEFT_LABEL = "Budget left"
+
 /**
  * Builds [StatsUiState] from usage history + captures. Pure and parameterised on [today]/[zone] so
  * it's unit-testable without a clock.
@@ -72,19 +81,26 @@ internal fun toStatsUiState(
     val captureDayList = captures.map { it.capturedAt.toLocalDate(zone) }
     val captureDates = captureDayList.toSet()
 
-    return StatsUiState.sample().copy(
+    // Constructed field by field, deliberately **not** `StatsUiState.sample().copy(...)`. Every
+    // value on this screen is computed now, so the only things `sample()` was still supplying were
+    // two constants — and inheriting from it left a standing route for mockup data to reach the
+    // screen the moment someone added a field and forgot to set it here. Same move already made in
+    // `SettingsMapper`; `sample()` is now @Preview-only.
+    return StatsUiState(
         dailyTotal = formatSeconds(todaySeconds),
         deltaText = deltaText(todaySeconds, yesterdaySeconds),
         // "Positive" means usage went *up* — the screen renders it as the unwelcome direction.
         deltaIsPositive = todaySeconds > yesterdaySeconds,
         deltaHasBaseline = yesterdaySeconds > 0L,
         weeklyPoints = week.map { usedOn(it) / SECONDS_PER_HOUR },
+        weekdayLabels = WEEKDAY_LABELS,
         highlightDayIndex = today.dayOfWeek.value - 1,
         trendLabel = trendLabel(trendDeltaSeconds),
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
         trendIsUp = trendDeltaSeconds > 0,
         trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
         productivePercent = budgetLeftPercent(enabled, recentUsage, today),
+        productiveLabel = BUDGET_LEFT_LABEL,
         breakdown = categoryBreakdown(enabled, recentUsage, today),
         longestStreak = dayCountLabel(longestStreakDays(captureDates)),
         capturedPhotos = "${captures.size} Photos",

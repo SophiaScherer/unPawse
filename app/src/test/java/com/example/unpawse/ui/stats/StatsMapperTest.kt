@@ -269,6 +269,20 @@ class StatsMapperTest {
         assertNotEquals(StatsUiState.sample().preventedCount, state.preventedCount)
     }
 
+    /**
+     * The mapper builds [StatsUiState] field by field rather than from `sample().copy(...)`, so the
+     * two remaining constants have to come from the mapper's own values. If someone reintroduces
+     * the `.copy(...)` base these still pass — which is why the test above also pins a *computed*
+     * field against `sample()`.
+     */
+    @Test
+    fun `the fixed axis and donut caption come from the mapper, not the mockup`() {
+        val state = map()
+
+        assertEquals(listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"), state.weekdayLabels)
+        assertEquals("Budget left", state.productiveLabel)
+    }
+
     @Test
     fun `the achievements rail is populated even with nothing earned`() {
         // An empty rail under a heading reads as content that failed to load; locked cards are
