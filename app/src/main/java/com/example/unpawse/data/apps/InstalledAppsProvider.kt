@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import com.example.unpawse.data.usage.categoryFromPlatform
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -46,7 +47,16 @@ class PackageManagerInstalledAppsProvider(
         }
 
         resolved
-            .map { InstalledApp(it.activityInfo.packageName, it.loadLabel(packageManager).toString()) }
+            .map {
+                InstalledApp(
+                    packageName = it.activityInfo.packageName,
+                    label = it.loadLabel(packageManager).toString(),
+                    // Already populated on the ResolveInfo we have — no second PackageManager call,
+                    // no extra query flags, and no new permission, since we only ever read it for
+                    // apps that are launchable and therefore already visible to us.
+                    category = it.activityInfo.applicationInfo?.category?.let(::categoryFromPlatform),
+                )
+            }
             .presentableApps(selfPackage = appContext.packageName)
     }
 }

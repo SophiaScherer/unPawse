@@ -3,6 +3,7 @@ package com.example.unpawse.data
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.BlockSession
 import com.example.unpawse.service.FocusSession
@@ -26,6 +27,7 @@ class ResetRepository(
     private val usage: UsageRepository,
     private val schedules: ScheduleRepository,
     private val captures: CaptureRepository,
+    private val unlocks: UnlockRepository,
     private val focusSession: FocusSession,
     private val blockSession: BlockSession,
     /**
@@ -50,6 +52,7 @@ class ResetRepository(
         // carry no ordering constraint — but they must go, or a window would keep blocking apps the
         // app no longer has any record of monitoring.
         schedules.clearAll()
+        unlocks.clearAll()
         clearSettings()
     }
 }

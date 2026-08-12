@@ -32,6 +32,10 @@ internal class FakeUsageDao : UsageDao() {
         apps[packageName]?.let { apps[packageName] = it.copy(weekendLimitMinutes = minutes) }
     }
 
+    override suspend fun setCategory(packageName: String, category: String?) {
+        apps[packageName]?.let { apps[packageName] = it.copy(category = category) }
+    }
+
     override suspend fun removeMonitoredApp(packageName: String) {
         apps.remove(packageName)
     }
@@ -63,6 +67,12 @@ internal class FakeUsageDao : UsageDao() {
     override suspend fun addUsedSeconds(packageName: String, date: String, seconds: Long) {
         usage[packageName to date]?.let {
             usage[packageName to date] = it.copy(usedSeconds = it.usedSeconds + seconds)
+        }
+    }
+
+    override suspend fun incrementBlockedCount(packageName: String, date: String) {
+        usage[packageName to date]?.let {
+            usage[packageName to date] = it.copy(blockedCount = it.blockedCount + 1)
         }
     }
 

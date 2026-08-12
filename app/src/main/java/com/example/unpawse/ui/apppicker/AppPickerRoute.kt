@@ -29,6 +29,7 @@ fun AppPickerRoute(
         onToggleMonitored = viewModel::onToggleMonitored,
         onLimitChange = viewModel::onLimitChange,
         onWeekendLimitChange = viewModel::onWeekendLimitChange,
+        onCategoryChange = viewModel::onCategoryChange,
         onOpenSchedules = onOpenSchedules,
     )
 }

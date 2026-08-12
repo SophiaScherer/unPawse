@@ -161,4 +161,87 @@ class UsageRepositoryTest {
         today = today.with(DayOfWeek.TUESDAY)
         assertEquals(25, repo.limitMinutesToday("com.ig"))
     }
+
+    // --- Prevented count --------------------------------------------------------------------------
+
+    private suspend fun blockedCount(packageName: String): Int? =
+        dao.usageFor(packageName, today.toString())?.blockedCount
+
+    @Test
+    fun `the first block of the day creates the row`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+
+        repo.recordBlock("com.ig")
+
+        assertEquals(1, blockedCount("com.ig"))
+    }
+
+    @Test
+    fun `further blocks increment the existing row`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.addUsage("com.ig", 5.minutes)
+
+        repeat(3) { repo.recordBlock("com.ig") }
+
+        assertEquals(3, blockedCount("com.ig"))
+        // The counter rides on the usage row without disturbing it.
+        assertEquals(300L, dao.usageFor("com.ig", today.toString())?.usedSeconds)
+    }
+
+    @Test
+    fun `the count resets with the new day`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.recordBlock("com.ig")
+        repo.recordBlock("com.ig")
+
+        today = today.plusDays(1)
+
+        assertNull(blockedCount("com.ig"))
+        repo.recordBlock("com.ig")
+        assertEquals(1, blockedCount("com.ig"))
+    }
+
+    // --- Category ---------------------------------------------------------------------------------
+
+    private suspend fun categoryOf(packageName: String): AppCategory =
+        repo.monitoredApps().single { it.packageName == packageName }.category
+
+    @Test
+    fun `an app nobody has classified reads as Other`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+
+        assertEquals(AppCategory.OTHER, categoryOf("com.ig"))
+    }
+
+    @Test
+    fun `first enable seeds the platform's guess`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10, defaultCategory = AppCategory.SOCIAL)
+
+        assertEquals(AppCategory.SOCIAL, categoryOf("com.ig"))
+    }
+
+    @Test
+    fun `setCategory overrides the seeded guess`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10, defaultCategory = AppCategory.SOCIAL)
+
+        repo.setCategory("com.ig", AppCategory.PRODUCTIVITY)
+
+        assertEquals(AppCategory.PRODUCTIVITY, categoryOf("com.ig"))
+    }
+
+    /**
+     * The stepper and the monitor switch both go through [UsageRepository.setLimit], and both pass a
+     * `defaultCategory` taken from the picker row. A stale default must not overwrite a choice the
+     * user already made — same guarantee the weekend override has.
+     */
+    @Test
+    fun `a later setLimit cannot overwrite a chosen category`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.setCategory("com.ig", AppCategory.PRODUCTIVITY)
+
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 25, defaultCategory = AppCategory.SOCIAL)
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 25)
+
+        assertEquals(AppCategory.PRODUCTIVITY, categoryOf("com.ig"))
+    }
 }

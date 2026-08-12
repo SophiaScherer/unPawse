@@ -11,6 +11,7 @@ import com.example.unpawse.data.export.ExportRepository
 import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
 import com.example.unpawse.ml.sensitivityToMinConfidence
@@ -45,6 +46,12 @@ interface AppContainer {
     val settingsRepository: SettingsRepository
     val usageRepository: UsageRepository
     val scheduleRepository: ScheduleRepository
+
+    /**
+     * Device-unlock counts, behind the Stats "Unlocks" card. Written by the monitor service's
+     * `UnlockReceiver`, read by `StatsViewModel`.
+     */
+    val unlockRepository: UnlockRepository
     val installedAppsProvider: InstalledAppsProvider
 
     /** Gathers every store into one JSON document for Settings → Export data. */
@@ -141,6 +148,13 @@ class DefaultAppContainer(context: Context) : AppContainer {
         ScheduleRepository(database.scheduleDao())
     }
 
+    // `by lazy` like everything else here, and deliberately NOT one of the eager exceptions below:
+    // its first read is a UI read or a receiver write, never a blocking decision made in the same
+    // expression that creates it.
+    override val unlockRepository: UnlockRepository by lazy {
+        UnlockRepository(database.unlockDao())
+    }
+
     override val installedAppsProvider: InstalledAppsProvider by lazy {
         PackageManagerInstalledAppsProvider(appContext)
     }
@@ -149,6 +163,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
         ExportRepository(
             settings = settingsRepository,
             usage = usageRepository,
+            unlocks = unlockRepository,
             schedules = scheduleRepository,
             captures = captureRepository,
             contentResolver = appContext.contentResolver,
@@ -161,6 +176,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             usage = usageRepository,
             schedules = scheduleRepository,
             captures = captureRepository,
+            unlocks = unlockRepository,
             focusSession = focusSession,
             blockSession = blockSession,
             clearSettings = settingsRepository::clearAll,

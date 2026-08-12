@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ValueStepper
@@ -59,6 +60,7 @@ fun AppPickerScreen(
     onToggleMonitored: (AppLimitItem, Boolean) -> Unit = { _, _ -> },
     onLimitChange: (AppLimitItem, Int) -> Unit = { _, _ -> },
     onWeekendLimitChange: (AppLimitItem, Int?) -> Unit = { _, _ -> },
+    onCategoryChange: (AppLimitItem, AppCategory) -> Unit = { _, _ -> },
     onOpenSchedules: () -> Unit = {},
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -89,6 +91,7 @@ fun AppPickerScreen(
                         onToggleMonitored = { onToggleMonitored(app, it) },
                         onLimitChange = { onLimitChange(app, it) },
                         onWeekendLimitChange = { onWeekendLimitChange(app, it) },
+                        onCategoryChange = { onCategoryChange(app, it) },
                         onOpenSchedules = onOpenSchedules,
                     )
                 }
@@ -166,6 +169,7 @@ private fun AppLimitRow(
     onToggleMonitored: (Boolean) -> Unit,
     onLimitChange: (Int) -> Unit,
     onWeekendLimitChange: (Int?) -> Unit,
+    onCategoryChange: (AppCategory) -> Unit,
     onOpenSchedules: () -> Unit,
 ) {
     PawCard(contentPadding = 12.dp) {
@@ -195,6 +199,7 @@ private fun AppLimitRow(
                 format = ::formatMinutes,
             )
             Spacer(Modifier.size(4.dp))
+            CategoryControl(item = item, onCategoryChange = onCategoryChange)
             WeekendLimitControl(item = item, onWeekendLimitChange = onWeekendLimitChange)
             ScheduleSummaryRow(summary = item.scheduleSummary, onClick = onOpenSchedules)
         }
@@ -283,6 +288,13 @@ private fun AppPickerPreviewContent() {
             state = state.copy(
                 apps = state.apps.map {
                     if (it.packageName == item.packageName) it.copy(weekendLimitMinutes = minutes) else it
+                },
+            )
+        },
+        onCategoryChange = { item, category ->
+            state = state.copy(
+                apps = state.apps.map {
+                    if (it.packageName == item.packageName) it.copy(category = category) else it
                 },
             )
         },

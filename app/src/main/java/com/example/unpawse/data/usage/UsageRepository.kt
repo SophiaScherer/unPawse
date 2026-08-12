@@ -52,25 +52,41 @@ class UsageRepository(
     /**
      * Adds (or updates) a monitored app and its daily limit.
      *
-     * Any weekend override already on the row is carried across rather than reset, so the everyday
-     * callers (the monitor switch, the limit stepper) can't silently drop a setting made elsewhere.
-     * Use [setWeekendLimit] to change it.
+     * Any weekend override *and category* already on the row are carried across rather than reset,
+     * so the everyday callers (the monitor switch, the limit stepper) can't silently drop a setting
+     * made elsewhere. Use [setWeekendLimit] / [setCategory] to change them.
+     *
+     * @param defaultCategory seeds the category when there is no row yet — the platform's guess at
+     * first enable. It never overwrites a stored value, so a stepper adjustment can't undo the
+     * user's choice by passing a stale default.
      */
     suspend fun setLimit(
         packageName: String,
         appLabel: String,
         dailyLimitMinutes: Int,
         enabled: Boolean = true,
+        defaultCategory: AppCategory? = null,
     ) {
-        val weekendLimitMinutes = dao.monitoredApp(packageName)?.weekendLimitMinutes
+        val existing = dao.monitoredApp(packageName)
         dao.upsertMonitoredApp(
-            MonitoredAppEntity(packageName, appLabel, dailyLimitMinutes, enabled, weekendLimitMinutes),
+            MonitoredAppEntity(
+                packageName = packageName,
+                appLabel = appLabel,
+                dailyLimitMinutes = dailyLimitMinutes,
+                enabled = enabled,
+                weekendLimitMinutes = existing?.weekendLimitMinutes,
+                category = existing?.category ?: defaultCategory?.name,
+            ),
         )
     }
 
     /** Sets (or clears, with `null`) the Saturday/Sunday override for an already-monitored app. */
     suspend fun setWeekendLimit(packageName: String, weekendLimitMinutes: Int?) =
         dao.setWeekendLimit(packageName, weekendLimitMinutes)
+
+    /** Reassigns which Stats bucket an app's time counts toward. */
+    suspend fun setCategory(packageName: String, category: AppCategory) =
+        dao.setCategory(packageName, category.name)
 
     suspend fun setEnabled(packageName: String, enabled: Boolean) =
         dao.setEnabled(packageName, enabled)
@@ -87,6 +103,14 @@ class UsageRepository(
     /** Accrues foreground time against today's budget (called by the foreground monitor). */
     suspend fun addUsage(packageName: String, duration: Duration) =
         dao.addUsage(packageName, todayKey(), duration.inWholeSeconds)
+
+    /**
+     * Records that a block was raised over [packageName]. Called once per breach by `UsageTracker`,
+     * whatever the reason — a limit, a focus session and a schedule window are all one interruption
+     * prevented.
+     */
+    suspend fun recordBlock(packageName: String) =
+        dao.addBlock(packageName, todayKey())
 
     /**
      * Credits bonus minutes back **unconditionally**. The raw primitive behind [tryEarnMinutes];

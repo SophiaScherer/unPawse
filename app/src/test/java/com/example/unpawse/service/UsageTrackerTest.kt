@@ -165,6 +165,61 @@ class UsageTrackerTest {
         assertEquals(listOf(BlockEvent("com.ig", BlockReason.FOCUS)), signals)
     }
 
+    // --- Prevented count ------------------------------------------------------------------------
+    // Every blockRequired emission is also counted into daily_usage.blockedCount, which is what the
+    // Stats "Prevented" card reports. The two must not be able to drift apart.
+
+    private suspend fun blockedCountFor(pkg: String) = dao.usageFor(pkg, today.toString())?.blockedCount
+
+    @Test
+    fun `a block is counted once per breach, not once per tick`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+
+        tracker(List(5) { "com.ig" }).run()
+
+        assertEquals(1, blockedCountFor("com.ig"))
+    }
+
+    @Test
+    fun `returning to a blocked app counts a second interruption`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+
+        tracker(listOf("com.ig", "com.ig", "com.other", "com.ig", "com.ig")).run()
+
+        assertEquals(2, blockedCountFor("com.ig"))
+    }
+
+    @Test
+    fun `the count lands on the blocked app, not whatever else was open`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+        repo.setLimit("com.tok", "TikTok", dailyLimitMinutes = 10)
+
+        tracker(listOf("com.ig", "com.ig", "com.tok", "com.tok")).run()
+
+        assertEquals(1, blockedCountFor("com.ig"))
+        assertEquals(0, blockedCountFor("com.tok"))
+    }
+
+    @Test
+    fun `a focus block counts too`() = runBlocking {
+        // Under its limit, so only the focus session can block — still an interruption prevented.
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        focusSession.start(durationMinutes = 30)
+
+        tracker(List(3) { "com.ig" }).run()
+
+        assertEquals(1, blockedCountFor("com.ig"))
+    }
+
+    @Test
+    fun `an app that is never blocked stays at zero`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+
+        tracker(List(3) { "com.ig" }).run()
+
+        assertEquals(0, blockedCountFor("com.ig"))
+    }
+
     // --- Warning before lock --------------------------------------------------------------------
 
     @Test
@@ -361,6 +416,17 @@ class ScheduledBlockTest {
             listOf(BlockEvent("com.ig", BlockReason.SCHEDULE, endsAtMinuteOfDay = 7 * 60)),
             signals,
         )
+    }
+
+    /** A scheduled block is an interruption prevented like any other, so it counts too. */
+    @Test
+    fun `a scheduled block is counted`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        activeWindow = window()
+
+        tracker(List(3) { "com.ig" }).run()
+
+        assertEquals(1, dao.usageFor("com.ig", today.toString())?.blockedCount)
     }
 
     @Test

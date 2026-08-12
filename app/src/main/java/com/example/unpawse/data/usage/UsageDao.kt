@@ -34,6 +34,10 @@ abstract class UsageDao {
     @Query("UPDATE monitored_apps SET weekendLimitMinutes = :minutes WHERE packageName = :packageName")
     abstract suspend fun setWeekendLimit(packageName: String, minutes: Int?)
 
+    /** [category] is an `AppCategory.name`; null puts the app back to unclassified. */
+    @Query("UPDATE monitored_apps SET category = :category WHERE packageName = :packageName")
+    abstract suspend fun setCategory(packageName: String, category: String?)
+
     @Query("DELETE FROM monitored_apps WHERE packageName = :packageName")
     abstract suspend fun removeMonitoredApp(packageName: String)
 
@@ -83,6 +87,9 @@ abstract class UsageDao {
         atMillis: Long,
     )
 
+    @Query("UPDATE daily_usage SET blockedCount = blockedCount + 1 WHERE packageName = :packageName AND date = :date")
+    abstract suspend fun incrementBlockedCount(packageName: String, date: String)
+
     @Transaction
     open suspend fun addUsage(packageName: String, date: String, seconds: Long) {
         insertUsageIfAbsent(DailyUsageEntity(packageName, date, usedSeconds = 0, earnedSeconds = 0))
@@ -93,5 +100,16 @@ abstract class UsageDao {
     open suspend fun addEarned(packageName: String, date: String, seconds: Long, atMillis: Long) {
         insertUsageIfAbsent(DailyUsageEntity(packageName, date, usedSeconds = 0, earnedSeconds = 0))
         addEarnedSecondsAt(packageName, date, seconds, atMillis)
+    }
+
+    /**
+     * Records one block raised over [packageName]. Same insert-then-increment shape as [addUsage],
+     * so it inherits the same atomicity — the tracker credits usage and evaluates the block on the
+     * same tick, so the row almost always exists already, but "almost" isn't a guarantee.
+     */
+    @Transaction
+    open suspend fun addBlock(packageName: String, date: String) {
+        insertUsageIfAbsent(DailyUsageEntity(packageName, date, usedSeconds = 0, earnedSeconds = 0))
+        incrementBlockedCount(packageName, date)
     }
 }

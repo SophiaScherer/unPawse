@@ -1,10 +1,13 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.unlocks.DailyUnlocks
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -17,17 +20,46 @@ class StatsMapperTest {
     // A Thursday, so the Mon-Sun week has days both before and after it.
     private val today = LocalDate.of(2026, 7, 16)
 
-    private fun app(pkg: String, label: String, limitMinutes: Int, enabled: Boolean = true) =
-        MonitoredApp(pkg, label, limitMinutes, enabled)
+    private fun app(
+        pkg: String,
+        label: String,
+        limitMinutes: Int,
+        enabled: Boolean = true,
+        category: AppCategory = AppCategory.OTHER,
+    ) = MonitoredApp(pkg, label, limitMinutes, enabled, category = category)
 
-    private fun usage(pkg: String, daysAgo: Long, usedMinutes: Int, earnedMinutes: Int = 0) =
-        DailyUsage(pkg, today.minusDays(daysAgo).toString(), usedMinutes * 60L, earnedMinutes * 60L)
+    private fun usage(
+        pkg: String,
+        daysAgo: Long,
+        usedMinutes: Int,
+        earnedMinutes: Int = 0,
+        blockedCount: Int = 0,
+    ) = DailyUsage(
+        pkg,
+        today.minusDays(daysAgo).toString(),
+        usedMinutes * 60L,
+        earnedMinutes * 60L,
+        blockedCount,
+    )
 
     private fun map(
         apps: List<MonitoredApp> = emptyList(),
         recentUsage: List<DailyUsage> = emptyList(),
         captures: List<Capture> = emptyList(),
-    ) = toStatsUiState(apps, recentUsage, captures, today, zone)
+        unlocks: List<DailyUnlocks> = emptyList(),
+        allUsage: List<DailyUsage> = recentUsage,
+    ) = toStatsUiState(
+        monitoredApps = apps,
+        recentUsage = recentUsage,
+        captures = captures,
+        unlocks = unlocks,
+        allUsage = allUsage,
+        today = today,
+        zone = zone,
+    )
+
+    private fun unlocks(daysAgo: Long, count: Int) =
+        DailyUnlocks(today.minusDays(daysAgo).toString(), count)
 
     @Test
     fun `daily total sums todays usage across apps`() {
@@ -59,6 +91,25 @@ class StatsMapperTest {
         assertEquals("No data for yesterday", state.deltaText)
     }
 
+    /**
+     * Any usage at all is greater than zero, so `deltaIsPositive` is true on a first day — which put
+     * a red "went up" arrow beside "No data for yesterday". There is no direction to report without
+     * a baseline, so the screen draws no arrow.
+     */
+    @Test
+    fun `a first day has no baseline to point an arrow at`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 30)))
+
+        assertFalse(state.deltaHasBaseline)
+    }
+
+    @Test
+    fun `yesterday's usage is a baseline`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 30), usage("a", 1, 60)))
+
+        assertTrue(state.deltaHasBaseline)
+    }
+
     @Test
     fun `weekly points are hours per weekday with gaps as zero`() {
         // today is Thursday -> index 3 in a Mon-first week.
@@ -70,25 +121,110 @@ class StatsMapperTest {
         assertEquals(0f, state.weeklyPoints[0], 0.001f)
     }
 
+    // --- Category breakdown ---------------------------------------------------------------------
+
     @Test
-    fun `breakdown lists todays busiest apps with real durations`() {
+    fun `breakdown groups todays usage by category with real durations`() {
         val state = map(
-            apps = listOf(app("a", "Alpha", 60), app("b", "Bravo", 60)),
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
             recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
         )
 
-        assertEquals(listOf("Bravo", "Alpha"), state.breakdown.map { it.label })
-        assertEquals(listOf("45m", "10m"), state.breakdown.map { it.duration })
+        assertEquals(listOf("Social", "Productivity"), state.breakdown.map { it.label })
+        assertEquals(listOf("10m", "45m"), state.breakdown.map { it.duration })
     }
 
     @Test
-    fun `unused apps stay out of the breakdown`() {
+    fun `apps in the same category merge into one slice`() {
         val state = map(
-            apps = listOf(app("a", "Alpha", 60), app("b", "Bravo", 60)),
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.SOCIAL),
+            ),
+            recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
+        )
+
+        assertEquals(listOf("Social"), state.breakdown.map { it.label })
+        assertEquals(listOf(55 * 60L), state.breakdown.map { it.seconds })
+    }
+
+    /**
+     * Colour is semantic once the donut is grouped by category, so a bucket must keep its slot
+     * whatever its size — otherwise Social changes colour on a day it happens to be the smallest.
+     */
+    @Test
+    fun `buckets come back in declaration order, not by size`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.ENTERTAINMENT),
+            ),
+            // Entertainment is far larger, but Social is declared first.
+            recentUsage = listOf(usage("a", 0, 5), usage("b", 0, 200)),
+        )
+
+        assertEquals(listOf("Social", "Entertainment"), state.breakdown.map { it.label })
+        assertEquals(listOf(UsageColor.SOCIAL, UsageColor.ENTERTAINMENT), state.breakdown.map { it.color })
+    }
+
+    @Test
+    fun `an unclassified app counts toward Other`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 60)),
             recentUsage = listOf(usage("a", 0, 10)),
         )
 
-        assertEquals(listOf("Alpha"), state.breakdown.map { it.label })
+        assertEquals(listOf("Other"), state.breakdown.map { it.label })
+        assertEquals(listOf(UsageColor.OTHER), state.breakdown.map { it.color })
+    }
+
+    @Test
+    fun `a category with no usage today is left out entirely`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 10)),
+        )
+
+        assertEquals(listOf("Social"), state.breakdown.map { it.label })
+        assertEquals(listOf(600L), state.breakdown.map { it.seconds })
+    }
+
+    // --- Donut proportions ----------------------------------------------------------------------
+    // The screen used to size arcs from a `durationWeight()` table returning the mockup's literal
+    // 72/45/32 keyed off the palette slot, so the donut ignored the durations printed beside it.
+
+    @Test
+    fun `breakdown carries the raw seconds behind each duration`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
+        )
+
+        assertEquals(listOf(600L, 2700L), state.breakdown.map { it.seconds })
+    }
+
+    @Test
+    fun `donut proportions follow real durations`() {
+        // 3:1 usage must come back as a 3:1 ratio of arc values, whatever the palette says.
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 90), usage("b", 0, 30)),
+        )
+
+        val (larger, smaller) = state.breakdown.map { it.seconds }
+        assertEquals(3f, larger.toFloat() / smaller, 0.001f)
     }
 
     @Test
@@ -119,15 +255,122 @@ class StatsMapperTest {
     }
 
     @Test
-    fun `metrics with no backing data are blanked, not faked`() {
-        // sample() carries invented figures (42 prevented, "24/day" unlocks, two achievements).
-        // Showing those beside real numbers would read as fact, so they must be blanked until the
-        // features behind them exist.
+    fun `no history yields real zeros, never sample's figures`() {
+        // Every metric is backed now, so the guard changes shape: what must never come back is
+        // `sample()`'s invented data leaking through the `.copy(...)` base. A fresh install reports
+        // honest emptiness — no blocks, no unlocks observed, nothing earned — and, the actual
+        // regression this pins, a daily total the mapper computed rather than the mockup's "3h 24m".
         val state = map(recentUsage = listOf(usage("a", 0, 30)))
 
         assertEquals(0, state.preventedCount)
         assertEquals("—", state.unlocks)
-        assertTrue(state.achievements.isEmpty())
+        assertTrue("no badge may claim to be earned", state.achievements.none { it.unlocked })
+        assertNotEquals(StatsUiState.sample().dailyTotal, state.dailyTotal)
+        assertNotEquals(StatsUiState.sample().preventedCount, state.preventedCount)
+    }
+
+    /**
+     * The mapper builds [StatsUiState] field by field rather than from `sample().copy(...)`, so the
+     * two remaining constants have to come from the mapper's own values. If someone reintroduces
+     * the `.copy(...)` base these still pass — which is why the test above also pins a *computed*
+     * field against `sample()`.
+     */
+    @Test
+    fun `the fixed axis and donut caption come from the mapper, not the mockup`() {
+        val state = map()
+
+        assertEquals(listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"), state.weekdayLabels)
+        assertEquals("Budget left", state.productiveLabel)
+    }
+
+    @Test
+    fun `the achievements rail is populated even with nothing earned`() {
+        // An empty rail under a heading reads as content that failed to load; locked cards are
+        // content, telling the user what there is to earn.
+        val state = map()
+
+        assertEquals(ACHIEVEMENT_CATALOGUE.size, state.achievements.size)
+    }
+
+    @Test
+    fun `a badge earned from real history is marked unlocked`() {
+        val capture = Capture("id", "/tmp/x.jpg", capturedAt = 0L, confidence = 0.9f, isBonus = false)
+
+        val state = map(captures = listOf(capture))
+
+        assertTrue(state.achievements.single { it.title == "First Cat" }.unlocked)
+    }
+
+    // --- Unlocks --------------------------------------------------------------------------------
+
+    @Test
+    fun `never having seen an unlock reads as no data, not zero`() {
+        // The monitor service may never have run, so there is nothing to report — as opposed to a
+        // day on which the user genuinely didn't unlock.
+        val state = map(recentUsage = listOf(usage("a", 0, 30)))
+
+        assertEquals("—", state.unlocks)
+    }
+
+    @Test
+    fun `todays unlocks are reported as a plain count`() {
+        val state = map(unlocks = listOf(unlocks(0, 17)))
+
+        assertEquals("17", state.unlocks)
+    }
+
+    @Test
+    fun `a day with history but none today is a real zero`() {
+        val state = map(unlocks = listOf(unlocks(1, 24)))
+
+        assertEquals("0", state.unlocks)
+    }
+
+    @Test
+    fun `yesterdays unlocks never leak into todays count`() {
+        val state = map(unlocks = listOf(unlocks(0, 3), unlocks(1, 40), unlocks(2, 40)))
+
+        assertEquals("3", state.unlocks)
+    }
+
+    // --- Prevented ------------------------------------------------------------------------------
+
+    @Test
+    fun `prevented sums blocks across the week and every app`() {
+        val state = map(
+            recentUsage = listOf(
+                usage("a", 0, 30, blockedCount = 2),
+                usage("b", 0, 10, blockedCount = 1),
+                // Tuesday of the same week (today is Thursday).
+                usage("a", 2, 20, blockedCount = 3),
+            ),
+        )
+
+        assertEquals(6, state.preventedCount)
+    }
+
+    @Test
+    fun `no blocks reads as zero rather than sample's 42`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 30)))
+
+        assertEquals(0, state.preventedCount)
+    }
+
+    /**
+     * Same rule the trend follows: the card says "THIS WEEK", so it must mean the Mon–Sun week the
+     * chart draws, not a rolling seven days.
+     */
+    @Test
+    fun `prevented counts the same calendar week the chart draws`() {
+        // today is Thursday 2026-07-16; Monday is the 13th, so 4 days ago (the 12th) is last week.
+        val state = map(
+            recentUsage = listOf(
+                usage("a", 4, 60, blockedCount = 9),
+                usage("a", 0, 60, blockedCount = 1),
+            ),
+        )
+
+        assertEquals("last week's 9 blocks must not count", 1, state.preventedCount)
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,24 +19,31 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.DonutChart
@@ -77,21 +85,26 @@ fun StatsScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 MiniStatCard("Longest Streak", state.longestStreak, Icons.Filled.LocalFireDepartment,
                     MaterialTheme.colorScheme.surfaceContainerHigh, Modifier.weight(1f))
+                // The caption is part of the claim: unlocks are only seen while the monitor service
+                // is alive, so an uncaptioned number would imply a complete tally it isn't.
                 MiniStatCard("Unlocks", state.unlocks, Icons.Filled.PhoneAndroid,
-                    MaterialTheme.colorScheme.surfaceContainerLowest, Modifier.weight(1f))
+                    MaterialTheme.colorScheme.surfaceContainerLowest, Modifier.weight(1f),
+                    caption = "TODAY, WHILE MONITORING")
             }
         }
         item { CapturedPhotosBanner(state.capturedPhotos) }
-        // Achievements are deliberately empty until the feature behind them exists (see
-        // StatsMapper); a bare heading over blank space reads as content that failed to load.
-        if (state.achievements.isNotEmpty()) {
-            item {
-                SectionLabel(text = "Recent Achievements")
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
-                    state.achievements.forEach { achievement ->
-                        AchievementCard(achievement, Modifier.weight(1f))
-                    }
+        // No emptiness guard any more: the catalogue is fixed, so a fresh install legitimately shows
+        // every badge locked. That is content — it says what there is to earn — unlike the bare
+        // heading over blank space this used to guard against.
+        item {
+            SectionLabel(text = "Recent Achievements")
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+            ) {
+                state.achievements.forEach { achievement ->
+                    AchievementCard(achievement, Modifier.width(ACHIEVEMENT_CARD_WIDTH))
                 }
             }
         }
@@ -109,16 +122,31 @@ private fun DailyScreenTimeCard(state: StatsUiState) {
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Filled.ArrowDownward,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(16.dp),
-                    )
+                    // Follows deltaIsPositive, same rule as the trend arrow. This was pinned to a
+                    // green ArrowDownward, so a day where usage doubled rendered "100% from
+                    // yesterday" as though it were an improvement. The arrow and its colour both
+                    // encode the claim, so both are state-driven, and it is no longer decorative.
+                    //
+                    // With no yesterday to compare against there is no direction to report, so the
+                    // arrow is omitted entirely rather than defaulted: any usage at all beats zero,
+                    // so a default would put a red "went up" arrow beside "No data for yesterday".
+                    val deltaTint = when {
+                        !state.deltaHasBaseline -> MaterialTheme.colorScheme.onSurfaceVariant
+                        state.deltaIsPositive -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.secondary
+                    }
+                    if (state.deltaHasBaseline) {
+                        Icon(
+                            if (state.deltaIsPositive) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                            contentDescription = if (state.deltaIsPositive) "Up from yesterday" else "Down from yesterday",
+                            tint = deltaTint,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                     Text(
                         state.deltaText,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.secondary,
+                        color = deltaTint,
                     )
                 }
             }
@@ -149,7 +177,11 @@ private fun PreventedCard(count: Int, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(count.toString(), style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        // The period is part of the claim: the mockup's bare "42" said nothing about what it
+        // counted. This is the same Mon–Sun week the chart draws and the trend compares.
         Text("INTERRUPTIONS", style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("THIS WEEK", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -193,7 +225,9 @@ private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             DonutChart(
-                segments = state.breakdown.map { DonutSegment(it.durationWeight(), it.color.toColor()) },
+                // Sized from the real durations. DonutChart normalises raw values itself, so the
+                // arcs track the legend beside them instead of a fixed palette-keyed weight table.
+                segments = state.breakdown.map { DonutSegment(it.seconds.toFloat(), it.color.toColor()) },
                 modifier = Modifier.size(180.dp),
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -228,13 +262,25 @@ private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
 }
 
 @Composable
-private fun MiniStatCard(label: String, value: String, icon: ImageVector, container: Color, modifier: Modifier = Modifier) {
+private fun MiniStatCard(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    container: Color,
+    modifier: Modifier = Modifier,
+    /** Optional scope line under the value, for a number that doesn't speak for itself. */
+    caption: String? = null,
+) {
     PawCard(modifier = modifier, containerColor = container) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(12.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface)
+        if (caption != null) {
+            Text(caption, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -269,9 +315,23 @@ private fun CapturedPhotosBanner(photos: String) {
     }
 }
 
+/** Fixed width so locked and earned cards line up in the scrolling rail. */
+private val ACHIEVEMENT_CARD_WIDTH = 148.dp
+
 @Composable
 private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
-    PawCard(modifier = modifier) {
+    // The mockup greys locked badges with `opacity-50 grayscale`. Only the opacity half is
+    // reproduced: true desaturation needs a saturation ColorMatrix via RenderEffect, which is
+    // API 31+ against minSdk 26. Alpha plus the neutral container reads the same at every level, so
+    // this is finished rather than pending — don't "complete" it with a RenderEffect.
+    val alpha = if (achievement.unlocked) 1f else 0.5f
+    val circleColor = if (achievement.unlocked) {
+        achievement.color.toColor()
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+
+    PawCard(modifier = modifier.alpha(alpha)) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -280,23 +340,32 @@ private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modif
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(achievement.color.toColor()),
+                    .background(circleColor),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = if (achievement.color == AchievementColor.CORAL) Icons.Filled.MilitaryTech else Icons.Filled.Nightlight,
-                    contentDescription = null,
+                    imageVector = achievement.icon.toIcon(),
+                    contentDescription = if (achievement.unlocked) null else "Not earned yet",
                     tint = Color.White,
                 )
             }
             Spacer(Modifier.height(12.dp))
             Text(achievement.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface)
+                color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
             Text(achievement.subtitle, style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                textAlign = TextAlign.Center)
         }
     }
+}
+
+private fun AchievementIcon.toIcon(): ImageVector = when (this) {
+    AchievementIcon.TROPHY -> Icons.Filled.MilitaryTech
+    AchievementIcon.CATS -> Icons.Filled.Pets
+    AchievementIcon.STREAK -> Icons.Filled.LocalFireDepartment
+    AchievementIcon.BUDGET -> Icons.Filled.Nightlight
+    AchievementIcon.SHIELD -> Icons.Filled.Shield
+    AchievementIcon.LOCKED -> Icons.Filled.Lock
 }
 
 @Composable
@@ -304,19 +373,15 @@ private fun UsageColor.toColor(): Color = when (this) {
     UsageColor.SOCIAL -> MaterialTheme.colorScheme.primary
     UsageColor.PRODUCTIVITY -> MaterialTheme.colorScheme.secondary
     UsageColor.ENTERTAINMENT -> MaterialTheme.colorScheme.primaryContainer
+    // The mockup's "everything else" legend dot; neutral so it doesn't read as a fourth brand
+    // category competing with the three the user actually chose between.
+    UsageColor.OTHER -> MaterialTheme.colorScheme.outlineVariant
 }
 
 @Composable
 private fun AchievementColor.toColor(): Color = when (this) {
     AchievementColor.CORAL -> MaterialTheme.colorScheme.tertiaryContainer
     AchievementColor.SAGE -> MaterialTheme.colorScheme.secondaryContainer
-}
-
-/** Rough weight for donut proportions derived from the displayed duration (Social>Prod>Ent). */
-private fun UsageCategory.durationWeight(): Float = when (color) {
-    UsageColor.SOCIAL -> 72f
-    UsageColor.PRODUCTIVITY -> 45f
-    UsageColor.ENTERTAINMENT -> 32f
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1600)

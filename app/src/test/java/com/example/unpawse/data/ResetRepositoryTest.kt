@@ -8,6 +8,8 @@ import com.example.unpawse.data.schedule.EVERY_DAY_MASK
 import com.example.unpawse.data.schedule.FakeScheduleDao
 import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.schedule.ScheduleWindow
+import com.example.unpawse.data.unlocks.FakeUnlockDao
+import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.FakeUsageDao
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.BlockSession
@@ -40,6 +42,7 @@ class ResetRepositoryTest {
     private val storage by lazy { PhotoStorage(tmp.root) }
     private val usage = UsageRepository(usageDao, today = { LocalDate.of(2026, 7, 27) })
     private val schedules = ScheduleRepository(FakeScheduleDao())
+    private val unlocks = UnlockRepository(FakeUnlockDao(), today = { LocalDate.of(2026, 7, 27) })
     private val captures by lazy { CaptureRepository(captureDao, storage) }
     private val focusSession = FocusSession()
     private val blockSession = BlockSession()
@@ -51,6 +54,7 @@ class ResetRepositoryTest {
             usage = usage,
             schedules = schedules,
             captures = captures,
+            unlocks = unlocks,
             focusSession = focusSession,
             blockSession = blockSession,
             clearSettings = { settingsCleared = true },
@@ -86,6 +90,8 @@ class ResetRepositoryTest {
             ),
         )
 
+        repeat(3) { unlocks.recordUnlock() }
+
         focusSession.start(durationMinutes = 30)
         blockSession.start("com.ig")
         return path
@@ -103,6 +109,7 @@ class ResetRepositoryTest {
         assertFalse("capture JPEG", File(photoPath).exists())
         assertTrue("preferences", settingsCleared)
         assertTrue("blocking schedules", schedules.allWindows().isEmpty())
+        assertTrue("unlock history", unlocks.allUnlocks().isEmpty())
     }
 
     /**

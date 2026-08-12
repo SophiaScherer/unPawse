@@ -1,6 +1,8 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.unlocks.DailyUnlocks
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ui.format.formatSeconds
@@ -19,6 +21,15 @@ private const val DAYS_IN_WEEK = 7
 private const val TREND_BAR_COUNT = 5
 private const val SECONDS_PER_HOUR = 3600f
 
+/** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
+private val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+
+/**
+ * Caption under the donut's percentage. The mockup said "Productive", which no app-category data
+ * could back at the time; budget left is the number the app can actually compute.
+ */
+private const val BUDGET_LEFT_LABEL = "Budget left"
+
 /**
  * Builds [StatsUiState] from usage history + captures. Pure and parameterised on [today]/[zone] so
  * it's unit-testable without a clock.
@@ -26,17 +37,17 @@ private const val SECONDS_PER_HOUR = 3600f
  * [recentUsage] must cover the last [STATS_HISTORY_DAYS] days. Days with no usage have no row, so
  * everything here fills gaps with zero rather than assuming a dense series.
  *
- * Three fields have **no data behind them** and are deliberately blanked rather than left showing
- * `sample()`'s invented figures — a fabricated "42 interruptions prevented" next to real numbers
- * reads as fact and would quietly ship as a lie. They need real features first:
- *  - `preventedCount` — blocks aren't recorded anywhere; needs a block-events table.
- *  - `unlocks` — device unlocks aren't tracked at all.
- *  - `achievements` — there's no rules engine to award any.
+ * Every metric on the screen is now backed by real data. [allUsage] is the *whole* usage history and
+ * exists only for the achievement rules: a badge's earned-on date derived from the 14-day chart
+ * window would silently un-earn itself as the window slid past it. It defaults to [recentUsage] so
+ * callers that only care about the charts don't have to supply it.
  */
 internal fun toStatsUiState(
     monitoredApps: List<MonitoredApp>,
     recentUsage: List<DailyUsage>,
     captures: List<Capture>,
+    unlocks: List<DailyUnlocks> = emptyList(),
+    allUsage: List<DailyUsage> = recentUsage,
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
 ): StatsUiState {
@@ -59,33 +70,71 @@ internal fun toStatsUiState(
     val lastWeekSeconds = (1..DAYS_IN_WEEK).sumOf { usedOn(monday.minusDays(it.toLong())) }
     val trendDeltaSeconds = thisWeekSeconds - lastWeekSeconds
 
-    val enabled = monitoredApps.filter { it.enabled }
-    val captureDates = captures.map { it.capturedAt.toLocalDate(zone) }.toSet()
+    // Blocks over the same Mon–Sun week the chart draws and the trend compares — the card says
+    // "THIS WEEK" on its face, and all three must agree on which week that is.
+    val weekKeys = week.mapTo(mutableSetOf()) { it.toString() }
+    val preventedThisWeek = recentUsage.filter { it.date in weekKeys }.sumOf { it.blockedCount }
 
-    return StatsUiState.sample().copy(
+    val enabled = monitoredApps.filter { it.enabled }
+    // One entry per capture — the achievement rules count them as well as date them, so this is a
+    // list; the streak helpers below take the de-duplicated set.
+    val captureDayList = captures.map { it.capturedAt.toLocalDate(zone) }
+    val captureDates = captureDayList.toSet()
+
+    // Constructed field by field, deliberately **not** `StatsUiState.sample().copy(...)`. Every
+    // value on this screen is computed now, so the only things `sample()` was still supplying were
+    // two constants — and inheriting from it left a standing route for mockup data to reach the
+    // screen the moment someone added a field and forgot to set it here. Same move already made in
+    // `SettingsMapper`; `sample()` is now @Preview-only.
+    return StatsUiState(
         dailyTotal = formatSeconds(todaySeconds),
         deltaText = deltaText(todaySeconds, yesterdaySeconds),
         // "Positive" means usage went *up* — the screen renders it as the unwelcome direction.
         deltaIsPositive = todaySeconds > yesterdaySeconds,
+        deltaHasBaseline = yesterdaySeconds > 0L,
         weeklyPoints = week.map { usedOn(it) / SECONDS_PER_HOUR },
+        weekdayLabels = WEEKDAY_LABELS,
         highlightDayIndex = today.dayOfWeek.value - 1,
         trendLabel = trendLabel(trendDeltaSeconds),
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
         trendIsUp = trendDeltaSeconds > 0,
         trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
         productivePercent = budgetLeftPercent(enabled, recentUsage, today),
-        breakdown = topAppsBreakdown(enabled, recentUsage, today),
+        productiveLabel = BUDGET_LEFT_LABEL,
+        breakdown = categoryBreakdown(enabled, recentUsage, today),
         longestStreak = dayCountLabel(longestStreakDays(captureDates)),
         capturedPhotos = "${captures.size} Photos",
-        // Blanked until there's data behind them — see the KDoc above.
-        preventedCount = 0,
-        unlocks = NO_DATA,
-        achievements = emptyList(),
+        preventedCount = preventedThisWeek,
+        unlocks = unlocksLabel(unlocks, today),
+        achievements = toAchievements(
+            evaluateAchievements(
+                AchievementInput(
+                    captureDates = captureDayList,
+                    usage = allUsage,
+                    monitoredApps = monitoredApps,
+                    today = today,
+                ),
+            ),
+        ),
     )
 }
 
 /** Shown where a metric has no backing data yet, rather than an invented number. */
 private const val NO_DATA = "—"
+
+/**
+ * Today's unlock count, or [NO_DATA] when the store has never seen a single unlock — which is the
+ * honest reading of "the monitor service may never have run on this device".
+ *
+ * Deliberately **today's count, not the mockup's "24/day" average**. Unlocks are only observed while
+ * the service is alive, so an average would divide a partial tally by a number of days it wasn't
+ * really measuring — precisely the plausible-looking fabrication the blanking rule exists to stop.
+ * A day with rows but none today is a real zero, not missing data.
+ */
+private fun unlocksLabel(unlocks: List<DailyUnlocks>, today: LocalDate): String {
+    if (unlocks.isEmpty()) return NO_DATA
+    return unlocks.filter { it.date == today.toString() }.sumOf { it.unlockCount }.toString()
+}
 
 private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String = when {
     yesterdaySeconds == 0L -> "No data for yesterday"
@@ -137,28 +186,39 @@ private fun budgetLeftPercent(
 }
 
 /**
- * The donut/legend: today's most-used monitored apps. The mockup groups by category
- * (Social/Productivity/Entertainment) but nothing classifies apps, so this shows real per-app usage
- * and reuses [UsageColor] purely as a three-colour palette.
+ * The donut/legend: today's screen time grouped into [AppCategory] buckets, as the mockup shows.
+ *
+ * Emitted in **declaration order, not by size**. Colour is semantic here — Social is the primary
+ * plum whether it is the biggest slice or the smallest — so sorting would make the same category
+ * change colour from one day to the next. Buckets with no time today are dropped entirely rather
+ * than drawn as a zero-width arc with a "0m" legend row.
  */
-private fun topAppsBreakdown(
+private fun categoryBreakdown(
     enabledApps: List<MonitoredApp>,
     recentUsage: List<DailyUsage>,
     today: LocalDate,
 ): List<UsageCategory> {
     val todayByPackage = recentUsage.filter { it.date == today.toString() }.associateBy { it.packageName }
-    val palette = UsageColor.entries
 
-    return enabledApps
-        .map { it to (todayByPackage[it.packageName]?.usedSeconds ?: 0L) }
-        .filter { (_, seconds) -> seconds > 0 }
-        .sortedByDescending { (_, seconds) -> seconds }
-        .take(palette.size)
-        .mapIndexed { index, (app, seconds) ->
-            UsageCategory(
-                label = app.appLabel,
-                duration = formatSeconds(seconds),
-                color = palette[index % palette.size],
-            )
-        }
+    val secondsByCategory = enabledApps
+        .groupBy { it.category }
+        .mapValues { (_, apps) -> apps.sumOf { todayByPackage[it.packageName]?.usedSeconds ?: 0L } }
+
+    return AppCategory.entries.mapNotNull { category ->
+        val seconds = secondsByCategory[category] ?: 0L
+        if (seconds <= 0L) return@mapNotNull null
+        UsageCategory(
+            label = category.label,
+            duration = formatSeconds(seconds),
+            seconds = seconds,
+            color = category.toUsageColor(),
+        )
+    }
+}
+
+private fun AppCategory.toUsageColor(): UsageColor = when (this) {
+    AppCategory.SOCIAL -> UsageColor.SOCIAL
+    AppCategory.PRODUCTIVITY -> UsageColor.PRODUCTIVITY
+    AppCategory.ENTERTAINMENT -> UsageColor.ENTERTAINMENT
+    AppCategory.OTHER -> UsageColor.OTHER
 }

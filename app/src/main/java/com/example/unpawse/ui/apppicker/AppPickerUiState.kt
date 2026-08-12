@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.apppicker
 
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import com.example.unpawse.ui.components.steppedValue
 
@@ -22,15 +23,20 @@ data class AppPickerUiState(
                 AppLimitItem(
                     "com.instagram.android", "Instagram", monitored = true, dailyLimitMinutes = 30,
                     weekendLimitMinutes = 90, scheduleSummary = "Bedtime, School hours",
+                    category = AppCategory.SOCIAL,
                 ),
                 AppLimitItem(
                     "com.zhiliaoapp.musically", "TikTok", monitored = true, dailyLimitMinutes = 45,
                     weekendLimitMinutes = UNLIMITED_MINUTES, scheduleSummary = "Bedtime",
+                    category = AppCategory.SOCIAL,
                 ),
-                AppLimitItem("com.spotify.music", "Spotify", monitored = false, dailyLimitMinutes = DEFAULT_LIMIT_MINUTES),
+                AppLimitItem(
+                    "com.spotify.music", "Spotify", monitored = false,
+                    dailyLimitMinutes = DEFAULT_LIMIT_MINUTES, category = AppCategory.ENTERTAINMENT,
+                ),
                 AppLimitItem(
                     "com.google.android.youtube", "YouTube", monitored = true, dailyLimitMinutes = 90,
-                    scheduleSummary = "Bedtime",
+                    scheduleSummary = "Bedtime", category = AppCategory.ENTERTAINMENT,
                 ),
                 AppLimitItem("com.reddit.frontpage", "Reddit", monitored = false, dailyLimitMinutes = DEFAULT_LIMIT_MINUTES),
             ),
@@ -44,6 +50,7 @@ data class AppPickerUiState(
  * [weekendLimitMinutes] is the Saturday/Sunday override — `null` follows [dailyLimitMinutes], and
  * [UNLIMITED_MINUTES] means no cap. [scheduleSummary] names the blocking windows that cover this
  * app, so the "when" half of a limit is visible from where the "how much" half is set.
+ * [category] is the Stats bucket this app's time counts toward.
  */
 data class AppLimitItem(
     val packageName: String,
@@ -52,6 +59,7 @@ data class AppLimitItem(
     val dailyLimitMinutes: Int,
     val weekendLimitMinutes: Int? = null,
     val scheduleSummary: String = NO_SCHEDULES_SUMMARY,
+    val category: AppCategory = AppCategory.OTHER,
 ) {
     val weekendMode: WeekendMode
         get() = when {

@@ -2,6 +2,7 @@ package com.example.unpawse.ui.apppicker
 
 import com.example.unpawse.data.apps.InstalledApp
 import com.example.unpawse.data.schedule.ScheduleWindow
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.MonitoredApp
 
 /**
@@ -32,6 +33,9 @@ internal fun toAppLimitItems(
                 dailyLimitMinutes = row?.dailyLimitMinutes ?: DEFAULT_LIMIT_MINUTES,
                 weekendLimitMinutes = row?.weekendLimitMinutes,
                 scheduleSummary = scheduleSummaryFor(app.packageName, scheduleWindows),
+                // A stored category is a decision; the platform's is a guess. The decision wins, and
+                // an app nobody has classified falls through to OTHER.
+                category = row?.category ?: app.category ?: AppCategory.OTHER,
             )
         }
 }

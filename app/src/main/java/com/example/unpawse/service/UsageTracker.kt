@@ -49,6 +49,11 @@ class UsageTracker(
     /**
      * Apps that must be blocked right now, with *why* (daily limit vs. focus session). Fires once per
      * breach, not once per tick; the overlay differs by [BlockReason].
+     *
+     * Each emission is also counted into `daily_usage.blockedCount`, which is what Stats' "Prevented"
+     * card reports. Note that [signalledFor] re-arms on an app switch, so leaving a blocked app and
+     * coming back counts as a **second** prevented interruption — deliberately, since that is a
+     * second time the user was stopped. Don't "fix" it into a once-per-day count.
      */
     val blockRequired: SharedFlow<BlockEvent> = _blockRequired.asSharedFlow()
 
@@ -118,6 +123,11 @@ class UsageTracker(
                             else -> BlockEvent(attributedTo, BlockReason.LIMIT)
                         }
                         _blockRequired.emit(event)
+                        // Recorded here rather than where the overlay is raised, so the stored
+                        // count is provably the same set of events as `blockRequired` — this
+                        // branch already owns the once-per-breach de-dup, and the service never
+                        // filters an event out. It also keeps the count testable without Android.
+                        usageRepository.recordBlock(attributedTo)
                         signalledFor = attributedTo
                     }
                 } else {
