@@ -19,7 +19,7 @@ class ExportSnapshotTest {
             ExportScheduleWindow(1, "Bedtime", null, 22 * 60, 7 * 60, 0b111_1111, enabled = true),
         ),
         usage: List<ExportUsageDay> = listOf(
-            ExportUsageDay("2026-07-15", "com.instagram.android", 2_700, 900),
+            ExportUsageDay("2026-07-15", "com.instagram.android", 2_700, 900, blockedCount = 3),
         ),
         captures: List<ExportCapture> = listOf(
             ExportCapture("abc-123", 1_700_000_000_000, 0.93f, isBonus = false, isFavorite = true),
@@ -83,6 +83,7 @@ class ExportSnapshotTest {
         assertEquals("2026-07-15", day.getString("date"))
         assertEquals(2_700, day.getLong("usedSeconds"))
         assertEquals(900, day.getLong("earnedSeconds"))
+        assertEquals(3, day.getInt("blockedCount"))
     }
 
     @Test

@@ -70,6 +70,12 @@ internal class FakeUsageDao : UsageDao() {
         }
     }
 
+    override suspend fun incrementBlockedCount(packageName: String, date: String) {
+        usage[packageName to date]?.let {
+            usage[packageName to date] = it.copy(blockedCount = it.blockedCount + 1)
+        }
+    }
+
     override suspend fun addEarnedSecondsAt(
         packageName: String,
         date: String,

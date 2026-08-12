@@ -21,6 +21,16 @@ data class DailyUsageEntity(
      * stays out of the domain model, the Stats/Home mappers, and the data export.
      */
     val lastEarnedAtMillis: Long = 0L,
+    /**
+     * How many times a block was raised over this app today — one per breach, not per tick.
+     *
+     * Unlike [lastEarnedAtMillis] this **is** history rather than policy bookkeeping, so it does
+     * reach [DailyUsage], the Stats mapper and the export. It rides on this row rather than a
+     * `block_events` table because a block is a per-app, per-day fact keyed exactly like usage, so
+     * the composite key already gives it free daily reset and atomic accrual, and Stats already
+     * loads these rows.
+     */
+    val blockedCount: Int = 0,
 )
 
 internal fun DailyUsageEntity.toDomain(): DailyUsage = DailyUsage(
@@ -28,4 +38,5 @@ internal fun DailyUsageEntity.toDomain(): DailyUsage = DailyUsage(
     date = date,
     usedSeconds = usedSeconds,
     earnedSeconds = earnedSeconds,
+    blockedCount = blockedCount,
 )

@@ -8,8 +8,9 @@ import org.json.JSONObject
  *
  * v2 added `schedules` and the `weekendLimitMinutes` field on each monitored app.
  * v3 added `category` on each monitored app.
+ * v4 added `blockedCount` on each usage day.
  */
-const val EXPORT_FORMAT_VERSION = 3
+const val EXPORT_FORMAT_VERSION = 4
 
 /**
  * Everything unPawse holds about you, in one plain structure.
@@ -69,6 +70,8 @@ data class ExportUsageDay(
     val packageName: String,
     val usedSeconds: Long,
     val earnedSeconds: Long,
+    /** Blocks raised over this app on this day — one per breach. */
+    val blockedCount: Int = 0,
 )
 
 data class ExportCapture(
@@ -139,6 +142,7 @@ private fun ExportUsageDay.toJson() = JSONObject()
     .put("packageName", packageName)
     .put("usedSeconds", usedSeconds)
     .put("earnedSeconds", earnedSeconds)
+    .put("blockedCount", blockedCount)
 
 private fun ExportCapture.toJson() = JSONObject()
     .put("id", id)

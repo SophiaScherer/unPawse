@@ -105,6 +105,14 @@ class UsageRepository(
         dao.addUsage(packageName, todayKey(), duration.inWholeSeconds)
 
     /**
+     * Records that a block was raised over [packageName]. Called once per breach by `UsageTracker`,
+     * whatever the reason — a limit, a focus session and a schedule window are all one interruption
+     * prevented.
+     */
+    suspend fun recordBlock(packageName: String) =
+        dao.addBlock(packageName, todayKey())
+
+    /**
      * Credits bonus minutes back **unconditionally**. The raw primitive behind [tryEarnMinutes];
      * the reward loop must not call it directly or the daily cap is bypassed.
      */

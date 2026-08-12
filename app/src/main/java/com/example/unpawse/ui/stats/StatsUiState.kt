@@ -5,6 +5,13 @@ data class StatsUiState(
     val dailyTotal: String,
     val deltaText: String,
     val deltaIsPositive: Boolean,
+    /**
+     * Whether [deltaText] is a real comparison. False on a first day, when there is no yesterday to
+     * measure against — the screen then draws no arrow at all, because a direction with no baseline
+     * is a claim about nothing. ("No data for yesterday" rendered beside a red upward arrow, since
+     * any usage at all is technically greater than zero.)
+     */
+    val deltaHasBaseline: Boolean,
     val weeklyPoints: List<Float>,
     val weekdayLabels: List<String>,
     val highlightDayIndex: Int,
@@ -30,6 +37,7 @@ data class StatsUiState(
             dailyTotal = "3h 24m",
             deltaText = "12% from yesterday",
             deltaIsPositive = false,
+            deltaHasBaseline = true,
             weeklyPoints = listOf(2.1f, 2.6f, 2.9f, 3.4f, 3.8f, 2.2f, 3.4f),
             weekdayLabels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"),
             highlightDayIndex = 4,

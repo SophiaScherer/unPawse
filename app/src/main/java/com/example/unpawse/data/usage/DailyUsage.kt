@@ -11,6 +11,8 @@ data class DailyUsage(
     val date: String,
     val usedSeconds: Long,
     val earnedSeconds: Long,
+    /** Blocks raised over this app today — one per breach. Drives the Stats "Prevented" card. */
+    val blockedCount: Int = 0,
 ) {
     val usedMinutes: Int get() = (usedSeconds / 60).toInt()
     val earnedMinutes: Int get() = (earnedSeconds / 60).toInt()

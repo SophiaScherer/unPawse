@@ -104,6 +104,7 @@ private fun DailyUsage.toExport() = ExportUsageDay(
     packageName = packageName,
     usedSeconds = usedSeconds,
     earnedSeconds = earnedSeconds,
+    blockedCount = blockedCount,
 )
 
 /** Note the absence of `filePath` — see [ExportCapture]. */

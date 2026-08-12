@@ -26,8 +26,19 @@ class StatsMapperTest {
         category: AppCategory = AppCategory.OTHER,
     ) = MonitoredApp(pkg, label, limitMinutes, enabled, category = category)
 
-    private fun usage(pkg: String, daysAgo: Long, usedMinutes: Int, earnedMinutes: Int = 0) =
-        DailyUsage(pkg, today.minusDays(daysAgo).toString(), usedMinutes * 60L, earnedMinutes * 60L)
+    private fun usage(
+        pkg: String,
+        daysAgo: Long,
+        usedMinutes: Int,
+        earnedMinutes: Int = 0,
+        blockedCount: Int = 0,
+    ) = DailyUsage(
+        pkg,
+        today.minusDays(daysAgo).toString(),
+        usedMinutes * 60L,
+        earnedMinutes * 60L,
+        blockedCount,
+    )
 
     private fun map(
         apps: List<MonitoredApp> = emptyList(),
@@ -63,6 +74,25 @@ class StatsMapperTest {
         val state = map(recentUsage = listOf(usage("a", 0, 30)))
 
         assertEquals("No data for yesterday", state.deltaText)
+    }
+
+    /**
+     * Any usage at all is greater than zero, so `deltaIsPositive` is true on a first day — which put
+     * a red "went up" arrow beside "No data for yesterday". There is no direction to report without
+     * a baseline, so the screen draws no arrow.
+     */
+    @Test
+    fun `a first day has no baseline to point an arrow at`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 30)))
+
+        assertFalse(state.deltaHasBaseline)
+    }
+
+    @Test
+    fun `yesterday's usage is a baseline`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 30), usage("a", 1, 60)))
+
+        assertTrue(state.deltaHasBaseline)
     }
 
     @Test
@@ -211,14 +241,53 @@ class StatsMapperTest {
 
     @Test
     fun `metrics with no backing data are blanked, not faked`() {
-        // sample() carries invented figures (42 prevented, "24/day" unlocks, two achievements).
-        // Showing those beside real numbers would read as fact, so they must be blanked until the
-        // features behind them exist.
+        // sample() carries invented figures ("24/day" unlocks, two achievements). Showing those
+        // beside real numbers would read as fact, so they stay blanked until the features behind
+        // them exist. `preventedCount` graduated out of this list once blocks were recorded.
+        val state = map(recentUsage = listOf(usage("a", 0, 30)))
+
+        assertEquals("—", state.unlocks)
+        assertTrue(state.achievements.isEmpty())
+    }
+
+    // --- Prevented ------------------------------------------------------------------------------
+
+    @Test
+    fun `prevented sums blocks across the week and every app`() {
+        val state = map(
+            recentUsage = listOf(
+                usage("a", 0, 30, blockedCount = 2),
+                usage("b", 0, 10, blockedCount = 1),
+                // Tuesday of the same week (today is Thursday).
+                usage("a", 2, 20, blockedCount = 3),
+            ),
+        )
+
+        assertEquals(6, state.preventedCount)
+    }
+
+    @Test
+    fun `no blocks reads as zero rather than sample's 42`() {
         val state = map(recentUsage = listOf(usage("a", 0, 30)))
 
         assertEquals(0, state.preventedCount)
-        assertEquals("—", state.unlocks)
-        assertTrue(state.achievements.isEmpty())
+    }
+
+    /**
+     * Same rule the trend follows: the card says "THIS WEEK", so it must mean the Mon–Sun week the
+     * chart draws, not a rolling seven days.
+     */
+    @Test
+    fun `prevented counts the same calendar week the chart draws`() {
+        // today is Thursday 2026-07-16; Monday is the 13th, so 4 days ago (the 12th) is last week.
+        val state = map(
+            recentUsage = listOf(
+                usage("a", 4, 60, blockedCount = 9),
+                usage("a", 0, 60, blockedCount = 1),
+            ),
+        )
+
+        assertEquals("last week's 9 blocks must not count", 1, state.preventedCount)
     }
 
     @Test

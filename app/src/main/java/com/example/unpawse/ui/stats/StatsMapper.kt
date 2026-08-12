@@ -27,10 +27,9 @@ private const val SECONDS_PER_HOUR = 3600f
  * [recentUsage] must cover the last [STATS_HISTORY_DAYS] days. Days with no usage have no row, so
  * everything here fills gaps with zero rather than assuming a dense series.
  *
- * Three fields have **no data behind them** and are deliberately blanked rather than left showing
- * `sample()`'s invented figures — a fabricated "42 interruptions prevented" next to real numbers
- * reads as fact and would quietly ship as a lie. They need real features first:
- *  - `preventedCount` — blocks aren't recorded anywhere; needs a block-events table.
+ * Two fields still have **no data behind them** and are deliberately blanked rather than left showing
+ * `sample()`'s invented figures — a fabricated "24/day" next to real numbers reads as fact and would
+ * quietly ship as a lie. They need real features first:
  *  - `unlocks` — device unlocks aren't tracked at all.
  *  - `achievements` — there's no rules engine to award any.
  */
@@ -60,6 +59,11 @@ internal fun toStatsUiState(
     val lastWeekSeconds = (1..DAYS_IN_WEEK).sumOf { usedOn(monday.minusDays(it.toLong())) }
     val trendDeltaSeconds = thisWeekSeconds - lastWeekSeconds
 
+    // Blocks over the same Mon–Sun week the chart draws and the trend compares — the card says
+    // "THIS WEEK" on its face, and all three must agree on which week that is.
+    val weekKeys = week.mapTo(mutableSetOf()) { it.toString() }
+    val preventedThisWeek = recentUsage.filter { it.date in weekKeys }.sumOf { it.blockedCount }
+
     val enabled = monitoredApps.filter { it.enabled }
     val captureDates = captures.map { it.capturedAt.toLocalDate(zone) }.toSet()
 
@@ -68,6 +72,7 @@ internal fun toStatsUiState(
         deltaText = deltaText(todaySeconds, yesterdaySeconds),
         // "Positive" means usage went *up* — the screen renders it as the unwelcome direction.
         deltaIsPositive = todaySeconds > yesterdaySeconds,
+        deltaHasBaseline = yesterdaySeconds > 0L,
         weeklyPoints = week.map { usedOn(it) / SECONDS_PER_HOUR },
         highlightDayIndex = today.dayOfWeek.value - 1,
         trendLabel = trendLabel(trendDeltaSeconds),
@@ -78,8 +83,8 @@ internal fun toStatsUiState(
         breakdown = categoryBreakdown(enabled, recentUsage, today),
         longestStreak = dayCountLabel(longestStreakDays(captureDates)),
         capturedPhotos = "${captures.size} Photos",
+        preventedCount = preventedThisWeek,
         // Blanked until there's data behind them — see the KDoc above.
-        preventedCount = 0,
         unlocks = NO_DATA,
         achievements = emptyList(),
     )

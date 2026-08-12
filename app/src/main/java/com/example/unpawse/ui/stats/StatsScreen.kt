@@ -114,17 +114,23 @@ private fun DailyScreenTimeCard(state: StatsUiState) {
                     // green ArrowDownward, so a day where usage doubled rendered "100% from
                     // yesterday" as though it were an improvement. The arrow and its colour both
                     // encode the claim, so both are state-driven, and it is no longer decorative.
-                    val deltaTint = if (state.deltaIsPositive) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.secondary
+                    //
+                    // With no yesterday to compare against there is no direction to report, so the
+                    // arrow is omitted entirely rather than defaulted: any usage at all beats zero,
+                    // so a default would put a red "went up" arrow beside "No data for yesterday".
+                    val deltaTint = when {
+                        !state.deltaHasBaseline -> MaterialTheme.colorScheme.onSurfaceVariant
+                        state.deltaIsPositive -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.secondary
                     }
-                    Icon(
-                        if (state.deltaIsPositive) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-                        contentDescription = if (state.deltaIsPositive) "Up from yesterday" else "Down from yesterday",
-                        tint = deltaTint,
-                        modifier = Modifier.size(16.dp),
-                    )
+                    if (state.deltaHasBaseline) {
+                        Icon(
+                            if (state.deltaIsPositive) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                            contentDescription = if (state.deltaIsPositive) "Up from yesterday" else "Down from yesterday",
+                            tint = deltaTint,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                     Text(
                         state.deltaText,
                         style = MaterialTheme.typography.bodyMedium,
@@ -159,7 +165,11 @@ private fun PreventedCard(count: Int, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(count.toString(), style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        // The period is part of the claim: the mockup's bare "42" said nothing about what it
+        // counted. This is the same Mon–Sun week the chart draws and the trend compares.
         Text("INTERRUPTIONS", style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("THIS WEEK", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

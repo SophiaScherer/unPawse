@@ -162,6 +162,45 @@ class UsageRepositoryTest {
         assertEquals(25, repo.limitMinutesToday("com.ig"))
     }
 
+    // --- Prevented count --------------------------------------------------------------------------
+
+    private suspend fun blockedCount(packageName: String): Int? =
+        dao.usageFor(packageName, today.toString())?.blockedCount
+
+    @Test
+    fun `the first block of the day creates the row`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+
+        repo.recordBlock("com.ig")
+
+        assertEquals(1, blockedCount("com.ig"))
+    }
+
+    @Test
+    fun `further blocks increment the existing row`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.addUsage("com.ig", 5.minutes)
+
+        repeat(3) { repo.recordBlock("com.ig") }
+
+        assertEquals(3, blockedCount("com.ig"))
+        // The counter rides on the usage row without disturbing it.
+        assertEquals(300L, dao.usageFor("com.ig", today.toString())?.usedSeconds)
+    }
+
+    @Test
+    fun `the count resets with the new day`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.recordBlock("com.ig")
+        repo.recordBlock("com.ig")
+
+        today = today.plusDays(1)
+
+        assertNull(blockedCount("com.ig"))
+        repo.recordBlock("com.ig")
+        assertEquals(1, blockedCount("com.ig"))
+    }
+
     // --- Category ---------------------------------------------------------------------------------
 
     private suspend fun categoryOf(packageName: String): AppCategory =
