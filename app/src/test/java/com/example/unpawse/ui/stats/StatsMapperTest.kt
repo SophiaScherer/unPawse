@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import org.junit.Assert.assertEquals
@@ -17,8 +18,13 @@ class StatsMapperTest {
     // A Thursday, so the Mon-Sun week has days both before and after it.
     private val today = LocalDate.of(2026, 7, 16)
 
-    private fun app(pkg: String, label: String, limitMinutes: Int, enabled: Boolean = true) =
-        MonitoredApp(pkg, label, limitMinutes, enabled)
+    private fun app(
+        pkg: String,
+        label: String,
+        limitMinutes: Int,
+        enabled: Boolean = true,
+        category: AppCategory = AppCategory.OTHER,
+    ) = MonitoredApp(pkg, label, limitMinutes, enabled, category = category)
 
     private fun usage(pkg: String, daysAgo: Long, usedMinutes: Int, earnedMinutes: Int = 0) =
         DailyUsage(pkg, today.minusDays(daysAgo).toString(), usedMinutes * 60L, earnedMinutes * 60L)
@@ -70,25 +76,77 @@ class StatsMapperTest {
         assertEquals(0f, state.weeklyPoints[0], 0.001f)
     }
 
+    // --- Category breakdown ---------------------------------------------------------------------
+
     @Test
-    fun `breakdown lists todays busiest apps with real durations`() {
+    fun `breakdown groups todays usage by category with real durations`() {
         val state = map(
-            apps = listOf(app("a", "Alpha", 60), app("b", "Bravo", 60)),
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
             recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
         )
 
-        assertEquals(listOf("Bravo", "Alpha"), state.breakdown.map { it.label })
-        assertEquals(listOf("45m", "10m"), state.breakdown.map { it.duration })
+        assertEquals(listOf("Social", "Productivity"), state.breakdown.map { it.label })
+        assertEquals(listOf("10m", "45m"), state.breakdown.map { it.duration })
     }
 
     @Test
-    fun `unused apps stay out of the breakdown`() {
+    fun `apps in the same category merge into one slice`() {
         val state = map(
-            apps = listOf(app("a", "Alpha", 60), app("b", "Bravo", 60)),
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.SOCIAL),
+            ),
+            recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
+        )
+
+        assertEquals(listOf("Social"), state.breakdown.map { it.label })
+        assertEquals(listOf(55 * 60L), state.breakdown.map { it.seconds })
+    }
+
+    /**
+     * Colour is semantic once the donut is grouped by category, so a bucket must keep its slot
+     * whatever its size — otherwise Social changes colour on a day it happens to be the smallest.
+     */
+    @Test
+    fun `buckets come back in declaration order, not by size`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.ENTERTAINMENT),
+            ),
+            // Entertainment is far larger, but Social is declared first.
+            recentUsage = listOf(usage("a", 0, 5), usage("b", 0, 200)),
+        )
+
+        assertEquals(listOf("Social", "Entertainment"), state.breakdown.map { it.label })
+        assertEquals(listOf(UsageColor.SOCIAL, UsageColor.ENTERTAINMENT), state.breakdown.map { it.color })
+    }
+
+    @Test
+    fun `an unclassified app counts toward Other`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 60)),
             recentUsage = listOf(usage("a", 0, 10)),
         )
 
-        assertEquals(listOf("Alpha"), state.breakdown.map { it.label })
+        assertEquals(listOf("Other"), state.breakdown.map { it.label })
+        assertEquals(listOf(UsageColor.OTHER), state.breakdown.map { it.color })
+    }
+
+    @Test
+    fun `a category with no usage today is left out entirely`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 10)),
+        )
+
+        assertEquals(listOf("Social"), state.breakdown.map { it.label })
         assertEquals(listOf(600L), state.breakdown.map { it.seconds })
     }
 
@@ -99,18 +157,24 @@ class StatsMapperTest {
     @Test
     fun `breakdown carries the raw seconds behind each duration`() {
         val state = map(
-            apps = listOf(app("a", "Alpha", 60), app("b", "Bravo", 60)),
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
             recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
         )
 
-        assertEquals(listOf(2700L, 600L), state.breakdown.map { it.seconds })
+        assertEquals(listOf(600L, 2700L), state.breakdown.map { it.seconds })
     }
 
     @Test
     fun `donut proportions follow real durations`() {
         // 3:1 usage must come back as a 3:1 ratio of arc values, whatever the palette says.
         val state = map(
-            apps = listOf(app("a", "Alpha", 60), app("b", "Bravo", 60)),
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
             recentUsage = listOf(usage("a", 0, 90), usage("b", 0, 30)),
         )
 

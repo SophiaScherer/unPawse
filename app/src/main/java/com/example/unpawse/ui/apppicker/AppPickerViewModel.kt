@@ -10,6 +10,7 @@ import com.example.unpawse.appContainer
 import com.example.unpawse.data.apps.InstalledApp
 import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.schedule.ScheduleRepository
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.UsageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -77,10 +78,18 @@ class AppPickerViewModel(
                     appLabel = item.label,
                     dailyLimitMinutes = item.dailyLimitMinutes,
                     enabled = true,
+                    // Only seeds a row that doesn't exist yet; a re-enable keeps the stored choice.
+                    defaultCategory = item.category,
                 )
             } else {
                 usageRepository.setEnabled(item.packageName, enabled = false)
             }
+        }
+    }
+
+    fun onCategoryChange(item: AppLimitItem, category: AppCategory) {
+        viewModelScope.launch {
+            usageRepository.setCategory(item.packageName, category)
         }
     }
 

@@ -86,6 +86,7 @@ private fun MonitoredApp.toExport() = ExportMonitoredApp(
     dailyLimitMinutes = dailyLimitMinutes,
     enabled = enabled,
     weekendLimitMinutes = weekendLimitMinutes,
+    category = category.name,
 )
 
 private fun ScheduleWindow.toExport() = ExportScheduleWindow(

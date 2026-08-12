@@ -10,7 +10,10 @@ class ExportSnapshotTest {
 
     private fun snapshot(
         monitoredApps: List<ExportMonitoredApp> = listOf(
-            ExportMonitoredApp("com.instagram.android", "Instagram", 45, enabled = true, weekendLimitMinutes = 90),
+            ExportMonitoredApp(
+                "com.instagram.android", "Instagram", 45, enabled = true,
+                weekendLimitMinutes = 90, category = "SOCIAL",
+            ),
         ),
         schedules: List<ExportScheduleWindow> = listOf(
             ExportScheduleWindow(1, "Bedtime", null, 22 * 60, 7 * 60, 0b111_1111, enabled = true),
@@ -74,6 +77,7 @@ class ExportSnapshotTest {
         assertEquals(45, app.getInt("dailyLimitMinutes"))
         assertTrue(app.getBoolean("enabled"))
         assertEquals(90, app.getInt("weekendLimitMinutes"))
+        assertEquals("SOCIAL", app.getString("category"))
 
         val day = root.getJSONArray("usage").getJSONObject(0)
         assertEquals("2026-07-15", day.getString("date"))
@@ -143,7 +147,9 @@ class ExportSnapshotTest {
     fun `unset optional fields are absent rather than null`() {
         val root = json(
             snapshot(
-                monitoredApps = listOf(ExportMonitoredApp("com.ig", "Instagram", 45, enabled = true)),
+                monitoredApps = listOf(
+                    ExportMonitoredApp("com.ig", "Instagram", 45, enabled = true, category = "OTHER"),
+                ),
                 schedules = listOf(
                     ExportScheduleWindow(1, "Bedtime", null, 22 * 60, 7 * 60, 0b111_1111, enabled = true),
                 ),
@@ -152,6 +158,8 @@ class ExportSnapshotTest {
 
         assertFalse(root.getJSONArray("monitoredApps").getJSONObject(0).has("weekendLimitMinutes"))
         assertFalse(root.getJSONArray("schedules").getJSONObject(0).has("packageName"))
+        // Category is not one of them: every app has a bucket, even if it's "Other".
+        assertEquals("OTHER", root.getJSONArray("monitoredApps").getJSONObject(0).getString("category"))
     }
 
     @Test

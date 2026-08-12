@@ -7,8 +7,9 @@ import org.json.JSONObject
  * Bump when the shape below changes incompatibly, so an importer can tell the versions apart.
  *
  * v2 added `schedules` and the `weekendLimitMinutes` field on each monitored app.
+ * v3 added `category` on each monitored app.
  */
-const val EXPORT_FORMAT_VERSION = 2
+const val EXPORT_FORMAT_VERSION = 3
 
 /**
  * Everything unPawse holds about you, in one plain structure.
@@ -44,6 +45,8 @@ data class ExportMonitoredApp(
     val enabled: Boolean,
     /** Null means weekends follow [dailyLimitMinutes]; a negative value means uncapped. */
     val weekendLimitMinutes: Int? = null,
+    /** Which Stats bucket this app's time counts toward, as an `AppCategory` name. */
+    val category: String,
 )
 
 /**
@@ -119,6 +122,7 @@ private fun ExportMonitoredApp.toJson() = JSONObject()
     // JSONObject.put(String, Any?) removes the key on null, which is what we want: an absent field
     // reads as "no override" rather than as a null the reader has to interpret.
     .put("weekendLimitMinutes", weekendLimitMinutes)
+    .put("category", category)
 
 private fun ExportScheduleWindow.toJson() = JSONObject()
     .put("id", id)

@@ -40,9 +40,10 @@ data class StatsUiState(
             productivePercent = 75,
             productiveLabel = "Budget left",
             breakdown = listOf(
-                UsageCategory("Social Media", "1h 12m", 72 * 60L, UsageColor.SOCIAL),
+                UsageCategory("Social", "1h 12m", 72 * 60L, UsageColor.SOCIAL),
                 UsageCategory("Productivity", "45m", 45 * 60L, UsageColor.PRODUCTIVITY),
                 UsageCategory("Entertainment", "32m", 32 * 60L, UsageColor.ENTERTAINMENT),
+                UsageCategory("Other", "8m", 8 * 60L, UsageColor.OTHER),
             ),
             longestStreak = "12 Days",
             unlocks = "24/day",
@@ -69,7 +70,8 @@ data class UsageCategory(
     val seconds: Long,
     val color: UsageColor,
 )
-enum class UsageColor { SOCIAL, PRODUCTIVITY, ENTERTAINMENT }
+/** One slot per [com.example.unpawse.data.usage.AppCategory]; the screen maps each to a theme colour. */
+enum class UsageColor { SOCIAL, PRODUCTIVITY, ENTERTAINMENT, OTHER }
 
 data class Achievement(val title: String, val subtitle: String, val color: AchievementColor)
 enum class AchievementColor { CORAL, SAGE }

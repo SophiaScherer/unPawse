@@ -34,6 +34,10 @@ abstract class UsageDao {
     @Query("UPDATE monitored_apps SET weekendLimitMinutes = :minutes WHERE packageName = :packageName")
     abstract suspend fun setWeekendLimit(packageName: String, minutes: Int?)
 
+    /** [category] is an `AppCategory.name`; null puts the app back to unclassified. */
+    @Query("UPDATE monitored_apps SET category = :category WHERE packageName = :packageName")
+    abstract suspend fun setCategory(packageName: String, category: String?)
+
     @Query("DELETE FROM monitored_apps WHERE packageName = :packageName")
     abstract suspend fun removeMonitoredApp(packageName: String)
 

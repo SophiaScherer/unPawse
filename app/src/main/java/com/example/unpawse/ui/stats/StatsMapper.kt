@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ui.format.formatSeconds
@@ -74,7 +75,7 @@ internal fun toStatsUiState(
         trendIsUp = trendDeltaSeconds > 0,
         trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
         productivePercent = budgetLeftPercent(enabled, recentUsage, today),
-        breakdown = topAppsBreakdown(enabled, recentUsage, today),
+        breakdown = categoryBreakdown(enabled, recentUsage, today),
         longestStreak = dayCountLabel(longestStreakDays(captureDates)),
         capturedPhotos = "${captures.size} Photos",
         // Blanked until there's data behind them — see the KDoc above.
@@ -137,29 +138,39 @@ private fun budgetLeftPercent(
 }
 
 /**
- * The donut/legend: today's most-used monitored apps. The mockup groups by category
- * (Social/Productivity/Entertainment) but nothing classifies apps, so this shows real per-app usage
- * and reuses [UsageColor] purely as a three-colour palette.
+ * The donut/legend: today's screen time grouped into [AppCategory] buckets, as the mockup shows.
+ *
+ * Emitted in **declaration order, not by size**. Colour is semantic here — Social is the primary
+ * plum whether it is the biggest slice or the smallest — so sorting would make the same category
+ * change colour from one day to the next. Buckets with no time today are dropped entirely rather
+ * than drawn as a zero-width arc with a "0m" legend row.
  */
-private fun topAppsBreakdown(
+private fun categoryBreakdown(
     enabledApps: List<MonitoredApp>,
     recentUsage: List<DailyUsage>,
     today: LocalDate,
 ): List<UsageCategory> {
     val todayByPackage = recentUsage.filter { it.date == today.toString() }.associateBy { it.packageName }
-    val palette = UsageColor.entries
 
-    return enabledApps
-        .map { it to (todayByPackage[it.packageName]?.usedSeconds ?: 0L) }
-        .filter { (_, seconds) -> seconds > 0 }
-        .sortedByDescending { (_, seconds) -> seconds }
-        .take(palette.size)
-        .mapIndexed { index, (app, seconds) ->
-            UsageCategory(
-                label = app.appLabel,
-                duration = formatSeconds(seconds),
-                seconds = seconds,
-                color = palette[index % palette.size],
-            )
-        }
+    val secondsByCategory = enabledApps
+        .groupBy { it.category }
+        .mapValues { (_, apps) -> apps.sumOf { todayByPackage[it.packageName]?.usedSeconds ?: 0L } }
+
+    return AppCategory.entries.mapNotNull { category ->
+        val seconds = secondsByCategory[category] ?: 0L
+        if (seconds <= 0L) return@mapNotNull null
+        UsageCategory(
+            label = category.label,
+            duration = formatSeconds(seconds),
+            seconds = seconds,
+            color = category.toUsageColor(),
+        )
+    }
+}
+
+private fun AppCategory.toUsageColor(): UsageColor = when (this) {
+    AppCategory.SOCIAL -> UsageColor.SOCIAL
+    AppCategory.PRODUCTIVITY -> UsageColor.PRODUCTIVITY
+    AppCategory.ENTERTAINMENT -> UsageColor.ENTERTAINMENT
+    AppCategory.OTHER -> UsageColor.OTHER
 }

@@ -3,6 +3,7 @@ package com.example.unpawse.ui.apppicker
 import com.example.unpawse.data.apps.InstalledApp
 import com.example.unpawse.data.schedule.EVERY_DAY_MASK
 import com.example.unpawse.data.schedule.ScheduleWindow
+import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import org.junit.Assert.assertEquals
@@ -13,8 +14,9 @@ import org.junit.Test
 class AppPickerMapperTest {
 
     private val installed = listOf(
-        InstalledApp("com.instagram.android", "Instagram"),
-        InstalledApp("com.spotify.music", "Spotify"),
+        InstalledApp("com.instagram.android", "Instagram", category = AppCategory.SOCIAL),
+        InstalledApp("com.spotify.music", "Spotify", category = AppCategory.ENTERTAINMENT),
+        // The platform declared nothing for this one.
         InstalledApp("com.zhiliaoapp.musically", "TikTok"),
     )
 
@@ -149,5 +151,37 @@ class AppPickerMapperTest {
             .single { it.packageName == "com.instagram.android" }
 
         assertEquals("Bedtime", item.scheduleSummary)
+    }
+
+    // --- Category ---------------------------------------------------------------------------------
+
+    @Test
+    fun `an unmonitored app shows the platform's guess`() {
+        val items = toAppLimitItems(installed, monitored = emptyList(), searchQuery = "")
+
+        assertEquals(AppCategory.SOCIAL, items.single { it.packageName == "com.instagram.android" }.category)
+        assertEquals(AppCategory.ENTERTAINMENT, items.single { it.packageName == "com.spotify.music" }.category)
+    }
+
+    @Test
+    fun `an app the platform never classified shows Other`() {
+        val items = toAppLimitItems(installed, monitored = emptyList(), searchQuery = "")
+
+        assertEquals(AppCategory.OTHER, items.single { it.packageName == "com.zhiliaoapp.musically" }.category)
+    }
+
+    @Test
+    fun `a stored category wins over the platform's guess`() {
+        val monitored = listOf(
+            MonitoredApp(
+                "com.instagram.android", "Instagram", 45, enabled = true,
+                category = AppCategory.PRODUCTIVITY,
+            ),
+        )
+
+        val item = toAppLimitItems(installed, monitored, searchQuery = "")
+            .single { it.packageName == "com.instagram.android" }
+
+        assertEquals(AppCategory.PRODUCTIVITY, item.category)
     }
 }

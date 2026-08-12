@@ -161,4 +161,48 @@ class UsageRepositoryTest {
         today = today.with(DayOfWeek.TUESDAY)
         assertEquals(25, repo.limitMinutesToday("com.ig"))
     }
+
+    // --- Category ---------------------------------------------------------------------------------
+
+    private suspend fun categoryOf(packageName: String): AppCategory =
+        repo.monitoredApps().single { it.packageName == packageName }.category
+
+    @Test
+    fun `an app nobody has classified reads as Other`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+
+        assertEquals(AppCategory.OTHER, categoryOf("com.ig"))
+    }
+
+    @Test
+    fun `first enable seeds the platform's guess`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10, defaultCategory = AppCategory.SOCIAL)
+
+        assertEquals(AppCategory.SOCIAL, categoryOf("com.ig"))
+    }
+
+    @Test
+    fun `setCategory overrides the seeded guess`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10, defaultCategory = AppCategory.SOCIAL)
+
+        repo.setCategory("com.ig", AppCategory.PRODUCTIVITY)
+
+        assertEquals(AppCategory.PRODUCTIVITY, categoryOf("com.ig"))
+    }
+
+    /**
+     * The stepper and the monitor switch both go through [UsageRepository.setLimit], and both pass a
+     * `defaultCategory` taken from the picker row. A stale default must not overwrite a choice the
+     * user already made — same guarantee the weekend override has.
+     */
+    @Test
+    fun `a later setLimit cannot overwrite a chosen category`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.setCategory("com.ig", AppCategory.PRODUCTIVITY)
+
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 25, defaultCategory = AppCategory.SOCIAL)
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 25)
+
+        assertEquals(AppCategory.PRODUCTIVITY, categoryOf("com.ig"))
+    }
 }

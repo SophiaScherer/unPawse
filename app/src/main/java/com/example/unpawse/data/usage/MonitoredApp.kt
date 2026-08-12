@@ -6,6 +6,8 @@ package com.example.unpawse.data.usage
  *
  * @param weekendLimitMinutes Saturday/Sunday override: `null` follows [dailyLimitMinutes],
  * [UNLIMITED_MINUTES] means no cap. See `effectiveLimitMinutes`.
+ * @param category which bucket this app's time counts toward in the Stats breakdown. Not nullable
+ * here even though the column is — an unclassified app is [AppCategory.OTHER] to every reader.
  */
 data class MonitoredApp(
     val packageName: String,
@@ -13,4 +15,5 @@ data class MonitoredApp(
     val dailyLimitMinutes: Int,
     val enabled: Boolean,
     val weekendLimitMinutes: Int? = null,
+    val category: AppCategory = AppCategory.OTHER,
 )

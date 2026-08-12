@@ -32,6 +32,10 @@ internal class FakeUsageDao : UsageDao() {
         apps[packageName]?.let { apps[packageName] = it.copy(weekendLimitMinutes = minutes) }
     }
 
+    override suspend fun setCategory(packageName: String, category: String?) {
+        apps[packageName]?.let { apps[packageName] = it.copy(category = category) }
+    }
+
     override suspend fun removeMonitoredApp(packageName: String) {
         apps.remove(packageName)
     }

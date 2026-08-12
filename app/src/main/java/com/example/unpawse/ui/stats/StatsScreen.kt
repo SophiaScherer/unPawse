@@ -316,6 +316,9 @@ private fun UsageColor.toColor(): Color = when (this) {
     UsageColor.SOCIAL -> MaterialTheme.colorScheme.primary
     UsageColor.PRODUCTIVITY -> MaterialTheme.colorScheme.secondary
     UsageColor.ENTERTAINMENT -> MaterialTheme.colorScheme.primaryContainer
+    // The mockup's "everything else" legend dot; neutral so it doesn't read as a fourth brand
+    // category competing with the three the user actually chose between.
+    UsageColor.OTHER -> MaterialTheme.colorScheme.outlineVariant
 }
 
 @Composable
