@@ -56,9 +56,12 @@ data class StatsUiState(
             longestStreak = "12 Days",
             unlocks = "24/day",
             capturedPhotos = "1,204 Photos",
+            // One of each so the preview covers both branches of the card.
             achievements = listOf(
-                Achievement("Deep Focus", "4h Without App Swap", AchievementColor.CORAL),
-                Achievement("Night Owl", "No Phone After 10PM", AchievementColor.SAGE),
+                Achievement("First Cat", "Your first verified cat", AchievementColor.CORAL,
+                    AchievementIcon.TROPHY, unlocked = true),
+                Achievement("7-Day Streak", LOCKED_SUBTITLE, AchievementColor.SAGE,
+                    AchievementIcon.LOCKED, unlocked = false),
             ),
         )
     }
@@ -81,5 +84,23 @@ data class UsageCategory(
 /** One slot per [com.example.unpawse.data.usage.AppCategory]; the screen maps each to a theme colour. */
 enum class UsageColor { SOCIAL, PRODUCTIVITY, ENTERTAINMENT, OTHER }
 
-data class Achievement(val title: String, val subtitle: String, val color: AchievementColor)
+/**
+ * One badge on the "Recent Achievements" rail. [unlocked] is false for a badge the user hasn't
+ * earned yet, which is rendered greyed rather than omitted — see [toAchievements].
+ */
+data class Achievement(
+    val title: String,
+    val subtitle: String,
+    val color: AchievementColor,
+    val icon: AchievementIcon,
+    val unlocked: Boolean = true,
+)
+
 enum class AchievementColor { CORAL, SAGE }
+
+/**
+ * Which glyph a badge shows. An enum rather than an `ImageVector` so UI state stays free of Compose
+ * types; `StatsScreen` maps it. This replaces a `if (color == CORAL) MilitaryTech else Nightlight`
+ * hack that only ever worked because there were exactly two hardcoded achievements.
+ */
+enum class AchievementIcon { TROPHY, CATS, STREAK, BUDGET, SHIELD, LOCKED }

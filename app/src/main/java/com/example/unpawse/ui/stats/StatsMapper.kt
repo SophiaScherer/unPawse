@@ -28,16 +28,17 @@ private const val SECONDS_PER_HOUR = 3600f
  * [recentUsage] must cover the last [STATS_HISTORY_DAYS] days. Days with no usage have no row, so
  * everything here fills gaps with zero rather than assuming a dense series.
  *
- * One field still has **no data behind it** and is deliberately blanked rather than left showing
- * `sample()`'s invented figures — fabricated achievements next to real numbers read as fact and would
- * quietly ship as a lie. It needs a real feature first:
- *  - `achievements` — there's no rules engine to award any.
+ * Every metric on the screen is now backed by real data. [allUsage] is the *whole* usage history and
+ * exists only for the achievement rules: a badge's earned-on date derived from the 14-day chart
+ * window would silently un-earn itself as the window slid past it. It defaults to [recentUsage] so
+ * callers that only care about the charts don't have to supply it.
  */
 internal fun toStatsUiState(
     monitoredApps: List<MonitoredApp>,
     recentUsage: List<DailyUsage>,
     captures: List<Capture>,
     unlocks: List<DailyUnlocks> = emptyList(),
+    allUsage: List<DailyUsage> = recentUsage,
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
 ): StatsUiState {
@@ -66,7 +67,10 @@ internal fun toStatsUiState(
     val preventedThisWeek = recentUsage.filter { it.date in weekKeys }.sumOf { it.blockedCount }
 
     val enabled = monitoredApps.filter { it.enabled }
-    val captureDates = captures.map { it.capturedAt.toLocalDate(zone) }.toSet()
+    // One entry per capture — the achievement rules count them as well as date them, so this is a
+    // list; the streak helpers below take the de-duplicated set.
+    val captureDayList = captures.map { it.capturedAt.toLocalDate(zone) }
+    val captureDates = captureDayList.toSet()
 
     return StatsUiState.sample().copy(
         dailyTotal = formatSeconds(todaySeconds),
@@ -86,8 +90,16 @@ internal fun toStatsUiState(
         capturedPhotos = "${captures.size} Photos",
         preventedCount = preventedThisWeek,
         unlocks = unlocksLabel(unlocks, today),
-        // Blanked until there's data behind it — see the KDoc above.
-        achievements = emptyList(),
+        achievements = toAchievements(
+            evaluateAchievements(
+                AchievementInput(
+                    captureDates = captureDayList,
+                    usage = allUsage,
+                    monitoredApps = monitoredApps,
+                    today = today,
+                ),
+            ),
+        ),
     )
 }
 

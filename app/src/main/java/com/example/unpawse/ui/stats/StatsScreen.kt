@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,21 +23,27 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.DonutChart
@@ -86,16 +93,18 @@ fun StatsScreen(
             }
         }
         item { CapturedPhotosBanner(state.capturedPhotos) }
-        // Achievements are deliberately empty until the feature behind them exists (see
-        // StatsMapper); a bare heading over blank space reads as content that failed to load.
-        if (state.achievements.isNotEmpty()) {
-            item {
-                SectionLabel(text = "Recent Achievements")
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
-                    state.achievements.forEach { achievement ->
-                        AchievementCard(achievement, Modifier.weight(1f))
-                    }
+        // No emptiness guard any more: the catalogue is fixed, so a fresh install legitimately shows
+        // every badge locked. That is content — it says what there is to earn — unlike the bare
+        // heading over blank space this used to guard against.
+        item {
+            SectionLabel(text = "Recent Achievements")
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+            ) {
+                state.achievements.forEach { achievement ->
+                    AchievementCard(achievement, Modifier.width(ACHIEVEMENT_CARD_WIDTH))
                 }
             }
         }
@@ -306,9 +315,23 @@ private fun CapturedPhotosBanner(photos: String) {
     }
 }
 
+/** Fixed width so locked and earned cards line up in the scrolling rail. */
+private val ACHIEVEMENT_CARD_WIDTH = 148.dp
+
 @Composable
 private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modifier) {
-    PawCard(modifier = modifier) {
+    // The mockup greys locked badges with `opacity-50 grayscale`. Only the opacity half is
+    // reproduced: true desaturation needs a saturation ColorMatrix via RenderEffect, which is
+    // API 31+ against minSdk 26. Alpha plus the neutral container reads the same at every level, so
+    // this is finished rather than pending — don't "complete" it with a RenderEffect.
+    val alpha = if (achievement.unlocked) 1f else 0.5f
+    val circleColor = if (achievement.unlocked) {
+        achievement.color.toColor()
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+
+    PawCard(modifier = modifier.alpha(alpha)) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -317,23 +340,32 @@ private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modif
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(achievement.color.toColor()),
+                    .background(circleColor),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = if (achievement.color == AchievementColor.CORAL) Icons.Filled.MilitaryTech else Icons.Filled.Nightlight,
-                    contentDescription = null,
+                    imageVector = achievement.icon.toIcon(),
+                    contentDescription = if (achievement.unlocked) null else "Not earned yet",
                     tint = Color.White,
                 )
             }
             Spacer(Modifier.height(12.dp))
             Text(achievement.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface)
+                color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
             Text(achievement.subtitle, style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                textAlign = TextAlign.Center)
         }
     }
+}
+
+private fun AchievementIcon.toIcon(): ImageVector = when (this) {
+    AchievementIcon.TROPHY -> Icons.Filled.MilitaryTech
+    AchievementIcon.CATS -> Icons.Filled.Pets
+    AchievementIcon.STREAK -> Icons.Filled.LocalFireDepartment
+    AchievementIcon.BUDGET -> Icons.Filled.Nightlight
+    AchievementIcon.SHIELD -> Icons.Filled.Shield
+    AchievementIcon.LOCKED -> Icons.Filled.Lock
 }
 
 @Composable

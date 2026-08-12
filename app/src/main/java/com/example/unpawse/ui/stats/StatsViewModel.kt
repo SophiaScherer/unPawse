@@ -12,10 +12,12 @@ import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.UsageRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Streams two weeks of usage, all captures and this fortnight's unlock counts into [StatsUiState];
@@ -32,15 +34,33 @@ class StatsViewModel(
     unlockRepository: UnlockRepository,
 ) : ViewModel() {
 
-    /** The day-keyed series behind the charts, gathered so the top-level combine stays narrow. */
+    /** The day-keyed series behind the charts and badges, gathered so the combine stays narrow. */
     private data class StatsHistory(
         val recentUsage: List<DailyUsage>,
         val unlocks: List<DailyUnlocks>,
+        val allUsage: List<DailyUsage>,
     )
+
+    /**
+     * The whole usage history, for the achievement rules only.
+     *
+     * Read **once per screen entry** rather than observed. `UsageTracker` writes `daily_usage` about
+     * once a second while a monitored app is in front, so a live full-history flow would re-deliver
+     * and re-fold every row on every tick — after a year that is thousands of rows at 1 Hz, to
+     * recompute facts that are by definition historical. Same one-shot pattern `AppPickerViewModel`
+     * uses for the installed-app list. A badge earned during this visit therefore appears on the
+     * next one, which is the right trade for keeping the hot path clean.
+     */
+    private val allUsage = MutableStateFlow<List<DailyUsage>>(emptyList())
+
+    init {
+        viewModelScope.launch { allUsage.value = usageRepository.allUsage() }
+    }
 
     private val history = combine(
         usageRepository.observeRecentUsage(STATS_HISTORY_DAYS),
         unlockRepository.observeRecentUnlocks(STATS_HISTORY_DAYS),
+        allUsage,
         ::StatsHistory,
     )
 
@@ -49,7 +69,15 @@ class StatsViewModel(
         history,
         captureRepository.observeCaptures(),
     ) { monitoredApps, history, captures ->
-        toStatsUiState(monitoredApps, history.recentUsage, captures, history.unlocks)
+        toStatsUiState(
+            monitoredApps = monitoredApps,
+            recentUsage = history.recentUsage,
+            captures = captures,
+            unlocks = history.unlocks,
+            // Before the one-shot read lands, fall back to the chart window rather than an empty
+            // list: a badge briefly missing is better than one briefly claiming to be un-earned.
+            allUsage = history.allUsage.ifEmpty { history.recentUsage },
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),

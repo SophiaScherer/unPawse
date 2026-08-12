@@ -7,6 +7,7 @@ import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -46,7 +47,16 @@ class StatsMapperTest {
         recentUsage: List<DailyUsage> = emptyList(),
         captures: List<Capture> = emptyList(),
         unlocks: List<DailyUnlocks> = emptyList(),
-    ) = toStatsUiState(apps, recentUsage, captures, unlocks, today, zone)
+        allUsage: List<DailyUsage> = recentUsage,
+    ) = toStatsUiState(
+        monitoredApps = apps,
+        recentUsage = recentUsage,
+        captures = captures,
+        unlocks = unlocks,
+        allUsage = allUsage,
+        today = today,
+        zone = zone,
+    )
 
     private fun unlocks(daysAgo: Long, count: Int) =
         DailyUnlocks(today.minusDays(daysAgo).toString(), count)
@@ -245,13 +255,36 @@ class StatsMapperTest {
     }
 
     @Test
-    fun `metrics with no backing data are blanked, not faked`() {
-        // sample() carries two invented achievements. Showing those beside real numbers would read
-        // as fact, so they stay blanked until a rules engine exists. `preventedCount` and `unlocks`
-        // have both graduated out of this list.
+    fun `no history yields real zeros, never sample's figures`() {
+        // Every metric is backed now, so the guard changes shape: what must never come back is
+        // `sample()`'s invented data leaking through the `.copy(...)` base. A fresh install reports
+        // honest emptiness — no blocks, no unlocks observed, nothing earned — and, the actual
+        // regression this pins, a daily total the mapper computed rather than the mockup's "3h 24m".
         val state = map(recentUsage = listOf(usage("a", 0, 30)))
 
-        assertTrue(state.achievements.isEmpty())
+        assertEquals(0, state.preventedCount)
+        assertEquals("—", state.unlocks)
+        assertTrue("no badge may claim to be earned", state.achievements.none { it.unlocked })
+        assertNotEquals(StatsUiState.sample().dailyTotal, state.dailyTotal)
+        assertNotEquals(StatsUiState.sample().preventedCount, state.preventedCount)
+    }
+
+    @Test
+    fun `the achievements rail is populated even with nothing earned`() {
+        // An empty rail under a heading reads as content that failed to load; locked cards are
+        // content, telling the user what there is to earn.
+        val state = map()
+
+        assertEquals(ACHIEVEMENT_CATALOGUE.size, state.achievements.size)
+    }
+
+    @Test
+    fun `a badge earned from real history is marked unlocked`() {
+        val capture = Capture("id", "/tmp/x.jpg", capturedAt = 0L, confidence = 0.9f, isBonus = false)
+
+        val state = map(captures = listOf(capture))
+
+        assertTrue(state.achievements.single { it.title == "First Cat" }.unlocked)
     }
 
     // --- Unlocks --------------------------------------------------------------------------------
