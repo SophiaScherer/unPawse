@@ -19,6 +19,12 @@ data class DailyUnlocksEntity(
     val unlockCount: Int,
 )
 
+/** Domain → entity, for an import. */
+internal fun DailyUnlocks.toEntity(): DailyUnlocksEntity = DailyUnlocksEntity(
+    date = date,
+    unlockCount = unlockCount,
+)
+
 /** Mapper kept beside the entity (mirrors `DailyUsageEntity.toDomain`). */
 internal fun DailyUnlocksEntity.toDomain(): DailyUnlocks = DailyUnlocks(
     date = date,

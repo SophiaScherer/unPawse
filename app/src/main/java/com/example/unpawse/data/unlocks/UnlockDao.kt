@@ -35,6 +35,10 @@ abstract class UnlockDao {
     @Query("DELETE FROM daily_unlocks")
     abstract suspend fun clearUnlocks()
 
+    /** Bulk insert for an import; [addUnlock] only ever increments today. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertUnlocks(rows: List<DailyUnlocksEntity>)
+
     @Transaction
     open suspend fun addUnlock(date: String) {
         insertIfAbsent(DailyUnlocksEntity(date, unlockCount = 0))

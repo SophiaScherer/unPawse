@@ -11,9 +11,12 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.unpawse.data.capture.CaptureRetention
+import com.example.unpawse.data.export.ExportSettings
 import com.example.unpawse.service.BONUS_MINUTES_PER_CAT
 import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
+import com.example.unpawse.ui.theme.overrideFor
+import com.example.unpawse.ui.theme.themeModeNamed
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -109,6 +112,22 @@ class SettingsRepository(context: Context) {
 
     private suspend fun edit(transform: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         dataStore.edit(transform)
+    }
+
+    /**
+     * Writes an imported settings block. `minConfidence` is derived from [sensitivity] and has no
+     * key of its own; `focusEndMillis` is deliberately not restored — it's a live session, and a
+     * stale end time would resurrect a focus block the user never started.
+     */
+    suspend fun applyImported(settings: ExportSettings) {
+        setUserName(settings.userName)
+        setDarkModeOverride(overrideFor(themeModeNamed(settings.themeMode)))
+        setSensitivity(settings.sensitivity)
+        setEarnedMinutesPerCat(settings.earnedMinutesPerCat)
+        setRetentionDays(settings.retentionDays)
+        setDailySummary(settings.dailySummaryEnabled)
+        setWarningMinutes(settings.warningMinutes)
+        setReminderMinutes(settings.reminderMinutes)
     }
 
     private object Keys {

@@ -27,6 +27,10 @@ internal class FakeUnlockDao : UnlockDao() {
         rows.putIfAbsent(row.date, row)
     }
 
+    override suspend fun insertUnlocks(newRows: List<DailyUnlocksEntity>) {
+        newRows.forEach { rows[it.date] = it }
+    }
+
     override suspend fun incrementUnlocks(date: String) {
         rows[date]?.let { rows[date] = it.copy(unlockCount = it.unlockCount + 1) }
     }

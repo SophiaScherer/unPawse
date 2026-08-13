@@ -24,6 +24,17 @@ data class CaptureEntity(
     val earnedMinutes: Int = 0,
 )
 
+/** Domain → entity, for an import; every other write builds the entity directly. */
+internal fun Capture.toEntity(): CaptureEntity = CaptureEntity(
+    id = id,
+    filePath = filePath,
+    capturedAt = capturedAt,
+    confidence = confidence,
+    isBonus = isBonus,
+    isFavorite = isFavorite,
+    earnedMinutes = earnedMinutes,
+)
+
 /** Entity → domain mapping kept next to the entity so both evolve together. */
 internal fun CaptureEntity.toDomain(): Capture = Capture(
     id = id,

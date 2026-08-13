@@ -33,6 +33,18 @@ data class DailyUsageEntity(
     val blockedCount: Int = 0,
 )
 
+/**
+ * Domain → entity, for an import. [lastEarnedAtMillis] resets to 0 because it never reaches the
+ * domain model and so isn't in the export — the same reasoning that keeps it out of both.
+ */
+internal fun DailyUsage.toEntity(): DailyUsageEntity = DailyUsageEntity(
+    packageName = packageName,
+    date = date,
+    usedSeconds = usedSeconds,
+    earnedSeconds = earnedSeconds,
+    blockedCount = blockedCount,
+)
+
 internal fun DailyUsageEntity.toDomain(): DailyUsage = DailyUsage(
     packageName = packageName,
     date = date,

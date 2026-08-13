@@ -8,6 +8,7 @@ import com.example.unpawse.data.capture.CaptureDatabase
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.PhotoStorage
 import com.example.unpawse.data.export.ExportRepository
+import com.example.unpawse.data.export.ImportRepository
 import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
@@ -54,8 +55,11 @@ interface AppContainer {
     val unlockRepository: UnlockRepository
     val installedAppsProvider: InstalledAppsProvider
 
-    /** Gathers every store into one JSON document for Settings → Export data. */
+    /** Gathers every store into one bundle for Settings → Export data. */
     val exportRepository: ExportRepository
+
+    /** Restores such a bundle for Settings → Import data, replacing everything. */
+    val importRepository: ImportRepository
 
     /** Erases every store for Settings → Delete history. */
     val resetRepository: ResetRepository
@@ -168,6 +172,20 @@ class DefaultAppContainer(context: Context) : AppContainer {
             captures = captureRepository,
             contentResolver = appContext.contentResolver,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        )
+    }
+
+    // Lazy like the rest: its first read is a user-initiated row tap, never a blocking decision
+    // taken in the expression that builds it.
+    override val importRepository: ImportRepository by lazy {
+        ImportRepository(
+            usage = usageRepository,
+            unlocks = unlockRepository,
+            schedules = scheduleRepository,
+            captures = captureRepository,
+            reset = resetRepository,
+            applySettings = settingsRepository::applyImported,
+            openDocument = appContext.contentResolver::openInputStream,
         )
     }
 

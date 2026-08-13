@@ -48,6 +48,19 @@ class CaptureRepository(
         return entity.toDomain()
     }
 
+    /**
+     * Writes photo bytes and returns their new path, for an import. The name is [PhotoStorage]'s own
+     * UUID, not whatever the archive called the file — a stored path is install-specific, so it has
+     * to be re-mapped either way, and an attacker-supplied name never reaches the filesystem.
+     */
+    suspend fun storePhoto(bytes: ByteArray): String = photoStorage.save(bytes)
+
+    /** Bulk-restores capture rows whose JPEGs are already on disk via [storePhoto]. */
+    suspend fun restoreCaptures(captures: List<Capture>) {
+        dao.insertAll(captures.map(Capture::toEntity))
+        storageRevision.value++
+    }
+
     /** Removes both the metadata row and the backing file. */
     suspend fun deleteCapture(capture: Capture) {
         dao.deleteById(capture.id)

@@ -22,6 +22,13 @@ fun themeModeFrom(override: Boolean?): ThemeMode = when (override) {
     false -> ThemeMode.LIGHT
 }
 
+/**
+ * Reads a mode back from its stored name, falling back to [ThemeMode.SYSTEM]. Tolerant rather than
+ * `valueOf`, since the name can come from an imported file — same contract as `appCategoryFrom`.
+ */
+fun themeModeNamed(name: String): ThemeMode =
+    ThemeMode.entries.firstOrNull { it.name == name } ?: ThemeMode.SYSTEM
+
 /** The value to persist for [mode]; `null` clears the override so the system is followed again. */
 fun overrideFor(mode: ThemeMode): Boolean? = when (mode) {
     ThemeMode.SYSTEM -> null

@@ -16,6 +16,10 @@ internal class FakeCaptureDao : CaptureDao {
         rows[capture.id] = capture
     }
 
+    override suspend fun insertAll(captures: List<CaptureEntity>) {
+        captures.forEach { rows[it.id] = it }
+    }
+
     override fun observeAll(): Flow<List<CaptureEntity>> =
         flowOf(rows.values.sortedByDescending { it.capturedAt })
 

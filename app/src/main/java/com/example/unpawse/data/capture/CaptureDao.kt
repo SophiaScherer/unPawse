@@ -12,6 +12,10 @@ interface CaptureDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(capture: CaptureEntity)
 
+    /** Bulk insert for an import; ids come from the document, so they are preserved. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(captures: List<CaptureEntity>)
+
     /** Newest first, so the Gallery groups "Today" at the top. */
     @Query("SELECT * FROM captures ORDER BY capturedAt DESC")
     fun observeAll(): Flow<List<CaptureEntity>>

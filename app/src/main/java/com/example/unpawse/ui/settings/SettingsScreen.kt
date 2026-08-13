@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -103,6 +104,22 @@ fun SettingsScreen(
             destructive = true,
             onConfirm = onEraseEverything,
             onDismiss = { showEraseDialog = false },
+        )
+    }
+
+    // Confirmed before the picker opens, so the warning is read while backing out is still free.
+    var showImportDialog by remember { mutableStateOf(false) }
+    if (showImportDialog) {
+        ConfirmDialog(
+            title = "Replace everything?",
+            message = "Importing overwrites your screen-time history, app limits, schedules, " +
+                "photos and settings with whatever the file holds. Anything currently on this " +
+                "device is deleted first.\n\n" +
+                "Export your data first if you want to keep a copy. This cannot be undone.",
+            confirmLabel = "Choose a file",
+            destructive = true,
+            onConfirm = { onRowClick(SettingsRowIds.IMPORT) },
+            onDismiss = { showImportDialog = false },
         )
     }
 
@@ -339,9 +356,15 @@ fun SettingsScreen(
                 )
                 SettingsRow(
                     title = "Export data",
-                    subtitle = "Save your settings, limits and history as JSON",
+                    subtitle = "Save your settings, limits, history and photos to a file",
                     leadingIcon = Icons.Filled.Download,
                     onClick = { onRowClick(SettingsRowIds.EXPORT) }, trailing = { Chevron() },
+                )
+                SettingsRow(
+                    title = "Import data",
+                    subtitle = "Restore from an unPawse export — replaces everything",
+                    leadingIcon = Icons.Filled.Upload,
+                    onClick = { showImportDialog = true }, trailing = { Chevron() },
                 )
                 SettingsRow(
                     title = "Delete all data",
