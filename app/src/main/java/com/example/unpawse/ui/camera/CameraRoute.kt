@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.unpawse.appContainer
@@ -41,9 +42,16 @@ fun CameraRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val permission = rememberCameraPermissionState()
 
-    // Prompt on first entry if we don't already have access.
+    // Gated on canAskSystem: past a permanent denial `request` opens system Settings, and doing that
+    // unprompted would throw the user out of the app for merely arriving here.
     LaunchedEffect(Unit) {
-        if (!permission.granted) permission.request()
+        if (!permission.granted && permission.canAskSystem) permission.request()
+    }
+
+    // A grant made on that settings page is never reported back to us, so re-read on return.
+    LifecycleResumeEffect(Unit) {
+        permission.refresh()
+        onPauseOrDispose { }
     }
 
     // Capture outcomes surface through the hint text in [state], so we deliberately keep the user on
@@ -74,6 +82,7 @@ fun CameraRoute(
         )
     } else {
         CameraPermissionPrompt(
+            canAskSystem = permission.canAskSystem,
             onGrant = permission.request,
             onClose = onClose,
             modifier = modifier,
@@ -81,9 +90,14 @@ fun CameraRoute(
     }
 }
 
-/** Shown when camera access hasn't been granted; offers to re-request or back out. */
+/**
+ * Shown when camera access hasn't been granted; offers to re-request or back out. With
+ * [canAskSystem] false the copy points at Settings rather than repeating an offer the system will
+ * refuse. "Not now" stays in both branches — it's the only way back out of the overlay's deep link.
+ */
 @Composable
 private fun CameraPermissionPrompt(
+    canAskSystem: Boolean,
     onGrant: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -110,12 +124,19 @@ private fun CameraPermissionPrompt(
                 textAlign = TextAlign.Center,
             )
             Text(
-                "unPawse needs your camera to snap and verify your cat.",
+                if (canAskSystem) {
+                    "unPawse needs your camera to snap and verify your cat."
+                } else {
+                    "Camera access is turned off for unPawse. Turn it on in Settings to " +
+                        "photograph your cat."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
-            Button(onClick = onGrant) { Text("Allow camera") }
+            Button(onClick = onGrant) {
+                Text(if (canAskSystem) "Allow camera" else "Open settings")
+            }
             TextButton(onClick = onClose) { Text("Not now") }
         }
     }
