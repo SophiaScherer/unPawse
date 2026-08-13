@@ -1,6 +1,9 @@
 package com.example.unpawse.ui.home
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.capture.STREAK_CELEBRATION_DAYS
+import com.example.unpawse.data.capture.currentStreakDays
+import com.example.unpawse.data.capture.toLocalDate
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ui.format.formatMinutes
@@ -15,9 +18,6 @@ private val TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a")
 
 /** Shown in the greeting/avatar when the user hasn't set a name yet. */
 private const val DEFAULT_DISPLAY_NAME = "friend"
-
-/** A streak worth celebrating on the banner. */
-private const val STREAK_CELEBRATION_DAYS = 3
 
 /** Below this much remaining budget, the banner switches to an "almost there" nudge. */
 private const val LOW_REMAINING_SECONDS = 15 * 60L
@@ -170,35 +170,3 @@ internal fun captureSubtitle(capture: Capture): String {
     }
 }
 
-/**
- * Consecutive days up to today with at least one capture. Today not being photographed *yet*
- * doesn't break a streak — it's still in progress — so counting starts from yesterday in that case.
- */
-internal fun currentStreakDays(captureDates: Set<LocalDate>, today: LocalDate): Int {
-    var day = if (today in captureDates) today else today.minusDays(1)
-    if (day !in captureDates) return 0
-
-    var streak = 0
-    while (day in captureDates) {
-        streak++
-        day = day.minusDays(1)
-    }
-    return streak
-}
-
-/** The longest run of consecutive capture days ever recorded. */
-internal fun longestStreakDays(captureDates: Set<LocalDate>): Int {
-    if (captureDates.isEmpty()) return 0
-
-    val sorted = captureDates.sorted()
-    var longest = 1
-    var run = 1
-    for (i in 1 until sorted.size) {
-        run = if (sorted[i] == sorted[i - 1].plusDays(1)) run + 1 else 1
-        longest = maxOf(longest, run)
-    }
-    return longest
-}
-
-internal fun Long.toLocalDate(zone: ZoneId): LocalDate =
-    Instant.ofEpochMilli(this).atZone(zone).toLocalDate()

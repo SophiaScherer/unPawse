@@ -16,14 +16,40 @@ class GalleryMapperTest {
     private fun millis(daysAgo: Long, hour: Int = 10): Long =
         ZonedDateTime.of(today.minusDays(daysAgo).atTime(hour, 0), zone).toInstant().toEpochMilli()
 
-    private fun capture(id: String, daysAgo: Long, favorite: Boolean = false) = Capture(
+    private fun capture(
+        id: String,
+        daysAgo: Long,
+        favorite: Boolean = false,
+        bonus: Boolean = false,
+    ) = Capture(
         id = id,
         filePath = "/tmp/$id.jpg",
         capturedAt = millis(daysAgo),
         confidence = 0.9f,
-        isBonus = false,
+        isBonus = bonus,
         isFavorite = favorite,
     )
+
+    /** A bonus capture passed the detector like any other, so its confidence stays on the card. */
+    @Test
+    fun `a bonus capture keeps its AI badge and gains the streak caption`() {
+        val bonus = listOf(capture("bonus", daysAgo = 0, bonus = true))
+            .toGallerySections(today, zone).single().items.single()
+
+        assertEquals(90f, bonus.aiConfidence)
+        assertEquals("Bonus", bonus.earnedLabel)
+        assertEquals("Daily streak bonus!", bonus.caption)
+    }
+
+    @Test
+    fun `an ordinary capture reads as verified`() {
+        val plain = listOf(capture("plain", daysAgo = 0))
+            .toGallerySections(today, zone).single().items.single()
+
+        assertEquals(90f, plain.aiConfidence)
+        assertEquals("Verified", plain.earnedLabel)
+        assertEquals("Verification successful", plain.caption)
+    }
 
     @Test
     fun `retainedWithin keeps captures at or after the cutoff and drops older`() {

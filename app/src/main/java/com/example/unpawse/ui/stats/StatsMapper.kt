@@ -6,8 +6,8 @@ import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ui.format.formatSeconds
-import com.example.unpawse.ui.home.longestStreakDays
-import com.example.unpawse.ui.home.toLocalDate
+import com.example.unpawse.data.capture.longestStreakDays
+import com.example.unpawse.data.capture.toLocalDate
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale

@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.capture.isStreakMilestone
 import com.example.unpawse.data.usage.RewardDecision
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
@@ -21,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * What a saved cat actually did for the user. Every case but [Earned] means the photo is in the
@@ -66,6 +69,9 @@ class CameraViewModel(
     private val blockSession: BlockSession,
     /** Supplies the current reward grant; a lambda so the VM reads it fresh, like [CatDetector]'s gate. */
     private val earnedMinutesPerCat: () -> Int = { BONUS_MINUTES_PER_CAT },
+    /** Injected clock for the streak-milestone check, so it's pinnable in tests. */
+    private val today: () -> LocalDate = { LocalDate.now() },
+    private val zone: () -> ZoneId = { ZoneId.systemDefault() },
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CameraUiState())
@@ -92,9 +98,15 @@ class CameraViewModel(
                 val captured = capture()
                 val result = detector.analyze(captured.inputImage)
                 if (result.isCat) {
-                    // isBonus stays false: that flag marks a *streak* bonus in the Gallery (no AI
-                    // badge, "Daily streak bonus!"). An unblock capture is an ordinary verified cat.
-                    val capture = repository.saveCapture(captured.jpegBytes, result.confidence)
+                    // Read the history before the insert: afterwards today is already a capture day
+                    // and the milestone check could only answer false. Orthogonal to the reward —
+                    // a capture can be both a bonus and an unblock, or either alone.
+                    val isBonus = isStreakMilestone(repository.captureDates(zone()), today())
+                    val capture = repository.saveCapture(
+                        bytes = captured.jpegBytes,
+                        confidence = result.confidence,
+                        isBonus = isBonus,
+                    )
                     val outcome = creditBlockedApp()
                     // Record what this photo was worth, so the Home feed can report it instead of
                     // assuming every cat earned time. Only a real grant is worth a second write.

@@ -21,6 +21,8 @@ internal class FakeCaptureDao : CaptureDao {
 
     override suspend fun findById(id: String): CaptureEntity? = rows[id]
 
+    override suspend fun allCapturedAt(): List<Long> = rows.values.map { it.capturedAt }
+
     override suspend fun setFavorite(id: String, favorite: Boolean) {
         rows[id]?.let { rows[id] = it.copy(isFavorite = favorite) }
     }

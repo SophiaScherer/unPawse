@@ -19,6 +19,10 @@ interface CaptureDao {
     @Query("SELECT * FROM captures WHERE id = :id")
     suspend fun findById(id: String): CaptureEntity?
 
+    /** Timestamps only: the streak rule needs the dates, not whole rows or their JPEG paths. */
+    @Query("SELECT capturedAt FROM captures")
+    suspend fun allCapturedAt(): List<Long>
+
     @Query("UPDATE captures SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: String, favorite: Boolean)
 

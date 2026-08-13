@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 /**
@@ -22,9 +24,16 @@ class CaptureRepository(
     fun observeCaptures(): Flow<List<Capture>> =
         dao.observeAll().map { rows -> rows.map(CaptureEntity::toDomain) }
 
+    /** Local dates that have at least one capture, for the streak rules in [Streaks.kt]. */
+    suspend fun captureDates(zone: ZoneId = ZoneId.systemDefault()): Set<LocalDate> =
+        dao.allCapturedAt().mapTo(mutableSetOf()) { it.toLocalDate(zone) }
+
     /**
      * Writes the photo bytes to disk then records its metadata. Only called once a capture has been
      * confirmed as a cat (see the ML layer), so every stored row is a verified cat photo.
+     *
+     * Stamps [capturedAt] from the wall clock, so a caller deciding [isBonus] against an injected
+     * date must pin both together in tests.
      */
     suspend fun saveCapture(bytes: ByteArray, confidence: Float, isBonus: Boolean = false): Capture {
         val filePath = photoStorage.save(bytes)

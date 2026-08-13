@@ -10,6 +10,7 @@ data class CaptureEntity(
     val filePath: String,
     val capturedAt: Long,
     val confidence: Float,
+    /** See [Capture.isBonus]; decided at insert time and never updated. */
     val isBonus: Boolean,
     val isFavorite: Boolean = false,
     /**
