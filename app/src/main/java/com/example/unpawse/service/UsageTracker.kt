@@ -98,10 +98,24 @@ class UsageTracker(
             val elapsed = accrualMillis(tick - previousTick, MAX_TICK.inWholeMilliseconds)
             previousTick = tick
 
+            // Crediting and enforcing are keyed on different apps on purpose. The elapsed interval
+            // belongs to whoever was in front *for* it; the block belongs to whoever is in front
+            // *now*. Evaluating against the previous package too cost a whole poll interval on the
+            // way back into a blocked app — it only became `previousPackage` on the following tick.
             val attributedTo = previousPackage
             if (attributedTo != null && elapsed > 0 && usageRepository.isMonitoredAndEnabled(attributedTo)) {
                 usageRepository.addUsage(attributedTo, elapsed.milliseconds)
+            }
 
+            // Before the evaluation below, not after: a stale `signalledFor` from the last visit
+            // would otherwise suppress the very re-block this ordering exists to make immediate.
+            if (currentPackage != previousPackage) {
+                // A different app came to the front; re-arm so returning to a blocked app re-signals.
+                signalledFor = null
+            }
+            previousPackage = currentPackage
+
+            if (currentPackage != null && usageRepository.isMonitoredAndEnabled(currentPackage)) {
                 // Three reasons to block, in descending precedence: a focus session the user
                 // started, a schedule window they set, then the daily budget. The order decides
                 // which overlay they see when several apply at once, and it runs from most
@@ -109,44 +123,38 @@ class UsageTracker(
                 // and both of the first two are escape-less, so offering the camera because the
                 // budget also happened to run out would be a lie.
                 val focusActive = focusSession.isActive()
-                val window = if (focusActive) null else scheduleBlock(attributedTo)
-                val overLimit = usageRepository.isLimitReached(attributedTo)
+                val window = if (focusActive) null else scheduleBlock(currentPackage)
+                val overLimit = usageRepository.isLimitReached(currentPackage)
                 if (focusActive || window != null || overLimit) {
-                    if (signalledFor != attributedTo) {
+                    if (signalledFor != currentPackage) {
                         val event = when {
-                            focusActive -> BlockEvent(attributedTo, BlockReason.FOCUS)
+                            focusActive -> BlockEvent(currentPackage, BlockReason.FOCUS)
                             window != null -> BlockEvent(
-                                packageName = attributedTo,
+                                packageName = currentPackage,
                                 reason = BlockReason.SCHEDULE,
                                 endsAtMinuteOfDay = window.endMinuteOfDay,
                             )
-                            else -> BlockEvent(attributedTo, BlockReason.LIMIT)
+                            else -> BlockEvent(currentPackage, BlockReason.LIMIT)
                         }
                         _blockRequired.emit(event)
                         // Recorded here rather than where the overlay is raised, so the stored
                         // count is provably the same set of events as `blockRequired` — this
                         // branch already owns the once-per-breach de-dup, and the service never
                         // filters an event out. It also keeps the count testable without Android.
-                        usageRepository.recordBlock(attributedTo)
-                        signalledFor = attributedTo
+                        usageRepository.recordBlock(currentPackage)
+                        signalledFor = currentPackage
                     }
                 } else {
-                    if (signalledFor == attributedTo) {
+                    if (signalledFor == currentPackage) {
                         // Every reason has cleared — bonus minutes earned, a window ended, a focus
                         // session stopped. Allow a fresh signal later, and tell the service to take
                         // the overlay down: the user is still here, so nothing else will.
                         signalledFor = null
-                        _blockReleased.emit(attributedTo)
+                        _blockReleased.emit(currentPackage)
                     }
-                    maybeWarn(attributedTo, warnedFor)
+                    maybeWarn(currentPackage, warnedFor)
                 }
             }
-
-            if (currentPackage != previousPackage) {
-                // A different app came to the front; re-arm so returning to a blocked app re-signals.
-                signalledFor = null
-            }
-            previousPackage = currentPackage
         }
     }
 

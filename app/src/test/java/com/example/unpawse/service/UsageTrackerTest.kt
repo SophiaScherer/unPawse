@@ -15,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
+import kotlin.time.Duration.Companion.seconds
 
 /** Pure clamping rule for a single tick's credit. */
 class AccrualMathTest {
@@ -165,6 +166,55 @@ class UsageTrackerTest {
         assertEquals(listOf(BlockEvent("com.ig", BlockReason.FOCUS)), signals)
     }
 
+    // --- Enforcement timing ---------------------------------------------------------------------
+    // The block is evaluated against the app in front *now*, while the elapsed interval is still
+    // credited to whoever was in front *for* it. Keying both on the previous package used to cost a
+    // whole poll interval every time the user walked back into a blocked app.
+
+    @Test
+    fun `an over-limit app is blocked on the very first tick it is in front`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+
+        val tracker = tracker(listOf("com.ig"))
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(listOf(BlockEvent("com.ig", BlockReason.LIMIT)), signals)
+    }
+
+    @Test
+    fun `a returning user is re-blocked on the first tick back`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+
+        // Leaves after two ticks, comes back for exactly one.
+        val tracker = tracker(listOf("com.ig", "com.ig", "com.other", "com.ig"))
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(
+            listOf(
+                BlockEvent("com.ig", BlockReason.LIMIT),
+                BlockEvent("com.ig", BlockReason.LIMIT),
+            ),
+            signals,
+        )
+    }
+
+    /** Enforcement moved to the current package; crediting deliberately did not. */
+    @Test
+    fun `usage is still credited to the app that was in front for the interval`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 10)
+        repo.setLimit("com.tok", "TikTok", dailyLimitMinutes = 10)
+
+        // com.ig holds the first two intervals; the switch tick's interval is still com.ig's.
+        tracker(listOf("com.ig", "com.ig", "com.ig", "com.tok", "com.tok")).run()
+
+        assertEquals(3L, usedSecondsFor("com.ig"))
+        assertEquals(1L, usedSecondsFor("com.tok"))
+    }
+
     // --- Prevented count ------------------------------------------------------------------------
     // Every blockRequired emission is also counted into daily_usage.blockedCount, which is what the
     // Stats "Prevented" card reports. The two must not be able to drift apart.
@@ -244,6 +294,10 @@ class UsageTrackerTest {
     @Test
     fun `the final sub-minute still warns`() = runBlocking {
         repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 1)
+        // Half the minute already spent, so every evaluated tick sees a sub-minute remainder that
+        // floors to 0 — the state this is about. Without it the first tick would find the budget
+        // untouched and warn at 1.
+        repo.addUsage("com.ig", 30.seconds)
         val tracker = tracker(List(3) { "com.ig" }, warningMinutes = 1)
 
         val (warnings, collector) = collectWarnings(tracker)

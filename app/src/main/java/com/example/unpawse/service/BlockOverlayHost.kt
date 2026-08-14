@@ -2,8 +2,15 @@ package com.example.unpawse.service
 
 import android.content.Context
 import android.graphics.PixelFormat
+import android.os.Build
 import android.util.Log
+import android.view.KeyEvent
+import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.OnBackPressedDispatcherOwner
+import androidx.activity.setViewTreeOnBackPressedDispatcherOwner
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -31,7 +38,7 @@ import com.example.unpawse.ui.theme.UnPawseTheme
  */
 private class BlockOverlayHost(
     private val context: Context,
-) : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+) : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner, OnBackPressedDispatcherOwner {
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
@@ -41,26 +48,48 @@ private class BlockOverlayHost(
     override val savedStateRegistry: SavedStateRegistry
         get() = savedStateRegistryController.savedStateRegistry
 
+    /** Ours to own: there is no Activity to inherit one from. */
+    override val onBackPressedDispatcher = OnBackPressedDispatcher()
+
     private val windowManager = context.getSystemService(WindowManager::class.java)
-    private var view: ComposeView? = null
+    private var view: View? = null
 
     fun show(state: BlockUiState, onOpenCamera: () -> Unit, onExit: () -> Unit) {
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
 
         val composeView = ComposeView(context).apply {
-            setViewTreeLifecycleOwner(this@BlockOverlayHost)
-            setViewTreeViewModelStoreOwner(this@BlockOverlayHost)
-            setViewTreeSavedStateRegistryOwner(this@BlockOverlayHost)
             setContent {
                 UnPawseTheme {
-                    BlockOverlayScreen(state = state, onOpenCamera = onOpenCamera, onExit = onExit)
+                    BlockOverlayScreen(
+                        state = state,
+                        onOpenCamera = onOpenCamera,
+                        onExit = onExit,
+                        interceptBack = true,
+                    )
                 }
             }
         }
+        // The owners belong on the **root** view of the window, not the ComposeView. Compose
+        // resolves its recomposer from the window root, so setting them a level down throws
+        // "ViewTreeLifecycleOwner not found" the moment the overlay attaches.
+        val root = BackSwallowingContainer(context) { onBackPressedDispatcher.onBackPressed() }
+            .apply {
+                setViewTreeLifecycleOwner(this@BlockOverlayHost)
+                setViewTreeViewModelStoreOwner(this@BlockOverlayHost)
+                setViewTreeSavedStateRegistryOwner(this@BlockOverlayHost)
+                setViewTreeOnBackPressedDispatcherOwner(this@BlockOverlayHost)
+                addView(composeView)
+            }
 
-        windowManager.addView(composeView, layoutParams())
-        view = composeView
+        windowManager.addView(root, layoutParams())
+        view = root
+        // Must follow addView: the dispatcher hangs off the ViewRootImpl, so an unattached view has
+        // none. On API 33+ this is the path back presses actually take.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            root.findOnBackInvokedDispatcher()
+                ?.let(onBackPressedDispatcher::setOnBackInvokedDispatcher)
+        }
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
     }
 
@@ -75,9 +104,10 @@ private class BlockOverlayHost(
     }
 
     /**
-     * Full-screen and deliberately **touchable and focusable** (no `FLAG_NOT_TOUCHABLE`): the whole
-     * point is to swallow input to the app underneath, otherwise the user could keep scrolling
-     * behind the block.
+     * Full-screen and deliberately **touchable and focusable** (no `FLAG_NOT_TOUCHABLE`, no
+     * `FLAG_NOT_FOCUSABLE`): the whole point is to swallow input to the app underneath, otherwise
+     * the user could keep scrolling behind the block. Focusability is also what makes back reach
+     * this window at all — adding `FLAG_NOT_FOCUSABLE` would kill the interception silently.
      */
     private fun layoutParams() = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
@@ -89,6 +119,27 @@ private class BlockOverlayHost(
 
     private companion object {
         const val TAG = "BlockOverlayHost"
+    }
+}
+
+/**
+ * Wraps the [ComposeView] to deliver back presses to the host's dispatcher on API 26–32, where
+ * nothing else will — that is normally `ComponentActivity`'s job and there is no Activity here.
+ *
+ * A container rather than a subclass because `ComposeView` is final, and `dispatchKeyEvent` rather
+ * than an `OnKeyListener` because a `ViewGroup` hands the event straight to its focused child, so a
+ * listener would never fire and the interception would silently do nothing.
+ */
+private class BackSwallowingContainer(
+    context: Context,
+    private val onBack: () -> Unit,
+) : FrameLayout(context) {
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_BACK) return super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_UP) onBack()
+        // Consume the down too, or the app underneath still sees half a press.
+        return true
     }
 }
 
