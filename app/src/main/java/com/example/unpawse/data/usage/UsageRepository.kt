@@ -94,6 +94,9 @@ class UsageRepository(
     suspend fun removeMonitoredApp(packageName: String) =
         dao.removeMonitoredApp(packageName)
 
+    /** Restores historical usage rows wholesale. Used only by the data import. */
+    suspend fun restoreUsage(rows: List<DailyUsage>) = dao.insertUsage(rows.map(DailyUsage::toEntity))
+
     /** Drops the entire screen-time history and every monitored app. Used only by the full reset. */
     suspend fun clearAll() {
         dao.clearUsage()

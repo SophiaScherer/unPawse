@@ -5,9 +5,10 @@ import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.format.formatSeconds
-import com.example.unpawse.ui.home.longestStreakDays
-import com.example.unpawse.ui.home.toLocalDate
+import com.example.unpawse.data.capture.longestStreakDays
+import com.example.unpawse.data.capture.toLocalDate
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
@@ -48,6 +49,8 @@ internal fun toStatsUiState(
     captures: List<Capture>,
     unlocks: List<DailyUnlocks> = emptyList(),
     allUsage: List<DailyUsage> = recentUsage,
+    /** Blank is the stored "not set" state, so the header falls back like everywhere else. */
+    userName: String = "",
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
 ): StatsUiState {
@@ -87,6 +90,7 @@ internal fun toStatsUiState(
     // screen the moment someone added a field and forgot to set it here. Same move already made in
     // `SettingsMapper`; `sample()` is now @Preview-only.
     return StatsUiState(
+        avatarInitial = avatarInitialFor(userName),
         dailyTotal = formatSeconds(todaySeconds),
         deltaText = deltaText(todaySeconds, yesterdaySeconds),
         // "Positive" means usage went *up* — the screen renders it as the unwelcome direction.

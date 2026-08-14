@@ -33,6 +33,10 @@ class UnlockRepository(
     /** The complete history, oldest first. Used by the data export, not by any screen. */
     suspend fun allUnlocks(): List<DailyUnlocks> = dao.allUnlocks().map(DailyUnlocksEntity::toDomain)
 
+    /** Restores historical unlock rows wholesale. Used only by the data import. */
+    suspend fun restoreUnlocks(rows: List<DailyUnlocks>) =
+        dao.insertUnlocks(rows.map(DailyUnlocks::toEntity))
+
     /** Drops the whole unlock history. Used only by the full reset. */
     suspend fun clearAll() = dao.clearUnlocks()
 }

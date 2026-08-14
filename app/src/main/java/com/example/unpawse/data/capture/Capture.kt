@@ -7,7 +7,9 @@ package com.example.unpawse.data.capture
  * @param filePath absolute path to the JPEG in app-internal storage (see [PhotoStorage]).
  * @param capturedAt epoch millis of when the shot was taken.
  * @param confidence ML Kit "Cat" label confidence, 0f..1f.
- * @param isBonus reserved for streak/bonus captures (no AI badge in the Gallery).
+ * @param isBonus the day's first capture landed a streak milestone; the Gallery marks it. Set at
+ *   insert time from [isStreakMilestone] and never updated, since the streak that earned it can't
+ *   retroactively change.
  * @param isFavorite user-starred; favorites are exempt from the rolling retention purge (see
  *   [com.example.unpawse.service.CaptureRetentionWorker]) and only surface under the Favorites filter.
  * @param earnedMinutes bonus minutes this capture bought back, or 0 when it bought none. Lets the

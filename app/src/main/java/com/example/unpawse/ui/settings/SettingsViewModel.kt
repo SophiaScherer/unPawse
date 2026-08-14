@@ -12,6 +12,8 @@ import com.example.unpawse.appContainer
 import com.example.unpawse.data.ResetRepository
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.export.ExportRepository
+import com.example.unpawse.data.export.ImportRepository
+import com.example.unpawse.data.export.ImportResult
 import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
@@ -43,6 +45,7 @@ class SettingsViewModel(
     scheduleRepository: ScheduleRepository,
     captureRepository: CaptureRepository,
     private val exportRepository: ExportRepository,
+    private val importRepository: ImportRepository,
     private val resetRepository: ResetRepository,
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
@@ -63,6 +66,9 @@ class SettingsViewModel(
     /** One-shot user-facing messages, mirroring `CameraViewModel`'s event channel. */
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
+
+    /** Re-entry guard for [importFrom]; see the note there. */
+    private val importing = MutableStateFlow(false)
 
     // `combine` has typed overloads up to five flows, so the repository-backed scalar settings are
     // pre-combined into one holder rather than being added as top-level arguments below.
@@ -183,6 +189,24 @@ class SettingsViewModel(
     fun exportFileName(): String = ExportRepository.defaultFileName(LocalDate.now())
 
     /**
+     * Restores a picked export, replacing everything. [onFinished] runs only on success: leaving
+     * Settings after a failure would take the explanation with it.
+     */
+    fun importFrom(uri: Uri, onFinished: () -> Unit) {
+        // A second tap while the first import is mid-wipe would race it over the same stores.
+        if (!importing.compareAndSet(expect = false, update = true)) return
+        viewModelScope.launch {
+            try {
+                val result = importRepository.importFrom(uri)
+                _messages.send(importMessage(result))
+                if (result is ImportResult.Restored) onFinished()
+            } finally {
+                importing.value = false
+            }
+        }
+    }
+
+    /**
      * Erases every store. The caller is expected to have confirmed first, and to leave Settings
      * afterwards — the screen it returns to would otherwise be rendering data that no longer exists.
      */
@@ -208,6 +232,7 @@ class SettingsViewModel(
                     scheduleRepository = container.scheduleRepository,
                     captureRepository = container.captureRepository,
                     exportRepository = container.exportRepository,
+                    importRepository = container.importRepository,
                     resetRepository = container.resetRepository,
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },

@@ -9,6 +9,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Exercises [CaptureRepository]'s favorite + retention orchestration against an in-memory DAO and a
@@ -52,6 +54,31 @@ class CaptureRepositoryTest {
         repo.recordEarnedMinutes(capture.id, 15)
 
         assertEquals(15, dao.findById(capture.id)?.earnedMinutes)
+    }
+
+    @Test
+    fun `captureDates collapses same-day captures into one date`() = runBlocking {
+        val zone = ZoneId.of("UTC")
+        val noon = LocalDate.of(2026, 7, 16).atStartOfDay(zone).plusHours(12).toInstant().toEpochMilli()
+        seed("morning", capturedAt = noon - 3_600_000)
+        seed("evening", capturedAt = noon + 3_600_000)
+        seed("next day", capturedAt = noon + 86_400_000)
+
+        assertEquals(
+            setOf(LocalDate.of(2026, 7, 16), LocalDate.of(2026, 7, 17)),
+            repo.captureDates(zone),
+        )
+    }
+
+    /** A capture just before UTC midnight is the *next* day in a zone ahead of it. */
+    @Test
+    fun `captureDates honours the zone it is given`() = runBlocking {
+        val lateUtc = LocalDate.of(2026, 7, 16).atStartOfDay(ZoneId.of("UTC"))
+            .plusHours(23).toInstant().toEpochMilli()
+        seed("late", capturedAt = lateUtc)
+
+        assertEquals(setOf(LocalDate.of(2026, 7, 16)), repo.captureDates(ZoneId.of("UTC")))
+        assertEquals(setOf(LocalDate.of(2026, 7, 17)), repo.captureDates(ZoneId.of("Australia/Sydney")))
     }
 
     @Test

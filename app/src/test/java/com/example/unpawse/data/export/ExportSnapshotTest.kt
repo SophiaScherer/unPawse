@@ -25,7 +25,10 @@ class ExportSnapshotTest {
             ExportUnlockDay("2026-07-15", 24),
         ),
         captures: List<ExportCapture> = listOf(
-            ExportCapture("abc-123", 1_700_000_000_000, 0.93f, isBonus = false, isFavorite = true),
+            ExportCapture(
+                "abc-123", 1_700_000_000_000, 0.93f, isBonus = false, isFavorite = true,
+                fileName = "abc-123.jpg", earnedMinutes = 15,
+            ),
         ),
         userName: String = "Sophia",
     ) = ExportSnapshot(
@@ -39,6 +42,8 @@ class ExportSnapshotTest {
             earnedMinutesPerCat = 15,
             retentionDays = 30,
             dailySummaryEnabled = false,
+            warningMinutes = 5,
+            reminderMinutes = 30,
         ),
         monitoredApps = monitoredApps,
         schedules = schedules,
@@ -69,6 +74,8 @@ class ExportSnapshotTest {
         assertEquals(15, settings.getInt("earnedMinutesPerCat"))
         assertEquals(30, settings.getInt("retentionDays"))
         assertFalse(settings.getBoolean("dailySummaryEnabled"))
+        assertEquals(5, settings.getInt("warningMinutes"))
+        assertEquals(30, settings.getInt("reminderMinutes"))
     }
 
     @Test
@@ -100,28 +107,50 @@ class ExportSnapshotTest {
     }
 
     @Test
-    fun `captures export as metadata`() {
+    fun `captures export as metadata plus the name of their photo in the bundle`() {
         val capture = json().getJSONArray("captures").getJSONObject(0)
 
         assertEquals("abc-123", capture.getString("id"))
         assertEquals(1_700_000_000_000, capture.getLong("capturedAt"))
         assertEquals(0.93, capture.getDouble("confidence"), 0.0001)
         assertTrue(capture.getBoolean("isFavorite"))
+        assertEquals("abc-123.jpg", capture.getString("fileName"))
+        assertEquals(15, capture.getInt("earnedMinutes"))
+    }
+
+    /** A capture whose JPEG couldn't be read has no name, and the key drops out entirely. */
+    @Test
+    fun `a capture with no photo omits the file name`() {
+        val root = json(
+            snapshot(
+                captures = listOf(
+                    ExportCapture("no-photo", 1L, 0.9f, isBonus = false, isFavorite = false),
+                ),
+            ),
+        )
+
+        assertFalse(root.getJSONArray("captures").getJSONObject(0).has("fileName"))
     }
 
     /**
-     * The export is a file the user may hand to someone else. Photo bytes would bloat it and file
-     * paths would leak the app's private storage layout while telling the reader nothing — so
-     * [ExportCapture] carries neither, and this pins that it stays that way.
+     * The manifest is a file the user may hand to someone else. A path would leak the app's private
+     * storage layout while telling the reader nothing, so captures name their photo by bare file
+     * name only — the bytes ride in the bundle's `photos/` folder, not in here.
      */
     @Test
-    fun `no file paths or image data leak into the export`() {
+    fun `no file paths leak into the manifest`() {
         val raw = buildExportJson(snapshot())
 
         assertFalse(raw.contains("filePath"))
-        assertFalse(raw.contains(".jpg"))
         assertFalse(raw.contains("/data/"))
         assertFalse(raw.contains("captures/"))
+
+        val capture = json().getJSONArray("captures").getJSONObject(0)
+        capture.keys().forEach { key ->
+            val value = capture.get(key).toString()
+            assertFalse("$key must not contain a path separator", value.contains("/"))
+            assertFalse("$key must not contain a path separator", value.contains("\\"))
+        }
     }
 
     @Test

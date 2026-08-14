@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 /**
@@ -22,9 +24,16 @@ class CaptureRepository(
     fun observeCaptures(): Flow<List<Capture>> =
         dao.observeAll().map { rows -> rows.map(CaptureEntity::toDomain) }
 
+    /** Local dates that have at least one capture, for the streak rules in [Streaks.kt]. */
+    suspend fun captureDates(zone: ZoneId = ZoneId.systemDefault()): Set<LocalDate> =
+        dao.allCapturedAt().mapTo(mutableSetOf()) { it.toLocalDate(zone) }
+
     /**
      * Writes the photo bytes to disk then records its metadata. Only called once a capture has been
      * confirmed as a cat (see the ML layer), so every stored row is a verified cat photo.
+     *
+     * Stamps [capturedAt] from the wall clock, so a caller deciding [isBonus] against an injected
+     * date must pin both together in tests.
      */
     suspend fun saveCapture(bytes: ByteArray, confidence: Float, isBonus: Boolean = false): Capture {
         val filePath = photoStorage.save(bytes)
@@ -37,6 +46,19 @@ class CaptureRepository(
         )
         dao.insert(entity)
         return entity.toDomain()
+    }
+
+    /**
+     * Writes photo bytes and returns their new path, for an import. The name is [PhotoStorage]'s own
+     * UUID, not whatever the archive called the file — a stored path is install-specific, so it has
+     * to be re-mapped either way, and an attacker-supplied name never reaches the filesystem.
+     */
+    suspend fun storePhoto(bytes: ByteArray): String = photoStorage.save(bytes)
+
+    /** Bulk-restores capture rows whose JPEGs are already on disk via [storePhoto]. */
+    suspend fun restoreCaptures(captures: List<Capture>) {
+        dao.insertAll(captures.map(Capture::toEntity))
+        storageRevision.value++
     }
 
     /** Removes both the metadata row and the backing file. */

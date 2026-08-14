@@ -1,4 +1,4 @@
-package com.example.unpawse.data.export
+﻿package com.example.unpawse.data.export
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -11,7 +11,7 @@ class ExportFileNameTest {
     @Test
     fun `the default name is dated so repeat exports do not collide`() {
         assertEquals(
-            "unpawse-export-2026-07-27.json",
+            "unpawse-export-2026-07-27.zip",
             ExportRepository.defaultFileName(LocalDate.of(2026, 7, 27)),
         )
     }
@@ -24,11 +24,11 @@ class ExportFileNameTest {
             .toEpochMilli()
 
         assertEquals(
-            "unpawse-export-2026-07-28.json",
+            "unpawse-export-2026-07-28.zip",
             ExportRepository.defaultFileName(millis, ZoneId.of("Asia/Tokyo")),
         )
         assertEquals(
-            "unpawse-export-2026-07-27.json",
+            "unpawse-export-2026-07-27.zip",
             ExportRepository.defaultFileName(millis, ZoneId.of("UTC")),
         )
     }

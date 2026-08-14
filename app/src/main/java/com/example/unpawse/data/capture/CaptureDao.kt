@@ -12,12 +12,20 @@ interface CaptureDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(capture: CaptureEntity)
 
+    /** Bulk insert for an import; ids come from the document, so they are preserved. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(captures: List<CaptureEntity>)
+
     /** Newest first, so the Gallery groups "Today" at the top. */
     @Query("SELECT * FROM captures ORDER BY capturedAt DESC")
     fun observeAll(): Flow<List<CaptureEntity>>
 
     @Query("SELECT * FROM captures WHERE id = :id")
     suspend fun findById(id: String): CaptureEntity?
+
+    /** Timestamps only: the streak rule needs the dates, not whole rows or their JPEG paths. */
+    @Query("SELECT capturedAt FROM captures")
+    suspend fun allCapturedAt(): List<Long>
 
     @Query("UPDATE captures SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: String, favorite: Boolean)

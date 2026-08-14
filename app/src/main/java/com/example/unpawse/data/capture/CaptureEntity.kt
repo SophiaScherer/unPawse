@@ -10,6 +10,7 @@ data class CaptureEntity(
     val filePath: String,
     val capturedAt: Long,
     val confidence: Float,
+    /** See [Capture.isBonus]; decided at insert time and never updated. */
     val isBonus: Boolean,
     val isFavorite: Boolean = false,
     /**
@@ -21,6 +22,17 @@ data class CaptureEntity(
      * Home feed could only *assume* every cat earned time, which is exactly what it used to do.
      */
     val earnedMinutes: Int = 0,
+)
+
+/** Domain → entity, for an import; every other write builds the entity directly. */
+internal fun Capture.toEntity(): CaptureEntity = CaptureEntity(
+    id = id,
+    filePath = filePath,
+    capturedAt = capturedAt,
+    confidence = confidence,
+    isBonus = isBonus,
+    isFavorite = isFavorite,
+    earnedMinutes = earnedMinutes,
 )
 
 /** Entity → domain mapping kept next to the entity so both evolve together. */

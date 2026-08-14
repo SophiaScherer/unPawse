@@ -17,6 +17,7 @@ import com.example.unpawse.ui.theme.themeModeFrom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -39,7 +40,13 @@ class ExportRepository(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
 
-    suspend fun snapshot(): ExportSnapshot {
+    suspend fun snapshot(): ExportSnapshot = snapshot(captures.observeCaptures().first())
+
+    /**
+     * Overload taking the captures the caller already holds, so [exportTo] can pair each row with
+     * its JPEG without reading the library twice.
+     */
+    suspend fun snapshot(captureList: List<Capture>): ExportSnapshot {
         val sensitivity = settings.sensitivity.first()
         return ExportSnapshot(
             exportedAtMillis = now(),
@@ -53,12 +60,14 @@ class ExportRepository(
                 earnedMinutesPerCat = settings.earnedMinutesPerCat.first(),
                 retentionDays = settings.retentionDays.first(),
                 dailySummaryEnabled = settings.dailySummaryEnabled.first(),
+                warningMinutes = settings.warningMinutes.first(),
+                reminderMinutes = settings.reminderMinutes.first(),
             ),
             monitoredApps = usage.monitoredApps().map(MonitoredApp::toExport),
             schedules = schedules.allWindows().map(ScheduleWindow::toExport),
             usage = usage.allUsage().map(DailyUsage::toExport),
             unlocks = unlocks.allUnlocks().map(DailyUnlocks::toExport),
-            captures = captures.observeCaptures().first().map(Capture::toExport),
+            captures = captureList.map(Capture::toExport),
         )
     }
 
@@ -67,20 +76,24 @@ class ExportRepository(
      * opened — the picked location can disappear between choosing it and writing to it.
      */
     suspend fun exportTo(uri: Uri): Boolean = withContext(Dispatchers.IO) {
-        val json = buildExportJson(snapshot())
+        val captureList = captures.observeCaptures().first()
+        val json = buildExportJson(snapshot(captureList))
+        val photos = captureList.map { capture ->
+            PhotoSource(File(capture.filePath).name) { File(capture.filePath).inputStream() }
+        }
         runCatching {
-            contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } != null
+            contentResolver.openOutputStream(uri)?.use { writeBundle(it, json, photos) } != null
         }.getOrDefault(false)
     }
 
     companion object {
-        /** e.g. "unpawse-export-2026-07-27.json"; offered as the picker's default filename. */
+        /** e.g. "unpawse-export-2026-07-27.zip"; offered as the picker's default filename. */
         fun defaultFileName(todayMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String {
             val date = Instant.ofEpochMilli(todayMillis).atZone(zone).toLocalDate()
-            return "unpawse-export-$date.json"
+            return "unpawse-export-$date.zip"
         }
 
-        fun defaultFileName(today: LocalDate): String = "unpawse-export-$today.json"
+        fun defaultFileName(today: LocalDate): String = "unpawse-export-$today.zip"
     }
 }
 
@@ -116,11 +129,13 @@ private fun DailyUnlocks.toExport() = ExportUnlockDay(
     unlockCount = unlockCount,
 )
 
-/** Note the absence of `filePath` — see [ExportCapture]. */
+/** Note the absence of `filePath` — see [ExportCapture]. A bare file name is not a path. */
 private fun Capture.toExport() = ExportCapture(
     id = id,
     capturedAtMillis = capturedAt,
     confidence = confidence,
     isBonus = isBonus,
     isFavorite = isFavorite,
+    fileName = File(filePath).name,
+    earnedMinutes = earnedMinutes,
 )

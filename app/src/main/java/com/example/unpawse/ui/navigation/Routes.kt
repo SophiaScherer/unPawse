@@ -60,6 +60,9 @@ object SettingsRowIds {
     const val MANAGE_PHOTOS = "manage_photos"
     const val EXPORT = "export"
 
+    /** Opens a file picker to restore an export bundle, replacing everything already stored. */
+    const val IMPORT = "import"
+
     /** Opens the in-app policy at [Routes.PRIVACY_POLICY]. */
     const val PRIVACY_POLICY = "privacy_policy_row"
 }

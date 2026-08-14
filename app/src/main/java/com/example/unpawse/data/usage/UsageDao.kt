@@ -66,6 +66,13 @@ abstract class UsageDao {
     @Query("DELETE FROM daily_usage")
     abstract suspend fun clearUsage()
 
+    /**
+     * Bulk insert for an import. The everyday writers all key on *today* and increment, so none of
+     * them can express a historical row.
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertUsage(rows: List<DailyUsageEntity>)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertUsageIfAbsent(row: DailyUsageEntity)
 

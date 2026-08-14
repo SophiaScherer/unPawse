@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.block
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -106,7 +107,14 @@ fun BlockOverlayScreen(
     modifier: Modifier = Modifier,
     onOpenCamera: () -> Unit = {},
     onExit: () -> Unit = {},
+    /** Only the real overlay window sets this; see the guard below. */
+    interceptBack: Boolean = false,
 ) {
+    // Guarded with `if` rather than BackHandler(enabled = …): BackHandler resolves and null-checks
+    // LocalOnBackPressedDispatcherOwner regardless of `enabled`, and neither the in-app debug route
+    // nor the @Preview has one. Swallowing back there would also trap the user with no way out.
+    if (interceptBack) BackHandler { /* back is exactly what this window exists to refuse */ }
+
     Box(
         modifier = modifier
             .fillMaxSize()

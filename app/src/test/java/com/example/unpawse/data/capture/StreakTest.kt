@@ -1,4 +1,4 @@
-package com.example.unpawse.ui.home
+package com.example.unpawse.data.capture
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

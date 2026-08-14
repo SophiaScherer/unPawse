@@ -16,10 +16,16 @@ internal class FakeCaptureDao : CaptureDao {
         rows[capture.id] = capture
     }
 
+    override suspend fun insertAll(captures: List<CaptureEntity>) {
+        captures.forEach { rows[it.id] = it }
+    }
+
     override fun observeAll(): Flow<List<CaptureEntity>> =
         flowOf(rows.values.sortedByDescending { it.capturedAt })
 
     override suspend fun findById(id: String): CaptureEntity? = rows[id]
+
+    override suspend fun allCapturedAt(): List<Long> = rows.values.map { it.capturedAt }
 
     override suspend fun setFavorite(id: String, favorite: Boolean) {
         rows[id]?.let { rows[id] = it.copy(isFavorite = favorite) }

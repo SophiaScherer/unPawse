@@ -20,6 +20,10 @@ internal class FakeUsageDao : UsageDao() {
 
     override suspend fun monitoredApp(packageName: String): MonitoredAppEntity? = apps[packageName]
 
+    override suspend fun insertUsage(rows: List<DailyUsageEntity>) {
+        rows.forEach { usage[it.packageName to it.date] = it }
+    }
+
     override suspend fun upsertMonitoredApp(app: MonitoredAppEntity) {
         apps[app.packageName] = app
     }

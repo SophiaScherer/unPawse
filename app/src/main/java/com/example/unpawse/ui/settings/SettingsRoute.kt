@@ -11,6 +11,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.unpawse.data.export.BUNDLE_MIME_TYPE
+import com.example.unpawse.data.export.LEGACY_MIME_TYPE
 import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
 import com.example.unpawse.service.rememberNotificationPermissionState
@@ -18,7 +20,14 @@ import com.example.unpawse.ui.navigation.Routes
 import com.example.unpawse.ui.navigation.SettingsRowIds
 import com.example.unpawse.ui.theme.ThemeMode
 
-private const val EXPORT_MIME_TYPE = "application/json"
+private const val EXPORT_MIME_TYPE = BUNDLE_MIME_TYPE
+
+/**
+ * Deliberately ends in a wildcard: DocumentsProviders routinely report both a `.zip` and a legacy
+ * `.json` as `application/octet-stream`, so filtering on type alone would hide the user's own export.
+ * The importer sniffs the content instead.
+ */
+private val IMPORT_MIME_TYPES = arrayOf(BUNDLE_MIME_TYPE, LEGACY_MIME_TYPE, "*/*")
 
 /**
  * Stateful wrapper for [SettingsScreen] — the `XxxRoute` every other screen already had. Settings
@@ -49,6 +58,11 @@ fun SettingsRoute(
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(EXPORT_MIME_TYPE),
     ) { uri -> uri?.let(viewModel::exportTo) }
+
+    // OpenDocument rather than GetContent: it yields a durable provider uri we can re-open.
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { viewModel.importFrom(it, onFinished = onBack) } }
 
     // Writing a file produces nothing visible on screen; surface the outcome so a successful export
     // is distinguishable from a silent failure.
@@ -90,6 +104,9 @@ fun SettingsRoute(
                 SettingsRowIds.PRIVACY_POLICY -> onNavigate(Routes.PRIVACY_POLICY)
                 SettingsRowIds.MANAGE_PHOTOS -> onNavigate(Routes.PHOTO_STORAGE)
                 SettingsRowIds.EXPORT -> exportLauncher.launch(viewModel.exportFileName())
+                // The screen confirms before this fires, so the warning is read before a file is
+                // picked rather than after.
+                SettingsRowIds.IMPORT -> importLauncher.launch(IMPORT_MIME_TYPES)
                 SettingsRowIds.USAGE_ACCESS ->
                     context.startActivity(UsageAccess.settingsIntent(context))
                 SettingsRowIds.OVERLAY_ACCESS ->

@@ -92,7 +92,9 @@ private fun Capture.toCaptureItem(zone: ZoneId): CaptureItem {
     return CaptureItem(
         id = id,
         timeLabel = time.format(TIME_FORMAT),
-        aiConfidence = if (isBonus) null else confidence * 100f,
+        // Shown for bonuses too: a milestone capture is still an ML-verified cat, and blanking the
+        // badge would hide a number the app really computed.
+        aiConfidence = confidence * 100f,
         earnedLabel = if (isBonus) "Bonus" else "Verified",
         caption = if (isBonus) "Daily streak bonus!" else "Verification successful",
         aspectRatio = ASPECT_RATIOS[id.hashCode().absoluteValue % ASPECT_RATIOS.size],
