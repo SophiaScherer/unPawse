@@ -1,7 +1,11 @@
 package com.example.unpawse.ui.stats
 
+import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
+
 /** Immutable UI state for the Statistics screen. [sample] supplies mockup data for previews. */
 data class StatsUiState(
+    /** Header avatar letter; see [com.example.unpawse.ui.format.avatarInitialFor]. */
+    val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
     val dailyTotal: String,
     val deltaText: String,
     val deltaIsPositive: Boolean,
@@ -34,6 +38,7 @@ data class StatsUiState(
 ) {
     companion object {
         fun sample() = StatsUiState(
+            avatarInitial = 'S',
             dailyTotal = "3h 24m",
             deltaText = "12% from yesterday",
             deltaIsPositive = false,

@@ -26,7 +26,9 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ScreenHeader(
     modifier: Modifier = Modifier,
-    avatarInitial: Char = 'S',
+    // Deliberately no default: it used to be 'S', so a caller that forgot to pass one silently
+    // showed the mockup's initial instead of the user's.
+    avatarInitial: Char,
     greeting: String? = null,
     title: String,
 ) {

@@ -12,6 +12,7 @@ import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.UsageRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,7 @@ class StatsViewModel(
     usageRepository: UsageRepository,
     captureRepository: CaptureRepository,
     unlockRepository: UnlockRepository,
+    userName: Flow<String>,
 ) : ViewModel() {
 
     /** The day-keyed series behind the charts and badges, gathered so the combine stays narrow. */
@@ -68,12 +70,14 @@ class StatsViewModel(
         usageRepository.observeMonitoredApps(),
         history,
         captureRepository.observeCaptures(),
-    ) { monitoredApps, history, captures ->
+        userName,
+    ) { monitoredApps, history, captures, name ->
         toStatsUiState(
             monitoredApps = monitoredApps,
             recentUsage = history.recentUsage,
             captures = captures,
             unlocks = history.unlocks,
+            userName = name,
             // Before the one-shot read lands, fall back to the chart window rather than an empty
             // list: a badge briefly missing is better than one briefly claiming to be un-earned.
             allUsage = history.allUsage.ifEmpty { history.recentUsage },
@@ -94,6 +98,7 @@ class StatsViewModel(
                     container.usageRepository,
                     container.captureRepository,
                     container.unlockRepository,
+                    container.settingsRepository.userName,
                 )
             }
         }

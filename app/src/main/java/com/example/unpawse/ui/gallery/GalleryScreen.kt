@@ -83,7 +83,7 @@ fun GalleryScreen(
         // Header + search + filters span the full width so they don't get pulled into the masonry.
         item(span = StaggeredGridItemSpan.FullLine) {
             Column {
-                ScreenHeader(title = "unPawse")
+                ScreenHeader(title = "unPawse", avatarInitial = state.avatarInitial)
                 Spacer(Modifier.height(12.dp))
                 SearchBar(state.searchQuery, state.searchPlaceholder, onSearchQueryChange)
                 Spacer(Modifier.height(12.dp))

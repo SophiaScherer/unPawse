@@ -6,6 +6,8 @@ import com.example.unpawse.data.capture.currentStreakDays
 import com.example.unpawse.data.capture.toLocalDate
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.ui.format.avatarInitialFor
+import com.example.unpawse.ui.format.displayNameOf
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.format.formatSeconds
 import java.time.Instant
@@ -15,9 +17,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a")
-
-/** Shown in the greeting/avatar when the user hasn't set a name yet. */
-private const val DEFAULT_DISPLAY_NAME = "friend"
 
 /** Below this much remaining budget, the banner switches to an "almost there" nudge. */
 private const val LOW_REMAINING_SECONDS = 15 * 60L
@@ -46,7 +45,7 @@ internal fun toHomeUiState(
     zone: ZoneId = ZoneId.systemDefault(),
     time: LocalTime = LocalTime.now(zone),
 ): HomeUiState {
-    val displayName = userName.ifBlank { DEFAULT_DISPLAY_NAME }
+    val displayName = displayNameOf(userName)
     val enabled = monitoredApps.filter { it.enabled }
     val usageByPackage = todayUsage.associateBy { it.packageName }
 
@@ -68,7 +67,7 @@ internal fun toHomeUiState(
     return HomeUiState.sample().copy(
         greeting = greetingFor(time),
         userName = displayName,
-        avatarInitial = displayName.first().uppercaseChar(),
+        avatarInitial = avatarInitialFor(userName),
         screenTimeUsedLabel = formatSeconds(usedSeconds),
         // Guard against a zero budget (nothing monitored) rather than dividing by zero.
         progressFraction = if (budgetSeconds == 0L) 0f else (usedSeconds.toFloat() / budgetSeconds).coerceIn(0f, 1f),

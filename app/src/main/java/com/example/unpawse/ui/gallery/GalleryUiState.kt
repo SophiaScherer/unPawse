@@ -1,11 +1,15 @@
 package com.example.unpawse.ui.gallery
 
+import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
+
 /** Immutable UI state for the Gallery screen. [sample] supplies mockup data for previews. */
 data class GalleryUiState(
     val searchQuery: String,
     val searchPlaceholder: String,
     val selectedFilter: GalleryFilter,
     val sections: List<GallerySection>,
+    /** Header avatar letter; see [com.example.unpawse.ui.format.avatarInitialFor]. */
+    val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
 ) {
     companion object {
         const val SEARCH_PLACEHOLDER = "Search by date or time..."
@@ -22,6 +26,7 @@ data class GalleryUiState(
             searchQuery = "",
             searchPlaceholder = SEARCH_PLACEHOLDER,
             selectedFilter = GalleryFilter.ALL,
+            avatarInitial = 'S',
             sections = listOf(
                 GallerySection(
                     title = "Today",

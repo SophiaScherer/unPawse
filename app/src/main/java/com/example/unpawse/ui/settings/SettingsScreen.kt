@@ -57,6 +57,7 @@ import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
 import com.example.unpawse.ui.components.SettingsRow
 import com.example.unpawse.ui.components.ValueText
+import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.navigation.SettingsRowIds
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.ThemeMode
@@ -412,10 +413,6 @@ private fun SettingsHeader(userName: String, onBack: () -> Unit) {
         trailing = { InitialsAvatar(initial = avatarInitialFor(userName), size = 40.dp) },
     )
 }
-
-/** First letter of the name, or a paw-friendly fallback when no name is set. Matches Home's avatar. */
-private fun avatarInitialFor(userName: String): Char =
-    userName.ifBlank { "friend" }.first().uppercaseChar()
 
 /** Simple single-field dialog for the display name; seeds the field with the current value. */
 @Composable

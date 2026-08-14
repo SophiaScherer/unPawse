@@ -72,7 +72,7 @@ fun StatsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
-        item { ScreenHeader(title = "unPawse") }
+        item { ScreenHeader(title = "unPawse", avatarInitial = state.avatarInitial) }
         item { DailyScreenTimeCard(state) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
