@@ -181,6 +181,55 @@ class StatsMapperTest {
         assertEquals(listOf(UsageColor.OTHER), state.breakdown.map { it.color })
     }
 
+    /**
+     * The donut used to be `topAppsBreakdown`: the top 3 apps by usage, sized by a 3-entry palette,
+     * with the rest silently dropped and no "+N others" bucket — so a device with 4+ monitored apps
+     * understated its own screen time. Grouping by category fixed that, and this pins it: whatever
+     * the app count, every enabled app's seconds must still be in the donut somewhere.
+     */
+    @Test
+    fun `every enabled app's time reaches the donut however many there are`() {
+        // Two apps per bucket, eight in total — well past the three the old palette could hold.
+        val apps = AppCategory.entries.flatMap { category ->
+            listOf(
+                app("${category.name}-1", "First", 60, category = category),
+                app("${category.name}-2", "Second", 60, category = category),
+            )
+        }
+        val usageMinutes = 5
+        val recentUsage = apps.map { usage(it.packageName, 0, usageMinutes) }
+
+        val state = map(apps = apps, recentUsage = recentUsage)
+
+        assertEquals(
+            "no app's time may be dropped",
+            apps.size * usageMinutes * 60L,
+            state.breakdown.sumOf { it.seconds },
+        )
+        assertEquals(
+            listOf("Social", "Productivity", "Entertainment", "Other"),
+            state.breakdown.map { it.label },
+        )
+    }
+
+    /**
+     * The donut describes the apps the user actually asked unPawse to watch. It matters that this is
+     * deliberate: the centre figure is summed from these same slices, so both sides agree on scope.
+     */
+    @Test
+    fun `a disabled app is left out of the donut`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, enabled = false, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
+        )
+
+        assertEquals(listOf("Social"), state.breakdown.map { it.label })
+        assertEquals(listOf(600L), state.breakdown.map { it.seconds })
+    }
+
     @Test
     fun `a category with no usage today is left out entirely`() {
         val state = map(
