@@ -12,10 +12,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  * This is what the NavHost renders; [StatsUiState.sample] survives for `@Preview` only.
  */
 @Composable
-fun StatsRoute(modifier: Modifier = Modifier) {
+fun StatsRoute(
+    onDetails: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val viewModel: StatsViewModel = viewModel(factory = StatsViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    StatsScreen(state = state, modifier = modifier)
+    StatsScreen(state = state, modifier = modifier, onDetails = onDetails)
 }
