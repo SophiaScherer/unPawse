@@ -24,13 +24,17 @@ data class StatsUiState(
     /** Whether week-over-week usage rose. Drives the arrow direction, which used to be hardcoded. */
     val trendIsUp: Boolean,
     val trendBars: List<Float>,
-    val productivePercent: Int,
     /**
-     * Caption under [productivePercent] in the donut. State-driven because there's no app-category
-     * data to back the mockup's literal "Productive" — the real number we can show is budget left.
+     * The figure in the middle of the donut: the total of [breakdown], formatted.
+     *
+     * Carried alongside the slices rather than recomputed from the raw usage, because the centre and
+     * the ring have to be the same measurement. This used to hold budget-left, which shares nothing
+     * with the arcs around it — the chart read as one metric while showing two.
      */
-    val productiveLabel: String,
+    val breakdownTotal: String,
     val breakdown: List<UsageCategory>,
+    /** Budget headroom, formatted, or "—" when no monitored app has a cap to report on. */
+    val budgetLeftLabel: String,
     val longestStreak: String,
     val unlocks: String,
     val capturedPhotos: String,
@@ -50,14 +54,14 @@ data class StatsUiState(
             trendLabel = "-5.2h",
             trendIsUp = false,
             trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f),
-            productivePercent = 75,
-            productiveLabel = "Budget left",
+            breakdownTotal = "2h 37m",
             breakdown = listOf(
                 UsageCategory("Social", "1h 12m", 72 * 60L, UsageColor.SOCIAL),
                 UsageCategory("Productivity", "45m", 45 * 60L, UsageColor.PRODUCTIVITY),
                 UsageCategory("Entertainment", "32m", 32 * 60L, UsageColor.ENTERTAINMENT),
                 UsageCategory("Other", "8m", 8 * 60L, UsageColor.OTHER),
             ),
+            budgetLeftLabel = "75%",
             longestStreak = "12 Days",
             unlocks = "24/day",
             capturedPhotos = "1,204 Photos",

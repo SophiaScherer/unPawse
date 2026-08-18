@@ -280,6 +280,52 @@ class StatsMapperTest {
         assertEquals(3f, larger.toFloat() / smaller, 0.001f)
     }
 
+    // --- Donut centre --------------------------------------------------------------------------
+    // The centre used to show budget-left, a measurement the arcs around it know nothing about.
+
+    @Test
+    fun `the donut centre is the total of its own slices`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 70), usage("b", 0, 35)),
+        )
+
+        assertEquals("1h 45m", state.breakdownTotal)
+        assertEquals(105 * 60L, state.breakdown.sumOf { it.seconds })
+    }
+
+    /**
+     * `dailyTotal` counts every usage row, including monitored-but-disabled apps the donut leaves
+     * out, so the centre has to be summed from the slices rather than reusing it.
+     */
+    @Test
+    fun `the centre ignores usage the donut does not draw`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("off", "Off", 60, enabled = false, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 30), usage("off", 0, 90)),
+        )
+
+        assertEquals("30m", state.breakdownTotal)
+        assertEquals("the daily total still counts everything", "2h", state.dailyTotal)
+    }
+
+    /** A day made entirely of uncapped apps has no headroom to report, so it blanks. */
+    @Test
+    fun `budget left blanks when nothing has a cap`() {
+        val state = map(
+            apps = listOf(app("free", "Free", UNLIMITED_MINUTES)),
+            recentUsage = listOf(usage("free", 0, 120)),
+        )
+
+        assertEquals("—", state.budgetLeftLabel)
+    }
+
     @Test
     fun `budget left percent reflects real usage`() {
         val state = map(
@@ -287,7 +333,7 @@ class StatsMapperTest {
             recentUsage = listOf(usage("a", 0, 15)),
         )
 
-        assertEquals(75, state.productivePercent)
+        assertEquals("75%", state.budgetLeftLabel)
     }
 
     /** The Saturday budget must be the one the blocker would enforce, not the weekday figure. */
@@ -297,10 +343,10 @@ class StatsMapperTest {
         val apps = listOf(app("a", "Alpha", 30, weekendLimitMinutes = 120))
 
         val onSaturday = map(apps = apps, recentUsage = listOf(usage("a", 0, 30, from = saturday)), on = saturday)
-        assertEquals(75, onSaturday.productivePercent)
+        assertEquals("75%", onSaturday.budgetLeftLabel)
 
         // The same 30 minutes against the weekday budget is the whole allowance.
-        assertEquals(0, map(apps = apps, recentUsage = listOf(usage("a", 0, 30))).productivePercent)
+        assertEquals("0%", map(apps = apps, recentUsage = listOf(usage("a", 0, 30))).budgetLeftLabel)
     }
 
     /**
@@ -314,16 +360,17 @@ class StatsMapperTest {
             recentUsage = listOf(usage("a", 0, 15), usage("free", 0, 300)),
         )
 
-        assertEquals(75, state.productivePercent)
+        assertEquals("75%", state.budgetLeftLabel)
     }
 
     @Test
     fun `nothing monitored does not divide by zero`() {
         val state = map()
 
-        assertEquals(0, state.productivePercent)
+        assertEquals("—", state.budgetLeftLabel)
         assertEquals("0m", state.dailyTotal)
         assertTrue(state.breakdown.isEmpty())
+        assertEquals("0m", state.breakdownTotal)
     }
 
     @Test
@@ -350,17 +397,16 @@ class StatsMapperTest {
     }
 
     /**
-     * The mapper builds [StatsUiState] field by field rather than from `sample().copy(...)`, so the
-     * two remaining constants have to come from the mapper's own values. If someone reintroduces
-     * the `.copy(...)` base these still pass — which is why the test above also pins a *computed*
+     * The mapper builds [StatsUiState] field by field rather than from `sample().copy(...)`, so its
+     * one remaining constant has to come from the mapper's own value. If someone reintroduces the
+     * `.copy(...)` base this still passes — which is why the test above also pins a *computed*
      * field against `sample()`.
      */
     @Test
-    fun `the fixed axis and donut caption come from the mapper, not the mockup`() {
+    fun `the fixed axis comes from the mapper, not the mockup`() {
         val state = map()
 
         assertEquals(listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"), state.weekdayLabels)
-        assertEquals("Budget left", state.productiveLabel)
     }
 
     @Test

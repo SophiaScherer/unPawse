@@ -27,12 +27,6 @@ private const val SECONDS_PER_HOUR = 3600f
 private val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
 /**
- * Caption under the donut's percentage. The mockup said "Productive", which no app-category data
- * could back at the time; budget left is the number the app can actually compute.
- */
-private const val BUDGET_LEFT_LABEL = "Budget left"
-
-/**
  * Builds [StatsUiState] from usage history + captures. Pure and parameterised on [today]/[zone] so
  * it's unit-testable without a clock.
  *
@@ -87,6 +81,10 @@ internal fun toStatsUiState(
     val captureDayList = captures.map { it.capturedAt.toLocalDate(zone) }
     val captureDates = captureDayList.toSet()
 
+    // The donut's centre is summed from its own slices, so the two cannot drift apart. Deliberately
+    // not `todaySeconds`, which counts monitored-but-disabled apps the breakdown leaves out.
+    val breakdown = categoryBreakdown(enabled, todayByPackage)
+
     // Constructed field by field, deliberately **not** `StatsUiState.sample().copy(...)`. Every
     // value on this screen is computed now, so the only things `sample()` was still supplying were
     // two constants — and inheriting from it left a standing route for mockup data to reach the
@@ -106,9 +104,9 @@ internal fun toStatsUiState(
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
         trendIsUp = trendDeltaSeconds > 0,
         trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
-        productivePercent = dailyBudget(enabled, todayByPackage, today.dayOfWeek)?.leftPercent ?: 0,
-        productiveLabel = BUDGET_LEFT_LABEL,
-        breakdown = categoryBreakdown(enabled, todayByPackage),
+        breakdownTotal = formatSeconds(breakdown.sumOf { it.seconds }),
+        breakdown = breakdown,
+        budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
         longestStreak = dayCountLabel(longestStreakDays(captureDates)),
         capturedPhotos = "${captures.size} Photos",
         preventedCount = preventedThisWeek,
@@ -128,6 +126,19 @@ internal fun toStatsUiState(
 
 /** Shown where a metric has no backing data yet, rather than an invented number. */
 private const val NO_DATA = "—"
+
+/**
+ * Budget headroom as a percentage, or [NO_DATA] when nothing monitored has a cap. A day made
+ * entirely of uncapped apps has no headroom to express, and "0%" would read as "none left".
+ */
+private fun budgetLeftLabel(
+    enabledApps: List<MonitoredApp>,
+    todayByPackage: Map<String, DailyUsage>,
+    today: LocalDate,
+): String {
+    val percent = dailyBudget(enabledApps, todayByPackage, today.dayOfWeek)?.leftPercent ?: return NO_DATA
+    return "$percent%"
+}
 
 /**
  * Today's unlock count, or [NO_DATA] when the store has never seen a single unlock — which is the
