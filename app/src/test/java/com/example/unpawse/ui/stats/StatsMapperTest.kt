@@ -5,6 +5,7 @@ import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -26,7 +27,8 @@ class StatsMapperTest {
         limitMinutes: Int,
         enabled: Boolean = true,
         category: AppCategory = AppCategory.OTHER,
-    ) = MonitoredApp(pkg, label, limitMinutes, enabled, category = category)
+        weekendLimitMinutes: Int? = null,
+    ) = MonitoredApp(pkg, label, limitMinutes, enabled, weekendLimitMinutes, category)
 
     private fun usage(
         pkg: String,
@@ -34,9 +36,10 @@ class StatsMapperTest {
         usedMinutes: Int,
         earnedMinutes: Int = 0,
         blockedCount: Int = 0,
+        from: LocalDate = today,
     ) = DailyUsage(
         pkg,
-        today.minusDays(daysAgo).toString(),
+        from.minusDays(daysAgo).toString(),
         usedMinutes * 60L,
         earnedMinutes * 60L,
         blockedCount,
@@ -48,13 +51,14 @@ class StatsMapperTest {
         captures: List<Capture> = emptyList(),
         unlocks: List<DailyUnlocks> = emptyList(),
         allUsage: List<DailyUsage> = recentUsage,
+        on: LocalDate = today,
     ) = toStatsUiState(
         monitoredApps = apps,
         recentUsage = recentUsage,
         captures = captures,
         unlocks = unlocks,
         allUsage = allUsage,
-        today = today,
+        today = on,
         zone = zone,
     )
 
@@ -281,6 +285,33 @@ class StatsMapperTest {
         val state = map(
             apps = listOf(app("a", "Alpha", 60)),
             recentUsage = listOf(usage("a", 0, 15)),
+        )
+
+        assertEquals(75, state.productivePercent)
+    }
+
+    /** The Saturday budget must be the one the blocker would enforce, not the weekday figure. */
+    @Test
+    fun `budget left follows the weekend override`() {
+        val saturday = LocalDate.of(2026, 7, 18)
+        val apps = listOf(app("a", "Alpha", 30, weekendLimitMinutes = 120))
+
+        val onSaturday = map(apps = apps, recentUsage = listOf(usage("a", 0, 30, from = saturday)), on = saturday)
+        assertEquals(75, onSaturday.productivePercent)
+
+        // The same 30 minutes against the weekday budget is the whole allowance.
+        assertEquals(0, map(apps = apps, recentUsage = listOf(usage("a", 0, 30))).productivePercent)
+    }
+
+    /**
+     * An unlimited app used to contribute a negative budget, so its own usage was charged against
+     * everyone else. One uncapped app made the whole day report "0% left".
+     */
+    @Test
+    fun `an uncapped app does not spend the capped apps budget`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 60), app("free", "Free", UNLIMITED_MINUTES)),
+            recentUsage = listOf(usage("a", 0, 15), usage("free", 0, 300)),
         )
 
         assertEquals(75, state.productivePercent)

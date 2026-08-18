@@ -104,3 +104,98 @@ class EffectiveLimitTest {
         assertEquals(15, effectiveLimitMinutes(60, weekendLimitMinutes = 15, day = DayOfWeek.SUNDAY))
     }
 }
+
+/** The whole-day budget the Home ring and the Stats figure both report from. */
+class DailyBudgetTest {
+
+    private val weekday = DayOfWeek.THURSDAY
+    private val weekend = DayOfWeek.SATURDAY
+
+    private fun app(pkg: String, limitMinutes: Int, weekendLimitMinutes: Int? = null) =
+        MonitoredApp(pkg, pkg, limitMinutes, enabled = true, weekendLimitMinutes = weekendLimitMinutes)
+
+    private fun usage(pkg: String, usedMinutes: Int, earnedMinutes: Int = 0) =
+        pkg to DailyUsage(pkg, "2026-07-16", usedMinutes * 60L, earnedMinutes * 60L)
+
+    @Test
+    fun `budget sums the capped apps and their usage`() {
+        val budget = dailyBudget(
+            listOf(app("a", 60), app("b", 30)),
+            mapOf(usage("a", 15), usage("b", 15)),
+            weekday,
+        )!!
+
+        assertEquals(90 * 60L, budget.budgetSeconds)
+        assertEquals(30 * 60L, budget.usedSeconds)
+        assertEquals(60 * 60L, budget.remainingSeconds)
+        assertEquals(66, budget.leftPercent)
+    }
+
+    @Test
+    fun `a weekend override moves the budget on Saturday only`() {
+        val apps = listOf(app("a", 30, weekendLimitMinutes = 120))
+
+        assertEquals(30 * 60L, dailyBudget(apps, emptyMap(), weekday)!!.budgetSeconds)
+        assertEquals(120 * 60L, dailyBudget(apps, emptyMap(), weekend)!!.budgetSeconds)
+    }
+
+    /**
+     * The reported bug: summing raw limits made an unlimited app contribute −60 seconds, which sailed
+     * past the caller's `budget == 0` guard and reported "0% left" for a day with plenty to spare.
+     */
+    @Test
+    fun `an uncapped app is left out rather than counted as negative budget`() {
+        val budget = dailyBudget(
+            listOf(app("capped", 60), app("free", UNLIMITED_MINUTES)),
+            mapOf(usage("capped", 15), usage("free", 300)),
+            weekday,
+        )!!
+
+        assertEquals("only the capped app's budget", 60 * 60L, budget.budgetSeconds)
+        assertEquals("the uncapped app's time is not charged to it", 15 * 60L, budget.usedSeconds)
+        assertEquals(75, budget.leftPercent)
+    }
+
+    @Test
+    fun `an unlimited weekend drops the app from Saturday's budget only`() {
+        val apps = listOf(app("a", 30, weekendLimitMinutes = UNLIMITED_MINUTES))
+
+        assertEquals(30 * 60L, dailyBudget(apps, emptyMap(), weekday)!!.budgetSeconds)
+        assertNull(dailyBudget(apps, emptyMap(), weekend))
+    }
+
+    @Test
+    fun `nothing capped is no budget to report, not a zero one`() {
+        assertNull(dailyBudget(emptyList(), emptyMap(), weekday))
+        assertNull(dailyBudget(listOf(app("a", UNLIMITED_MINUTES)), emptyMap(), weekday))
+    }
+
+    @Test
+    fun `earned time extends the allowance and its denominator`() {
+        val budget = dailyBudget(
+            listOf(app("a", 60)),
+            mapOf(usage("a", 60, earnedMinutes = 60)),
+            weekday,
+        )!!
+
+        assertEquals(60 * 60L, budget.remainingSeconds)
+        assertEquals("half of a 120-minute allowance", 50, budget.leftPercent)
+    }
+
+    @Test
+    fun `remaining floors at zero and the ring fills rather than overflowing`() {
+        val budget = dailyBudget(listOf(app("a", 10)), mapOf(usage("a", 45)), weekday)!!
+
+        assertEquals(0L, budget.remainingSeconds)
+        assertEquals(0, budget.leftPercent)
+        assertEquals(1f, budget.usedFraction, 0f)
+    }
+
+    @Test
+    fun `an untouched budget is wholly unspent`() {
+        val budget = dailyBudget(listOf(app("a", 60)), emptyMap(), weekday)!!
+
+        assertEquals(100, budget.leftPercent)
+        assertEquals(0f, budget.usedFraction, 0f)
+    }
+}
