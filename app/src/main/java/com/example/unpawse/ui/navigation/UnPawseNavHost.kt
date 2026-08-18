@@ -54,7 +54,11 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.STATS) {
-            StatsRoute()
+            StatsRoute(
+                // The breakdown groups by category and the App Picker is where categories and limits
+                // are set, so "Details" lands on the screen that can act on what the donut reports.
+                onDetails = { navController.navigate(Routes.APP_PICKER) },
+            )
         }
 
         composable(Routes.GALLERY) {

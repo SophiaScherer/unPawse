@@ -5,6 +5,7 @@ import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.data.usage.dailyBudget
 import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.format.formatSeconds
 import com.example.unpawse.data.capture.longestStreakDays
@@ -24,12 +25,6 @@ private const val SECONDS_PER_HOUR = 3600f
 
 /** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
 private val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-
-/**
- * Caption under the donut's percentage. The mockup said "Productive", which no app-category data
- * could back at the time; budget left is the number the app can actually compute.
- */
-private const val BUDGET_LEFT_LABEL = "Budget left"
 
 /**
  * Builds [StatsUiState] from usage history + captures. Pure and parameterised on [today]/[zone] so
@@ -79,10 +74,16 @@ internal fun toStatsUiState(
     val preventedThisWeek = recentUsage.filter { it.date in weekKeys }.sumOf { it.blockedCount }
 
     val enabled = monitoredApps.filter { it.enabled }
+    // Built once: the donut and the budget figure must agree on what today contained.
+    val todayByPackage = recentUsage.filter { it.date == today.toString() }.associateBy { it.packageName }
     // One entry per capture — the achievement rules count them as well as date them, so this is a
     // list; the streak helpers below take the de-duplicated set.
     val captureDayList = captures.map { it.capturedAt.toLocalDate(zone) }
     val captureDates = captureDayList.toSet()
+
+    // The donut's centre is summed from its own slices, so the two cannot drift apart. Deliberately
+    // not `todaySeconds`, which counts monitored-but-disabled apps the breakdown leaves out.
+    val breakdown = categoryBreakdown(enabled, todayByPackage)
 
     // Constructed field by field, deliberately **not** `StatsUiState.sample().copy(...)`. Every
     // value on this screen is computed now, so the only things `sample()` was still supplying were
@@ -103,9 +104,9 @@ internal fun toStatsUiState(
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
         trendIsUp = trendDeltaSeconds > 0,
         trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
-        productivePercent = budgetLeftPercent(enabled, recentUsage, today),
-        productiveLabel = BUDGET_LEFT_LABEL,
-        breakdown = categoryBreakdown(enabled, recentUsage, today),
+        breakdownTotal = formatSeconds(breakdown.sumOf { it.seconds }),
+        breakdown = breakdown,
+        budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
         longestStreak = dayCountLabel(longestStreakDays(captureDates)),
         capturedPhotos = "${captures.size} Photos",
         preventedCount = preventedThisWeek,
@@ -125,6 +126,19 @@ internal fun toStatsUiState(
 
 /** Shown where a metric has no backing data yet, rather than an invented number. */
 private const val NO_DATA = "—"
+
+/**
+ * Budget headroom as a percentage, or [NO_DATA] when nothing monitored has a cap. A day made
+ * entirely of uncapped apps has no headroom to express, and "0%" would read as "none left".
+ */
+private fun budgetLeftLabel(
+    enabledApps: List<MonitoredApp>,
+    todayByPackage: Map<String, DailyUsage>,
+    today: LocalDate,
+): String {
+    val percent = dailyBudget(enabledApps, todayByPackage, today.dayOfWeek)?.leftPercent ?: return NO_DATA
+    return "$percent%"
+}
 
 /**
  * Today's unlock count, or [NO_DATA] when the store has never seen a single unlock — which is the
@@ -173,22 +187,6 @@ private fun trendBars(usedOn: (Long) -> Long): List<Float> {
     return if (peak == 0L) List(TREND_BAR_COUNT) { 0f } else days.map { it.toFloat() / peak }
 }
 
-/** How much of today's total budget is still unspent, as a percentage. */
-private fun budgetLeftPercent(
-    enabledApps: List<MonitoredApp>,
-    recentUsage: List<DailyUsage>,
-    today: LocalDate,
-): Int {
-    val todayByPackage = recentUsage.filter { it.date == today.toString() }.associateBy { it.packageName }
-    val budget = enabledApps.sumOf { it.dailyLimitMinutes.toLong() * 60 }
-    if (budget == 0L) return 0
-
-    val used = enabledApps.sumOf { todayByPackage[it.packageName]?.usedSeconds ?: 0 }
-    val earned = enabledApps.sumOf { todayByPackage[it.packageName]?.earnedSeconds ?: 0 }
-    val left = (budget + earned - used).coerceAtLeast(0)
-    return ((left * 100) / (budget + earned)).toInt().coerceIn(0, 100)
-}
-
 /**
  * The donut/legend: today's screen time grouped into [AppCategory] buckets, as the mockup shows.
  *
@@ -199,11 +197,8 @@ private fun budgetLeftPercent(
  */
 private fun categoryBreakdown(
     enabledApps: List<MonitoredApp>,
-    recentUsage: List<DailyUsage>,
-    today: LocalDate,
+    todayByPackage: Map<String, DailyUsage>,
 ): List<UsageCategory> {
-    val todayByPackage = recentUsage.filter { it.date == today.toString() }.associateBy { it.packageName }
-
     val secondsByCategory = enabledApps
         .groupBy { it.category }
         .mapValues { (_, apps) -> apps.sumOf { todayByPackage[it.packageName]?.usedSeconds ?: 0L } }

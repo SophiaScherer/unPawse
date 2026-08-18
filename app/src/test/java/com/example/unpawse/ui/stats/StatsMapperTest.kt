@@ -5,6 +5,7 @@ import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -26,7 +27,8 @@ class StatsMapperTest {
         limitMinutes: Int,
         enabled: Boolean = true,
         category: AppCategory = AppCategory.OTHER,
-    ) = MonitoredApp(pkg, label, limitMinutes, enabled, category = category)
+        weekendLimitMinutes: Int? = null,
+    ) = MonitoredApp(pkg, label, limitMinutes, enabled, weekendLimitMinutes, category)
 
     private fun usage(
         pkg: String,
@@ -34,9 +36,10 @@ class StatsMapperTest {
         usedMinutes: Int,
         earnedMinutes: Int = 0,
         blockedCount: Int = 0,
+        from: LocalDate = today,
     ) = DailyUsage(
         pkg,
-        today.minusDays(daysAgo).toString(),
+        from.minusDays(daysAgo).toString(),
         usedMinutes * 60L,
         earnedMinutes * 60L,
         blockedCount,
@@ -48,13 +51,14 @@ class StatsMapperTest {
         captures: List<Capture> = emptyList(),
         unlocks: List<DailyUnlocks> = emptyList(),
         allUsage: List<DailyUsage> = recentUsage,
+        on: LocalDate = today,
     ) = toStatsUiState(
         monitoredApps = apps,
         recentUsage = recentUsage,
         captures = captures,
         unlocks = unlocks,
         allUsage = allUsage,
-        today = today,
+        today = on,
         zone = zone,
     )
 
@@ -181,6 +185,55 @@ class StatsMapperTest {
         assertEquals(listOf(UsageColor.OTHER), state.breakdown.map { it.color })
     }
 
+    /**
+     * The donut used to be `topAppsBreakdown`: the top 3 apps by usage, sized by a 3-entry palette,
+     * with the rest silently dropped and no "+N others" bucket — so a device with 4+ monitored apps
+     * understated its own screen time. Grouping by category fixed that, and this pins it: whatever
+     * the app count, every enabled app's seconds must still be in the donut somewhere.
+     */
+    @Test
+    fun `every enabled app's time reaches the donut however many there are`() {
+        // Two apps per bucket, eight in total — well past the three the old palette could hold.
+        val apps = AppCategory.entries.flatMap { category ->
+            listOf(
+                app("${category.name}-1", "First", 60, category = category),
+                app("${category.name}-2", "Second", 60, category = category),
+            )
+        }
+        val usageMinutes = 5
+        val recentUsage = apps.map { usage(it.packageName, 0, usageMinutes) }
+
+        val state = map(apps = apps, recentUsage = recentUsage)
+
+        assertEquals(
+            "no app's time may be dropped",
+            apps.size * usageMinutes * 60L,
+            state.breakdown.sumOf { it.seconds },
+        )
+        assertEquals(
+            listOf("Social", "Productivity", "Entertainment", "Other"),
+            state.breakdown.map { it.label },
+        )
+    }
+
+    /**
+     * The donut describes the apps the user actually asked unPawse to watch. It matters that this is
+     * deliberate: the centre figure is summed from these same slices, so both sides agree on scope.
+     */
+    @Test
+    fun `a disabled app is left out of the donut`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, enabled = false, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 10), usage("b", 0, 45)),
+        )
+
+        assertEquals(listOf("Social"), state.breakdown.map { it.label })
+        assertEquals(listOf(600L), state.breakdown.map { it.seconds })
+    }
+
     @Test
     fun `a category with no usage today is left out entirely`() {
         val state = map(
@@ -227,6 +280,52 @@ class StatsMapperTest {
         assertEquals(3f, larger.toFloat() / smaller, 0.001f)
     }
 
+    // --- Donut centre --------------------------------------------------------------------------
+    // The centre used to show budget-left, a measurement the arcs around it know nothing about.
+
+    @Test
+    fun `the donut centre is the total of its own slices`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("b", "Bravo", 60, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 70), usage("b", 0, 35)),
+        )
+
+        assertEquals("1h 45m", state.breakdownTotal)
+        assertEquals(105 * 60L, state.breakdown.sumOf { it.seconds })
+    }
+
+    /**
+     * `dailyTotal` counts every usage row, including monitored-but-disabled apps the donut leaves
+     * out, so the centre has to be summed from the slices rather than reusing it.
+     */
+    @Test
+    fun `the centre ignores usage the donut does not draw`() {
+        val state = map(
+            apps = listOf(
+                app("a", "Alpha", 60, category = AppCategory.SOCIAL),
+                app("off", "Off", 60, enabled = false, category = AppCategory.PRODUCTIVITY),
+            ),
+            recentUsage = listOf(usage("a", 0, 30), usage("off", 0, 90)),
+        )
+
+        assertEquals("30m", state.breakdownTotal)
+        assertEquals("the daily total still counts everything", "2h", state.dailyTotal)
+    }
+
+    /** A day made entirely of uncapped apps has no headroom to report, so it blanks. */
+    @Test
+    fun `budget left blanks when nothing has a cap`() {
+        val state = map(
+            apps = listOf(app("free", "Free", UNLIMITED_MINUTES)),
+            recentUsage = listOf(usage("free", 0, 120)),
+        )
+
+        assertEquals("—", state.budgetLeftLabel)
+    }
+
     @Test
     fun `budget left percent reflects real usage`() {
         val state = map(
@@ -234,16 +333,44 @@ class StatsMapperTest {
             recentUsage = listOf(usage("a", 0, 15)),
         )
 
-        assertEquals(75, state.productivePercent)
+        assertEquals("75%", state.budgetLeftLabel)
+    }
+
+    /** The Saturday budget must be the one the blocker would enforce, not the weekday figure. */
+    @Test
+    fun `budget left follows the weekend override`() {
+        val saturday = LocalDate.of(2026, 7, 18)
+        val apps = listOf(app("a", "Alpha", 30, weekendLimitMinutes = 120))
+
+        val onSaturday = map(apps = apps, recentUsage = listOf(usage("a", 0, 30, from = saturday)), on = saturday)
+        assertEquals("75%", onSaturday.budgetLeftLabel)
+
+        // The same 30 minutes against the weekday budget is the whole allowance.
+        assertEquals("0%", map(apps = apps, recentUsage = listOf(usage("a", 0, 30))).budgetLeftLabel)
+    }
+
+    /**
+     * An unlimited app used to contribute a negative budget, so its own usage was charged against
+     * everyone else. One uncapped app made the whole day report "0% left".
+     */
+    @Test
+    fun `an uncapped app does not spend the capped apps budget`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 60), app("free", "Free", UNLIMITED_MINUTES)),
+            recentUsage = listOf(usage("a", 0, 15), usage("free", 0, 300)),
+        )
+
+        assertEquals("75%", state.budgetLeftLabel)
     }
 
     @Test
     fun `nothing monitored does not divide by zero`() {
         val state = map()
 
-        assertEquals(0, state.productivePercent)
+        assertEquals("—", state.budgetLeftLabel)
         assertEquals("0m", state.dailyTotal)
         assertTrue(state.breakdown.isEmpty())
+        assertEquals("0m", state.breakdownTotal)
     }
 
     @Test
@@ -270,17 +397,16 @@ class StatsMapperTest {
     }
 
     /**
-     * The mapper builds [StatsUiState] field by field rather than from `sample().copy(...)`, so the
-     * two remaining constants have to come from the mapper's own values. If someone reintroduces
-     * the `.copy(...)` base these still pass — which is why the test above also pins a *computed*
+     * The mapper builds [StatsUiState] field by field rather than from `sample().copy(...)`, so its
+     * one remaining constant has to come from the mapper's own value. If someone reintroduces the
+     * `.copy(...)` base this still passes — which is why the test above also pins a *computed*
      * field against `sample()`.
      */
     @Test
-    fun `the fixed axis and donut caption come from the mapper, not the mockup`() {
+    fun `the fixed axis comes from the mapper, not the mockup`() {
         val state = map()
 
         assertEquals(listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"), state.weekdayLabels)
-        assertEquals("Budget left", state.productiveLabel)
     }
 
     @Test

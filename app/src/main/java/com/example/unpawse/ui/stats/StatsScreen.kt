@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Celebration
+import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MilitaryTech
@@ -81,6 +82,13 @@ fun StatsScreen(
             }
         }
         item { UsageBreakdownCard(state, onDetails) }
+        item {
+            // Its own tile now that the donut reports screen time. The caption is part of the claim:
+            // uncapped apps are excluded, so a bare percentage would imply a whole-device figure.
+            MiniStatCard("Budget Left", state.budgetLeftLabel, Icons.Filled.HourglassBottom,
+                MaterialTheme.colorScheme.surfaceContainerHigh, Modifier.fillMaxWidth(),
+                caption = "TODAY, ACROSS CAPPED APPS")
+        }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 MiniStatCard("Longest Streak", state.longestStreak, Icons.Filled.LocalFireDepartment,
@@ -230,10 +238,12 @@ private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
                 segments = state.breakdown.map { DonutSegment(it.seconds.toFloat(), it.color.toColor()) },
                 modifier = Modifier.size(180.dp),
             ) {
+                // The total of the slices around it. The centre used to show budget left, an
+                // unrelated measurement, so the ring and the number it framed disagreed by design.
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${state.productivePercent}%", style = MaterialTheme.typography.headlineMedium,
+                    Text(state.breakdownTotal, style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text(state.productiveLabel, style = MaterialTheme.typography.bodyMedium,
+                    Text("Screen time", style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

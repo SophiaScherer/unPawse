@@ -6,10 +6,14 @@ import com.example.unpawse.data.capture.currentStreakDays
 import com.example.unpawse.data.capture.toLocalDate
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.data.usage.dailyBudget
+import com.example.unpawse.data.usage.effectiveLimitMinutes
+import com.example.unpawse.data.usage.isLimitReached
 import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.format.displayNameOf
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.format.formatSeconds
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -49,10 +53,11 @@ internal fun toHomeUiState(
     val enabled = monitoredApps.filter { it.enabled }
     val usageByPackage = todayUsage.associateBy { it.packageName }
 
-    val budgetSeconds = enabled.sumOf { it.dailyLimitMinutes.toLong() * 60 }
+    // Shared with Stats, so both screens honour weekend overrides and skip uncapped apps.
+    val budget = dailyBudget(enabled, usageByPackage, today.dayOfWeek)
+    val remainingSeconds = budget?.remainingSeconds ?: 0L
+    // Deliberately every enabled app, uncapped ones included: this is a total, not a budget claim.
     val usedSeconds = enabled.sumOf { usageByPackage[it.packageName]?.usedSeconds ?: 0 }
-    val earnedSeconds = enabled.sumOf { usageByPackage[it.packageName]?.earnedSeconds ?: 0 }
-    val remainingSeconds = (budgetSeconds + earnedSeconds - usedSeconds).coerceAtLeast(0)
 
     val captureDates = captures.map { it.capturedAt.toLocalDate(zone) }.toSet()
     val capturesToday = captures.filter { it.capturedAt.toLocalDate(zone) == today }
@@ -61,7 +66,7 @@ internal fun toHomeUiState(
     val banner = buildBanner(
         streakDays = streakDays,
         remainingSeconds = remainingSeconds,
-        budgetSeconds = budgetSeconds,
+        budgetSeconds = budget?.budgetSeconds ?: 0L,
     )
 
     return HomeUiState.sample().copy(
@@ -69,13 +74,12 @@ internal fun toHomeUiState(
         userName = displayName,
         avatarInitial = avatarInitialFor(userName),
         screenTimeUsedLabel = formatSeconds(usedSeconds),
-        // Guard against a zero budget (nothing monitored) rather than dividing by zero.
-        progressFraction = if (budgetSeconds == 0L) 0f else (usedSeconds.toFloat() / budgetSeconds).coerceIn(0f, 1f),
+        progressFraction = budget?.usedFraction ?: 0f,
         remainingLabel = formatSeconds(remainingSeconds),
         streakDays = streakDays,
         catCount = capturesToday.size,
         pausedAppsCount = enabled.size,
-        activities = buildActivities(enabled, usageByPackage, capturesToday, zone),
+        activities = buildActivities(enabled, usageByPackage, capturesToday, zone, today.dayOfWeek),
         bannerTitle = banner.title,
         bannerBody = banner.body,
     )
@@ -127,15 +131,18 @@ private fun buildActivities(
     usageByPackage: Map<String, DailyUsage>,
     capturesToday: List<Capture>,
     zone: ZoneId,
+    day: DayOfWeek,
 ): List<ActivityItem> {
     val blocked = enabledApps.mapNotNull { app ->
         val usage = usageByPackage[app.packageName] ?: return@mapNotNull null
-        val remaining = app.dailyLimitMinutes.toLong() * 60 - usage.usedSeconds + usage.earnedSeconds
-        if (remaining > 0) return@mapNotNull null
+        // Asks the enforcement path's own question. Open-coding it against `dailyLimitMinutes` put an
+        // uncapped app permanently in the list, reporting "Daily limit of -1m reached."
+        val limit = effectiveLimitMinutes(app.dailyLimitMinutes, app.weekendLimitMinutes, day)
+        if (!isLimitReached(limit, usage.usedSeconds, usage.earnedSeconds)) return@mapNotNull null
         ActivityItem(
             kind = ActivityKind.BLOCKED,
             title = "${app.appLabel} Blocked",
-            subtitle = "Daily limit of ${formatMinutes(app.dailyLimitMinutes)} reached.",
+            subtitle = "Daily limit of ${formatMinutes(limit)} reached.",
             time = "Now",
         )
     }

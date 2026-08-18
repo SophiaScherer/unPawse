@@ -3,6 +3,7 @@ package com.example.unpawse.ui.home
 import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,11 +18,16 @@ class HomeMapperTest {
     private val today = LocalDate.of(2026, 7, 16)
     private val morning = LocalTime.of(9, 0)
 
-    private fun app(pkg: String, label: String, limitMinutes: Int, enabled: Boolean = true) =
-        MonitoredApp(pkg, label, limitMinutes, enabled)
+    private fun app(
+        pkg: String,
+        label: String,
+        limitMinutes: Int,
+        enabled: Boolean = true,
+        weekendLimitMinutes: Int? = null,
+    ) = MonitoredApp(pkg, label, limitMinutes, enabled, weekendLimitMinutes)
 
-    private fun usage(pkg: String, usedMinutes: Int, earnedMinutes: Int = 0) =
-        DailyUsage(pkg, today.toString(), usedMinutes * 60L, earnedMinutes * 60L)
+    private fun usage(pkg: String, usedMinutes: Int, earnedMinutes: Int = 0, on: LocalDate = today) =
+        DailyUsage(pkg, on.toString(), usedMinutes * 60L, earnedMinutes * 60L)
 
     private fun capture(
         daysAgo: Long,
@@ -44,7 +50,8 @@ class HomeMapperTest {
         captures: List<Capture> = emptyList(),
         userName: String = "",
         time: LocalTime = morning,
-    ) = toHomeUiState(apps, todayUsage, captures, userName, today, zone, time)
+        on: LocalDate = today,
+    ) = toHomeUiState(apps, todayUsage, captures, userName, on, zone, time)
 
     @Test
     fun `totals sum across monitored apps`() {
@@ -240,5 +247,66 @@ class HomeMapperTest {
             "90% match. +1h earned back.",
             captureSubtitle(capture(daysAgo = 0, earnedMinutes = 60)),
         )
+    }
+
+    // --- Weekend and uncapped budgets -----------------------------------------------------------
+    // The ring summed raw `dailyLimitMinutes`, so it ignored weekend overrides and read an unlimited
+    // app as minus one minute of budget.
+
+    @Test
+    fun `the ring follows the weekend override`() {
+        val saturday = LocalDate.of(2026, 7, 18)
+        val state = map(
+            apps = listOf(app("a", "Alpha", 30, weekendLimitMinutes = 120)),
+            todayUsage = listOf(usage("a", 30, on = saturday)),
+            on = saturday,
+        )
+
+        assertEquals("1h 30m", state.remainingLabel)
+        assertEquals(0.25f, state.progressFraction, 0.001f)
+    }
+
+    @Test
+    fun `an uncapped app neither adds budget nor spends it`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 60), app("free", "Free", UNLIMITED_MINUTES)),
+            todayUsage = listOf(usage("a", 15), usage("free", 300)),
+        )
+
+        assertEquals("45m", state.remainingLabel)
+        assertEquals(0.25f, state.progressFraction, 0.001f)
+        // The used *total* still reports every enabled app: it is a total, not a budget claim.
+        assertEquals("5h 15m", state.screenTimeUsedLabel)
+    }
+
+    @Test
+    fun `an uncapped app is never reported as blocked`() {
+        val state = map(
+            apps = listOf(app("free", "Free", UNLIMITED_MINUTES)),
+            todayUsage = listOf(usage("free", 600)),
+        )
+
+        assertTrue(state.activities.none { it.kind == ActivityKind.BLOCKED })
+    }
+
+    @Test
+    fun `a blocked row quotes the limit that actually applied`() {
+        val saturday = LocalDate.of(2026, 7, 18)
+        val state = map(
+            apps = listOf(app("a", "Alpha", 30, weekendLimitMinutes = 15)),
+            todayUsage = listOf(usage("a", 20, on = saturday)),
+            on = saturday,
+        )
+
+        val blocked = state.activities.single { it.kind == ActivityKind.BLOCKED }
+        assertEquals("Daily limit of 15m reached.", blocked.subtitle)
+    }
+
+    @Test
+    fun `nothing capped leaves the ring empty and the setup banner up`() {
+        val state = map(apps = listOf(app("free", "Free", UNLIMITED_MINUTES)))
+
+        assertEquals(0f, state.progressFraction, 0f)
+        assertEquals("Welcome to unPawse!", state.bannerTitle)
     }
 }
