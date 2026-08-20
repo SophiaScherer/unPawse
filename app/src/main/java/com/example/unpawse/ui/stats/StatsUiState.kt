@@ -31,7 +31,8 @@ data class StatsUiState(
     val trendHasBaseline: Boolean,
     /** The trend's period, stated on the card's face because week-to-date isn't guessable. */
     val trendCaption: String,
-    val trendBars: List<Float>,
+    /** One per day of the same week [trendLabel] compares; `null` for a day still to come. */
+    val trendBars: List<Float?>,
     /**
      * The figure in the middle of the donut: the total of [breakdown], formatted.
      *
@@ -63,7 +64,8 @@ data class StatsUiState(
             trendIsUp = false,
             trendHasBaseline = true,
             trendCaption = "VS LAST WEEK, SAME DAYS",
-            trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f),
+            // highlightDayIndex is Friday, so the weekend has not happened yet.
+            trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f, null, null),
             breakdownTotal = "2h 37m",
             breakdown = listOf(
                 UsageCategory("Social", "1h 12m", 72 * 60L, UsageColor.SOCIAL),

@@ -591,6 +591,37 @@ class StatsMapperTest {
         assertEquals("VS LAST WEEK, SAME DAYS", state.trendCaption)
     }
 
+    // --- Trend sparkline ------------------------------------------------------------------------
+    // The bars used to be a rolling five days while the headline above them compared calendar
+    // weeks: two windows in one card, with nothing to tell them apart.
+
+    @Test
+    fun `the sparkline covers the same week as the headline`() {
+        // today is Thursday; Tuesday saw half of today's usage.
+        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 2, 30)))
+
+        assertEquals(7, state.trendBars.size)
+        assertEquals(state.weekdayLabels.size, state.trendBars.size)
+        assertEquals(1f, state.trendBars[3]!!, 0.001f)
+        assertEquals(0.5f, state.trendBars[1]!!, 0.001f)
+        assertEquals("Monday saw nothing, which is a real zero", 0f, state.trendBars[0]!!, 0.001f)
+    }
+
+    @Test
+    fun `days still to come have no bar`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 60)))
+
+        assertTrue("Fri-Sun have not happened", state.trendBars.takeLast(3).all { it == null })
+        assertTrue("Mon-Thu have", state.trendBars.take(4).none { it == null })
+    }
+
+    @Test
+    fun `a week with no usage still has a bar per elapsed day`() {
+        val state = map()
+
+        assertEquals(listOf(0f, 0f, 0f, 0f), state.trendBars.take(4))
+    }
+
     // --- Streak label ---------------------------------------------------------------------------
 
     @Test

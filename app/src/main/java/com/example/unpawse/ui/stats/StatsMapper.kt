@@ -21,7 +21,6 @@ import kotlin.math.roundToInt
 const val STATS_HISTORY_DAYS = 14L
 
 private const val DAYS_IN_WEEK = 7
-private const val TREND_BAR_COUNT = 5
 private const val SECONDS_PER_HOUR = 3600f
 
 /** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
@@ -118,7 +117,7 @@ internal fun toStatsUiState(
         trendIsUp = trendDeltaSeconds > 0,
         trendHasBaseline = trendHasBaseline,
         trendCaption = if (trendHasBaseline) TREND_CAPTION else TREND_NO_BASELINE_CAPTION,
-        trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
+        trendBars = weekBars(week, today, ::usedOn),
         breakdownTotal = formatSeconds(breakdown.sumOf { it.seconds }),
         breakdown = breakdown,
         budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
@@ -192,11 +191,29 @@ internal fun trendLabel(deltaSeconds: Long): String {
     return "$sign${rounded}h"
 }
 
-/** Last [TREND_BAR_COUNT] days, oldest first, normalised against the busiest of them. */
-private fun trendBars(usedOn: (Long) -> Long): List<Float> {
-    val days = (TREND_BAR_COUNT - 1 downTo 0).map { usedOn(it.toLong()) }
-    val peak = days.maxOrNull() ?: 0L
-    return if (peak == 0L) List(TREND_BAR_COUNT) { 0f } else days.map { it.toFloat() / peak }
+/**
+ * The Trend card's sparkline, normalised against the busiest day of the week.
+ *
+ * Drawn over the **same Mon–Sun week the headline compares**. It used to be a rolling five days,
+ * so one small card held two different windows with nothing to tell them apart.
+ *
+ * A day still to come is `null`, not `0f`: it has no value to draw, and a zero would claim a day
+ * spent off the phone. Same distinction [StatsUiState.weeklyPoints] makes.
+ */
+private fun weekBars(
+    week: List<LocalDate>,
+    today: LocalDate,
+    usedOn: (LocalDate) -> Long,
+): List<Float?> {
+    val elapsed = week.filterNot { it.isAfter(today) }
+    val peak = elapsed.maxOfOrNull(usedOn) ?: 0L
+    return week.map { day ->
+        when {
+            day.isAfter(today) -> null
+            peak == 0L -> 0f
+            else -> usedOn(day).toFloat() / peak
+        }
+    }
 }
 
 /**
