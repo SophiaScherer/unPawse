@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -20,6 +21,14 @@ fun HomeRoute(
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val focus by viewModel.focus.collectAsStateWithLifecycle()
+
+    // Both special permissions change only while the user is away in system Settings, so re-read them
+    // on the way back. Starting the monitor is not this screen's job — `UnPawseApp` does it app-wide
+    // on every resume; this only refreshes what Home reports about it.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshPermissions()
+        onPauseOrDispose { }
+    }
 
     HomeScreen(
         state = state,

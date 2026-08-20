@@ -53,7 +53,10 @@ class HomeMapperTest {
         userName: String = "",
         time: LocalTime = morning,
         on: LocalDate = today,
-    ) = toHomeUiState(apps, todayUsage, captures, userName, on, zone, time)
+        // Every pre-existing case was written before protection was modelled, so they keep asserting
+        // the fully-permitted screen.
+        protection: ProtectionStatus = ProtectionStatus.ACTIVE,
+    ) = toHomeUiState(apps, todayUsage, captures, userName, protection, on, zone, time)
 
     @Test
     fun `totals sum across monitored apps`() {
@@ -159,32 +162,32 @@ class HomeMapperTest {
 
     @Test
     fun `banner guides setup when nothing is monitored`() {
-        val banner = buildBanner(streakDays = 0, remainingSeconds = 0, budgetSeconds = 0)
+        val banner = buildBanner(ProtectionStatus.ACTIVE, streakDays = 0, remainingSeconds = 0, budgetSeconds = 0)
         assertEquals("Welcome to unPawse!", banner.title)
     }
 
     @Test
     fun `banner celebrates a streak of three or more`() {
-        val banner = buildBanner(streakDays = 5, remainingSeconds = 3600, budgetSeconds = 7200)
+        val banner = buildBanner(ProtectionStatus.ACTIVE, streakDays = 5, remainingSeconds = 3600, budgetSeconds = 7200)
         assertEquals("🔥 5-day streak!", banner.title)
     }
 
     @Test
     fun `banner nudges when the budget is spent`() {
-        val banner = buildBanner(streakDays = 0, remainingSeconds = 0, budgetSeconds = 7200)
+        val banner = buildBanner(ProtectionStatus.ACTIVE, streakDays = 0, remainingSeconds = 0, budgetSeconds = 7200)
         assertEquals("Limit reached", banner.title)
     }
 
     @Test
     fun `banner warns when little time is left`() {
-        val banner = buildBanner(streakDays = 0, remainingSeconds = 5 * 60, budgetSeconds = 7200)
+        val banner = buildBanner(ProtectionStatus.ACTIVE, streakDays = 0, remainingSeconds = 5 * 60, budgetSeconds = 7200)
         assertEquals("Almost there", banner.title)
         assertEquals("Only 5m of screen time left today.", banner.body)
     }
 
     @Test
     fun `banner is upbeat with plenty of budget left`() {
-        val banner = buildBanner(streakDays = 1, remainingSeconds = 3600, budgetSeconds = 7200)
+        val banner = buildBanner(ProtectionStatus.ACTIVE, streakDays = 1, remainingSeconds = 3600, budgetSeconds = 7200)
         assertEquals("Looking sharp today!", banner.title)
     }
 
@@ -366,5 +369,139 @@ class HomeMapperTest {
         )
 
         assertEquals("0m", state.remainingLabel)
+    }
+
+    // --- Protection status ----------------------------------------------------------------------
+    // Home used to report a green dot, a real remaining figure and "Looking sharp today!" with
+    // neither permission granted — nothing tracked, and no block able to fire.
+
+    @Test
+    fun `both permissions granted is active protection`() {
+        assertEquals(
+            ProtectionStatus.ACTIVE,
+            resolveProtection(usageAccessGranted = true, overlayAccessGranted = true),
+        )
+    }
+
+    @Test
+    fun `usage access without the overlay tracks but cannot block`() {
+        assertEquals(
+            ProtectionStatus.TRACKING_ONLY,
+            resolveProtection(usageAccessGranted = true, overlayAccessGranted = false),
+        )
+    }
+
+    @Test
+    fun `no usage access is off however the overlay stands`() {
+        // Usage access is the gate the service itself refuses on, so the overlay can't rescue it.
+        assertEquals(
+            ProtectionStatus.OFF,
+            resolveProtection(usageAccessGranted = false, overlayAccessGranted = true),
+        )
+        assertEquals(
+            ProtectionStatus.OFF,
+            resolveProtection(usageAccessGranted = false, overlayAccessGranted = false),
+        )
+    }
+
+    /** The reported bug, end to end: a 30m limit with neither permission granted. */
+    @Test
+    fun `protection off publishes no usage figure at all`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 30)),
+            todayUsage = listOf(usage("a", 10)),
+            protection = ProtectionStatus.OFF,
+        )
+
+        assertEquals(NO_DATA, state.remainingLabel)
+        assertEquals(NO_DATA, state.screenTimeUsedLabel)
+        assertEquals(0f, state.progressFraction, 0f)
+        assertEquals("Protection is off", state.bannerTitle)
+    }
+
+    @Test
+    fun `protection off leaves the capture metrics alone`() {
+        // Photographing a cat needs neither special permission, so the streak and today's count are
+        // as true with protection off as with it on.
+        val state = map(
+            apps = emptyList(),
+            captures = listOf(capture(daysAgo = 0), capture(daysAgo = 1), capture(daysAgo = 2)),
+            protection = ProtectionStatus.OFF,
+        )
+
+        assertEquals(3, state.streakDays)
+        assertEquals(1, state.catCount)
+    }
+
+    @Test
+    fun `tracking only keeps every figure real`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 60)),
+            todayUsage = listOf(usage("a", 15)),
+            protection = ProtectionStatus.TRACKING_ONLY,
+        )
+
+        // Usage really is accruing; it just can't be acted on.
+        assertEquals("15m", state.screenTimeUsedLabel)
+        assertEquals("45m", state.remainingLabel)
+        assertEquals(0.25f, state.progressFraction, 0.001f)
+        assertEquals("Limits can't be enforced", state.bannerTitle)
+    }
+
+    @Test
+    fun `a block is only reported when one could actually have fired`() {
+        val overBudget = listOf(app("a", "Alpha", 10))
+        val usage = listOf(usage("a", 30))
+
+        assertTrue(
+            "tracking-only cannot raise a block, so it must not claim one",
+            map(overBudget, usage, protection = ProtectionStatus.TRACKING_ONLY)
+                .activities.none { it.kind == ActivityKind.BLOCKED },
+        )
+        assertTrue(
+            map(overBudget, usage, protection = ProtectionStatus.OFF)
+                .activities.none { it.kind == ActivityKind.BLOCKED },
+        )
+        assertTrue(
+            map(overBudget, usage, protection = ProtectionStatus.ACTIVE)
+                .activities.any { it.kind == ActivityKind.BLOCKED },
+        )
+    }
+
+    // --- Banner ranking -------------------------------------------------------------------------
+    // Limits configured without permissions do nothing whatever, so protection outranks every
+    // reassuring branch beneath it.
+
+    @Test
+    fun `protection outranks a streak celebration`() {
+        val banner = buildBanner(
+            ProtectionStatus.OFF,
+            streakDays = 5,
+            remainingSeconds = 3600,
+            budgetSeconds = 7200,
+        )
+        assertEquals("Protection is off", banner.title)
+    }
+
+    @Test
+    fun `protection outranks a spent budget`() {
+        val banner = buildBanner(
+            ProtectionStatus.TRACKING_ONLY,
+            streakDays = 0,
+            remainingSeconds = 0,
+            budgetSeconds = 7200,
+        )
+        assertEquals("Limits can't be enforced", banner.title)
+    }
+
+    @Test
+    fun `protection outranks the add-limits welcome`() {
+        val banner = buildBanner(
+            ProtectionStatus.OFF,
+            streakDays = 0,
+            remainingSeconds = 0,
+            budgetSeconds = 0,
+        )
+        assertEquals("Protection is off", banner.title)
     }
 }
