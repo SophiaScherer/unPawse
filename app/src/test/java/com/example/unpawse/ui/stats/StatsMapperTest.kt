@@ -547,12 +547,48 @@ class StatsMapperTest {
      */
     @Test
     fun `the trend uses the same calendar week the chart draws`() {
-        // today is Thursday 2026-07-16; Monday of this week is the 13th, so 4 days ago (the 12th)
-        // is last week and must not count toward this week.
-        val state = map(recentUsage = listOf(usage("a", 4, 60)))
+        // today is Thursday 2026-07-16; Monday of this week is the 13th, so 7 days ago (Thursday
+        // the 9th) is last week and must not count toward this week.
+        val state = map(recentUsage = listOf(usage("a", 7, 60)))
 
         assertEquals("this week saw no usage, last week saw an hour", "-1.0h", state.trendLabel)
         assertFalse(state.trendIsUp)
+    }
+
+    // --- Trend baseline and window --------------------------------------------------------------
+    // Last week used to be summed whole against a Monday-to-today this week: on a Wednesday, 3 days
+    // measured against 7, so the figure read hugely negative every Monday and drifted up all week.
+
+    /**
+     * A fresh install has no last week, so `lastWeekSeconds` was 0 and any usage at all rendered a
+     * signed figure with an upward arrow — a week-over-week change against a week that never was.
+     */
+    @Test
+    fun `a first install has no week to compare against`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 30)))
+
+        assertFalse(state.trendHasBaseline)
+        assertEquals("—", state.trendLabel)
+        assertEquals("NO DATA FOR LAST WEEK", state.trendCaption)
+    }
+
+    @Test
+    fun `last week's later days are outside the comparison`() {
+        // Sunday the 12th is last week, but past today's weekday — this week has no Sunday yet, so
+        // counting it would compare 4 days against 7.
+        val state = map(recentUsage = listOf(usage("a", 4, 60)))
+
+        assertFalse("nothing comparable was measured last Mon-Thu", state.trendHasBaseline)
+        assertEquals("—", state.trendLabel)
+    }
+
+    @Test
+    fun `the same weekday last week is the baseline`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 7, 60)))
+
+        assertTrue(state.trendHasBaseline)
+        assertEquals("an equal Thursday is no change", "0.0h", state.trendLabel)
+        assertEquals("VS LAST WEEK, SAME DAYS", state.trendCaption)
     }
 
     // --- Streak label ---------------------------------------------------------------------------

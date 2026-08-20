@@ -27,6 +27,10 @@ private const val SECONDS_PER_HOUR = 3600f
 /** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
 private val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
+/** The trend's period, on the card's face — the rule the "THIS WEEK" line on Prevented follows. */
+private const val TREND_CAPTION = "VS LAST WEEK, SAME DAYS"
+private const val TREND_NO_BASELINE_CAPTION = "NO DATA FOR LAST WEEK"
+
 /**
  * Builds [StatsUiState] from usage history + captures. Pure and parameterised on [today]/[zone] so
  * it's unit-testable without a clock.
@@ -62,12 +66,20 @@ internal fun toStatsUiState(
     val todaySeconds = usedOn(today)
     val yesterdaySeconds = usedOn(today.minusDays(1))
 
-    // Calendar weeks, deliberately the *same* Mon–Sun weeks the chart draws. These used to be
+    // Calendar weeks, deliberately the *same* Mon–Sun week the chart draws. These used to be
     // rolling 7-day windows, so on a Monday the trend counted days that the chart didn't show at
     // all — "usage up 0.6h this week" sat next to a chart that was flat all week.
-    val thisWeekSeconds = week.sumOf(::usedOn)
-    val lastWeekSeconds = (1..DAYS_IN_WEEK).sumOf { usedOn(monday.minusDays(it.toLong())) }
+    //
+    // Both sides stop at the same weekday. Last week used to be summed whole against a
+    // Monday-to-today this week, so on a Wednesday it was 3 days measured against 7 — hugely
+    // negative every Monday and drifting upward all week whatever the user actually did.
+    val elapsedThisWeek = week.take(today.dayOfWeek.value)
+    val thisWeekSeconds = elapsedThisWeek.sumOf(::usedOn)
+    val lastWeekSeconds = elapsedThisWeek.sumOf { usedOn(it.minusDays(DAYS_IN_WEEK.toLong())) }
     val trendDeltaSeconds = thisWeekSeconds - lastWeekSeconds
+    // No last week means nothing to compare against, so neither a figure nor an arrow is drawn —
+    // the same rule deltaHasBaseline carries one card over.
+    val trendHasBaseline = lastWeekSeconds > 0L
 
     // Blocks over the same Mon–Sun week the chart draws and the trend compares — the card says
     // "THIS WEEK" on its face, and all three must agree on which week that is.
@@ -101,9 +113,11 @@ internal fun toStatsUiState(
         weeklyPoints = week.map { usedOn(it) / SECONDS_PER_HOUR },
         weekdayLabels = WEEKDAY_LABELS,
         highlightDayIndex = today.dayOfWeek.value - 1,
-        trendLabel = trendLabel(trendDeltaSeconds),
+        trendLabel = if (trendHasBaseline) trendLabel(trendDeltaSeconds) else NO_DATA,
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
         trendIsUp = trendDeltaSeconds > 0,
+        trendHasBaseline = trendHasBaseline,
+        trendCaption = if (trendHasBaseline) TREND_CAPTION else TREND_NO_BASELINE_CAPTION,
         trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
         breakdownTotal = formatSeconds(breakdown.sumOf { it.seconds }),
         breakdown = breakdown,

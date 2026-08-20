@@ -23,6 +23,14 @@ data class StatsUiState(
     val trendLabel: String,
     /** Whether week-over-week usage rose. Drives the arrow direction, which used to be hardcoded. */
     val trendIsUp: Boolean,
+    /**
+     * Whether [trendLabel] is a real comparison. False until there is a last week to measure
+     * against — a fresh install summed zero for it and rendered "+0.5h" beside an upward arrow, a
+     * week-over-week change against a week that never happened. Same shape as [deltaHasBaseline].
+     */
+    val trendHasBaseline: Boolean,
+    /** The trend's period, stated on the card's face because week-to-date isn't guessable. */
+    val trendCaption: String,
     val trendBars: List<Float>,
     /**
      * The figure in the middle of the donut: the total of [breakdown], formatted.
@@ -53,6 +61,8 @@ data class StatsUiState(
             preventedCount = 42,
             trendLabel = "-5.2h",
             trendIsUp = false,
+            trendHasBaseline = true,
+            trendCaption = "VS LAST WEEK, SAME DAYS",
             trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f),
             breakdownTotal = "2h 37m",
             breakdown = listOf(
