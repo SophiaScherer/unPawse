@@ -89,3 +89,37 @@ class UsageStatsForegroundAppMonitor(
         private const val INITIAL_LOOKBACK_MILLIS = 60_000L
     }
 }
+
+/**
+ * What is in front, as the platform reports it: a package *and* the activity within it.
+ *
+ * The class name is load-bearing — moving between two screens of one app emits a pause for the old
+ * activity *after* the resume of the new one, so tracking the package alone would read that trailing
+ * pause as "the app went away" while the user is still sitting in it.
+ */
+internal data class ForegroundActivity(val packageName: String, val className: String?)
+
+/** One foreground transition, with the platform's event constants already stripped off. */
+internal data class ForegroundTransition(val activity: ForegroundActivity, val resumed: Boolean)
+
+/**
+ * Folds one poll window's [transitions] over what was in front at the start of it.
+ *
+ * A pause/stop only clears the state when it names the activity we're tracking, so the usual app
+ * switch (A paused, B resumed, A stopped) lands on B rather than on nothing. An empty window leaves
+ * [seed] alone — that's the user sitting still, which is most windows. Returning null is the point
+ * of the whole function: "the app we were tracking went away and nothing replaced it" has to be
+ * distinguishable from "nothing happened", or a block can never re-fire.
+ *
+ * Pure, so the rule is unit-tested without `UsageStatsManager`.
+ */
+internal fun resolveForeground(
+    seed: ForegroundActivity?,
+    transitions: List<ForegroundTransition>,
+): ForegroundActivity? = transitions.fold(seed) { current, transition ->
+    when {
+        transition.resumed -> transition.activity
+        transition.activity == current -> null
+        else -> current
+    }
+}
