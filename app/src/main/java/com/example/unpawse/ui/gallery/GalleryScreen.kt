@@ -44,6 +44,7 @@ import com.example.unpawse.ui.components.EarnedChip
 import com.example.unpawse.ui.components.EmptyStateCard
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ScreenHeader
+import com.example.unpawse.ui.components.clearFocusOnScroll
 import com.example.unpawse.ui.components.SearchField
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
@@ -69,7 +70,7 @@ fun GalleryScreen(
 
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().clearFocusOnScroll(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = Dimens.ScreenHMargin,
             end = Dimens.ScreenHMargin,

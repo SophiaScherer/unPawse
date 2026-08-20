@@ -28,12 +28,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.ui.components.BackHeader
+import com.example.unpawse.ui.components.clearFocusOnScroll
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.SearchField
 import com.example.unpawse.ui.components.ValueStepper
@@ -58,6 +60,11 @@ fun AppPickerScreen(
     onCategoryChange: (AppLimitItem, AppCategory) -> Unit = { _, _ -> },
     onOpenSchedules: () -> Unit = {},
 ) {
+    val focusManager = LocalFocusManager.current
+    // Reaching for any row control means the user is done typing, and the keyboard is sitting over
+    // the rows they are aiming at — so every one of them dismisses it before doing its own job.
+    val dismissKeyboard = { focusManager.clearFocus() }
+
     Column(modifier = modifier.fillMaxWidth()) {
         AppPickerHeader(monitoredCount = state.monitoredCount, onBack = onBack)
 
@@ -74,6 +81,7 @@ fun AppPickerScreen(
             state.isLoading -> LoadingState()
             state.apps.isEmpty() -> EmptyState(hasQuery = state.searchQuery.isNotBlank())
             else -> LazyColumn(
+                modifier = Modifier.clearFocusOnScroll(),
                 contentPadding = PaddingValues(
                     start = Dimens.ScreenHMargin,
                     end = Dimens.ScreenHMargin,
@@ -84,11 +92,11 @@ fun AppPickerScreen(
                 items(state.apps, key = { it.packageName }) { app ->
                     AppLimitRow(
                         item = app,
-                        onToggleMonitored = { onToggleMonitored(app, it) },
-                        onLimitChange = { onLimitChange(app, it) },
-                        onWeekendLimitChange = { onWeekendLimitChange(app, it) },
-                        onCategoryChange = { onCategoryChange(app, it) },
-                        onOpenSchedules = onOpenSchedules,
+                        onToggleMonitored = { dismissKeyboard(); onToggleMonitored(app, it) },
+                        onLimitChange = { dismissKeyboard(); onLimitChange(app, it) },
+                        onWeekendLimitChange = { dismissKeyboard(); onWeekendLimitChange(app, it) },
+                        onCategoryChange = { dismissKeyboard(); onCategoryChange(app, it) },
+                        onOpenSchedules = { dismissKeyboard(); onOpenSchedules() },
                     )
                 }
             }
