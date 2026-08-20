@@ -202,6 +202,26 @@ class UsageTrackerTest {
         )
     }
 
+    @Test
+    fun `an unknown foreground re-arms the block just like an app switch`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 0)
+
+        // A null tick is the monitor saying "the app went away and nothing replaced it" — what
+        // Recents raises. Without the re-arm the return is silent and the block never fires again.
+        val tracker = tracker(listOf("com.ig", null, "com.ig"))
+        val (signals, collector) = collectSignals(tracker)
+        tracker.run()
+        collector.cancel()
+
+        assertEquals(
+            listOf(
+                BlockEvent("com.ig", BlockReason.LIMIT),
+                BlockEvent("com.ig", BlockReason.LIMIT),
+            ),
+            signals,
+        )
+    }
+
     /** Enforcement moved to the current package; crediting deliberately did not. */
     @Test
     fun `usage is still credited to the app that was in front for the interval`() = runBlocking {
