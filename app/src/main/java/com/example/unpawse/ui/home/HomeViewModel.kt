@@ -39,7 +39,9 @@ class HomeViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-        initialValue = HomeUiState.sample(),
+        // Shown for the one frame before the repositories emit. Seeding this with `sample()` meant
+        // every cold launch opened on the mockup's name, streak and screen time.
+        initialValue = HomeUiState.empty(),
     )
 
     /**
