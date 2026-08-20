@@ -216,10 +216,10 @@ private fun MeowChipRow() {
         Text(
             "Meow!",
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
+                .background(MaterialTheme.colorScheme.primaryContainer)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         )
     }

@@ -260,8 +260,6 @@ fun SettingsScreen(
                 SettingsRow(
                     title = "Individual app limits", subtitle = state.appLimitsSummary,
                     leadingIcon = Icons.Filled.Apps,
-                    iconTint = MaterialTheme.colorScheme.secondary,
-                    iconBackground = MaterialTheme.colorScheme.secondaryContainer,
                     onClick = { onRowClick(SettingsRowIds.APP_LIMITS) }, trailing = { Chevron() },
                 )
                 // The other half of a limit: not how much, but when. Sits beside the per-app

@@ -134,8 +134,6 @@ private fun ScheduleRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconTile(
                 icon = Icons.Filled.Bedtime,
-                tint = MaterialTheme.colorScheme.secondary,
-                background = MaterialTheme.colorScheme.secondaryContainer,
             )
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {

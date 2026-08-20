@@ -183,8 +183,8 @@ private fun FocusCard(
     PawCard(modifier = modifier, onClick = if (focus.active) null else onStart) {
         IconTile(
             icon = Icons.Filled.Timer,
-            tint = MaterialTheme.colorScheme.secondary,
-            background = MaterialTheme.colorScheme.secondaryContainer,
+            tint = MaterialTheme.colorScheme.primary,
+            background = MaterialTheme.colorScheme.primaryContainer,
             shape = CircleShape,
         )
         Spacer(Modifier.height(12.dp))
@@ -194,7 +194,7 @@ private fun FocusCard(
                 focus.remainingLabel,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
+                color = MaterialTheme.colorScheme.primary,
             )
             TextButton(onClick = onStop, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
                 Text("Stop", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

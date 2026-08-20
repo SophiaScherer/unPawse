@@ -17,7 +17,7 @@ val BlushContainer = Color(0xFFF5B6C8)
 val OnBlushContainer = Color(0xFF744554)
 val InversePrimaryPink = Color(0xFFF4B5C7)
 
-// Secondary — sage green (health successes / confirmations)
+// Sage green — reached only through the `success` tokens, never the M3 secondary slot.
 val Sage = Color(0xFF286B33)
 val OnSecondary = Color(0xFFFFFFFF)
 val SageContainer = Color(0xFFABF4AC)

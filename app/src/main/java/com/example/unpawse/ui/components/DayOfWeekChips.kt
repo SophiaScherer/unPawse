@@ -57,6 +57,7 @@ fun DayOfWeekChips(
                         )
                     },
                     shape = FilterChipDefaults.shape,
+                    colors = selectedChipColors(),
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -77,10 +78,22 @@ fun DayPresetChips(
                 selected = daysMask == mask,
                 onClick = { onMaskChange(mask) },
                 label = { Text(label, style = MaterialTheme.typography.labelLarge) },
+                colors = selectedChipColors(),
             )
         }
     }
 }
+
+/**
+ * Selection is the plum accent. M3's default picks `secondaryContainer`, which in this palette is
+ * the sage green — selection state is not a success, and the Gallery's filter row already reads
+ * plum, so the two chip rows would otherwise disagree.
+ */
+@Composable
+private fun selectedChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+)
 
 private val PRESETS = listOf(
     "Every day" to EVERY_DAY_MASK,

@@ -306,7 +306,7 @@ private fun MiniStatCard(
 private fun CapturedPhotosBanner(photos: String) {
     PawCard(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
         shadowElevation = 0.dp,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -318,17 +318,17 @@ private fun CapturedPhotosBanner(photos: String) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Filled.PhotoLibrary, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Captured Cat Photos", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Text(photos, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
             Icon(Icons.Filled.Celebration, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f), modifier = Modifier.size(28.dp))
+                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f), modifier = Modifier.size(28.dp))
         }
     }
 }
