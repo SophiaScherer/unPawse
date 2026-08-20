@@ -2,8 +2,10 @@ package com.example.unpawse.data
 
 import android.content.Context
 import com.example.unpawse.BuildConfig
+import com.example.unpawse.data.apps.DeviceUsageProvider
 import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.apps.PackageManagerInstalledAppsProvider
+import com.example.unpawse.data.apps.UsageStatsDeviceUsageProvider
 import com.example.unpawse.data.capture.CaptureDatabase
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.PhotoStorage
@@ -54,6 +56,12 @@ interface AppContainer {
      */
     val unlockRepository: UnlockRepository
     val installedAppsProvider: InstalledAppsProvider
+
+    /**
+     * The platform's own per-app usage figures, behind the App Picker's "most used" sort. Separate
+     * from [usageRepository] on purpose: that one knows only about apps already being monitored.
+     */
+    val deviceUsageProvider: DeviceUsageProvider
 
     /** Gathers every store into one bundle for Settings → Export data. */
     val exportRepository: ExportRepository
@@ -161,6 +169,12 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val installedAppsProvider: InstalledAppsProvider by lazy {
         PackageManagerInstalledAppsProvider(appContext)
+    }
+
+    // Lazy like its neighbour, and deliberately not one of the eager exceptions below: its first
+    // read is a UI read, never a blocking decision taken in the expression that creates it.
+    override val deviceUsageProvider: DeviceUsageProvider by lazy {
+        UsageStatsDeviceUsageProvider(appContext)
     }
 
     override val exportRepository: ExportRepository by lazy {
