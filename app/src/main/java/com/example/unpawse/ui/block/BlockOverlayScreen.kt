@@ -35,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.CatPhotoPlaceholder
 import com.example.unpawse.ui.theme.UnPawseTheme
+import com.example.unpawse.ui.theme.unPawseColors
 
 /** Copy for the "Time for a Break" overlay. [showCamera] is false for a focus hard-block. */
 data class BlockUiState(
@@ -127,7 +128,7 @@ fun BlockOverlayScreen(
             CatEars()
             Surface(
                 shape = RoundedCornerShape(32.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                color = MaterialTheme.unPawseColors.cardSurface,
                 shadowElevation = 4.dp,
                 modifier = Modifier.padding(top = 24.dp),
             ) {
@@ -216,10 +217,10 @@ private fun MeowChipRow() {
         Text(
             "Meow!",
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
+                .background(MaterialTheme.colorScheme.primaryContainer)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         )
     }

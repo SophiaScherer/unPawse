@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +44,7 @@ private const val SENSITIVITY_STEPS = 3
  * reports on release: [onSensitivityChange] writes to DataStore, and the previous wiring called it
  * on every drag frame.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SensitivityControl(
     sensitivity: Float,
@@ -68,12 +71,22 @@ fun SensitivityControl(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // M3 defaults paint the unfilled track `secondaryContainer` — bright green — and cap it with
+        // a stop indicator in the *active* colour, so the remainder read as a second value with its
+        // own marker rather than as the empty part of one bar.
+        val sliderColors = SliderDefaults.colors(
+            inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
         Slider(
             value = dragged,
             onValueChange = { dragged = it },
             onValueChangeFinished = { onSensitivityChange(dragged) },
+            colors = sliderColors,
             steps = SENSITIVITY_STEPS,
             modifier = Modifier.padding(top = 4.dp),
+            track = { state ->
+                SliderDefaults.Track(sliderState = state, colors = sliderColors, drawStopIndicator = null)
+            },
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Low", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

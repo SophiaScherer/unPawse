@@ -56,6 +56,7 @@ import com.example.unpawse.ui.components.TimelineEntry
 import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
+import com.example.unpawse.ui.theme.unPawseColors
 
 /** Focus-session lengths offered by the duration picker, in minutes. */
 private val FOCUS_DURATION_OPTIONS = listOf(15, 30, 60)
@@ -182,8 +183,8 @@ private fun FocusCard(
     PawCard(modifier = modifier, onClick = if (focus.active) null else onStart) {
         IconTile(
             icon = Icons.Filled.Timer,
-            tint = MaterialTheme.colorScheme.secondary,
-            background = MaterialTheme.colorScheme.secondaryContainer,
+            tint = MaterialTheme.colorScheme.primary,
+            background = MaterialTheme.colorScheme.primaryContainer,
             shape = CircleShape,
         )
         Spacer(Modifier.height(12.dp))
@@ -193,7 +194,7 @@ private fun FocusCard(
                 focus.remainingLabel,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
+                color = MaterialTheme.colorScheme.primary,
             )
             TextButton(onClick = onStop, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
                 Text("Stop", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -278,7 +279,7 @@ private fun PauseProtectionCard(
                     .clip(CircleShape)
                     .background(
                         if (healthy) {
-                            MaterialTheme.colorScheme.secondary
+                            MaterialTheme.unPawseColors.success
                         } else {
                             MaterialTheme.colorScheme.error
                         },
@@ -319,7 +320,7 @@ private fun QuickAction(
     modifier: Modifier = Modifier,
     filled: Boolean = false,
 ) {
-    val container = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLowest
+    val container = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.unPawseColors.cardSurface
     val content = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
     PawCard(
         modifier = modifier,
@@ -400,8 +401,8 @@ private fun PromoBanner(title: String, body: String) {
 private fun ActivityItem.toTimelineEntry(): TimelineEntry = when (kind) {
     ActivityKind.VERIFIED -> TimelineEntry(
         icon = Icons.Filled.Verified,
-        iconTint = MaterialTheme.colorScheme.secondary,
-        iconBackground = MaterialTheme.colorScheme.secondaryContainer,
+        iconTint = MaterialTheme.unPawseColors.success,
+        iconBackground = MaterialTheme.unPawseColors.successContainer,
         title = title, subtitle = subtitle, time = time,
     )
     ActivityKind.BLOCKED -> TimelineEntry(

@@ -16,8 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.ui.theme.unPawseColors
 
-/** Green "time earned" pill (e.g. "+45m") shown on gallery captures. */
+/** The "time earned" pill (e.g. "+45m") shown on gallery captures. */
 @Composable
 fun EarnedChip(
     text: String,
@@ -26,10 +27,10 @@ fun EarnedChip(
     Text(
         text = text,
         style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSecondaryContainer,
+        color = MaterialTheme.unPawseColors.onSuccessContainer,
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .background(MaterialTheme.unPawseColors.successContainer)
             .padding(horizontal = 8.dp, vertical = 4.dp),
     )
 }

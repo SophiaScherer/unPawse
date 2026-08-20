@@ -107,8 +107,6 @@ fun PhotoStorageScreen(
                 SettingsRow(
                     title = "Space used",
                     leadingIcon = Icons.Filled.Storage,
-                    iconTint = MaterialTheme.colorScheme.secondary,
-                    iconBackground = MaterialTheme.colorScheme.secondaryContainer,
                     trailing = { ValueText(state.storageLabel) },
                 )
             }

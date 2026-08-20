@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
@@ -21,10 +22,13 @@ private val LightColors = lightColorScheme(
     primaryContainer = BlushContainer,
     onPrimaryContainer = OnBlushContainer,
     inversePrimary = InversePrimaryPink,
-    secondary = Sage,
-    onSecondary = OnSecondary,
-    secondaryContainer = SageContainer,
-    onSecondaryContainer = OnSageContainer,
+    // Plum, not sage. Nothing reads these slots directly any more — green reaches the UI only as
+    // `unPawseColors.success` — so leaving a loaded green here would let any unstyled M3 component
+    // quietly reintroduce it, which is how it became a system colour the first time.
+    secondary = OnBlushContainer,
+    onSecondary = OnPrimary,
+    secondaryContainer = PrimaryFixed,
+    onSecondaryContainer = OnPrimaryFixed,
     tertiary = Coral,
     onTertiary = OnTertiary,
     tertiaryContainer = CoralContainer,
@@ -62,10 +66,10 @@ private val DarkColors = darkColorScheme(
     primaryContainer = OnPrimaryFixedVariant,
     onPrimaryContainer = PrimaryFixed,
     inversePrimary = Plum,
-    secondary = SecondaryFixedDim,
-    onSecondary = OnSecondaryFixed,
-    secondaryContainer = OnSecondaryFixedVariant,
-    onSecondaryContainer = SageContainer,
+    secondary = PrimaryFixed,
+    onSecondary = OnPrimaryFixed,
+    secondaryContainer = OnPrimaryFixedVariant,
+    onSecondaryContainer = PrimaryFixed,
     tertiary = TertiaryFixedDim,
     onTertiary = OnTertiaryFixed,
     tertiaryContainer = OnTertiaryFixedVariant,
@@ -114,10 +118,12 @@ fun UnPawseTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = UnPawseTypography,
-        shapes = UnPawseShapes,
-        content = content,
-    )
+    CompositionLocalProvider(LocalUnPawseColors provides extendedColorsFor(darkTheme)) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = UnPawseTypography,
+            shapes = UnPawseShapes,
+            content = content,
+        )
+    }
 }
