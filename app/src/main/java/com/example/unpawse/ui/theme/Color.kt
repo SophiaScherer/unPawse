@@ -80,3 +80,14 @@ val OnTertiaryFixed = Color(0xFF3A0B00)
 val DarkError = Color(0xFFFFB4AB)
 val DarkOnError = Color(0xFF690005)
 val DarkErrorContainer = Color(0xFF93000A)
+
+// Extended tokens — the meanings Material 3 has no slot for. See [UnPawseExtendedColors].
+// The card ground is its own token because Material's surfaceContainerLowest sits *below* surface
+// in dark, which is right for Material and wrong for a card that has to lift in both themes.
+val DarkCardSurface = Color(0xFF2A2325)
+// The dark-theme coral. TertiaryFixedDim (#FFB59E) is too pale to hold apart from the dark-theme
+// pink beside it in the donut — a pale peach and a pale blush read as one colour at legend-dot size.
+val BrightCoral = Color(0xFFFF8A65)
+// Muted, rather than reusing the saturated OnSecondaryFixedVariant: a success tile should not be
+// the loudest thing on a dark screen.
+val DarkSuccessContainer = Color(0xFF22402A)

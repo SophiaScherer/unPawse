@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.theme.CardShape
 import com.example.unpawse.ui.theme.Dimens
+import com.example.unpawse.ui.theme.unPawseColors
 
 /**
  * The primary content container from DESIGN.md: 24dp corners, white surface, soft ambient shadow.
@@ -32,7 +33,9 @@ fun PawCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     shape: RoundedCornerShape = CardShape,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
+    // Not surfaceContainerLowest: Material puts that *below* surface in dark, so the card used to
+    // sit lower than the page it floats on and the shadow had nothing to lift.
+    containerColor: Color = MaterialTheme.unPawseColors.cardSurface,
     contentPadding: Dp = Dimens.CardPadding,
     shadowElevation: Dp = 2.dp,
     content: @Composable ColumnScope.() -> Unit,
