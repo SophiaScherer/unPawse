@@ -1,6 +1,5 @@
 package com.example.unpawse.ui.apppicker
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,14 +14,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -41,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.PawCard
+import com.example.unpawse.ui.components.SearchField
 import com.example.unpawse.ui.components.ValueStepper
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.theme.Dimens
@@ -68,6 +63,7 @@ fun AppPickerScreen(
 
         SearchField(
             query = state.searchQuery,
+            placeholder = SEARCH_PLACEHOLDER,
             onQueryChange = onSearchChange,
             modifier = Modifier.padding(horizontal = Dimens.ScreenHMargin),
         )
@@ -114,49 +110,6 @@ private fun AppPickerHeader(monitoredCount: Int, onBack: () -> Unit) {
         // glyph (not the IconButton's touch target) with the rows below.
         modifier = Modifier.padding(horizontal = Dimens.ScreenHMargin - 12.dp),
     )
-}
-
-/** Functional search field styled to match the Gallery's (decorative) search bar. */
-@Composable
-private fun SearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            Icons.Filled.Search,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.size(12.dp))
-        Box(Modifier.weight(1f)) {
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                textStyle = LocalTextStyle.current.merge(
-                    MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                ),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (query.isEmpty()) {
-                Text(
-                    "Search apps...",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
 }
 
 /**

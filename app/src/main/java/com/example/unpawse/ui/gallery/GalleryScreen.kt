@@ -18,12 +18,9 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,6 +44,7 @@ import com.example.unpawse.ui.components.EarnedChip
 import com.example.unpawse.ui.components.EmptyStateCard
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ScreenHeader
+import com.example.unpawse.ui.components.SearchField
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.unPawseColors
@@ -87,7 +84,7 @@ fun GalleryScreen(
             Column {
                 ScreenHeader(title = "unPawse", avatarInitial = state.avatarInitial)
                 Spacer(Modifier.height(12.dp))
-                SearchBar(state.searchQuery, state.searchPlaceholder, onSearchQueryChange)
+                SearchField(state.searchQuery, state.searchPlaceholder, onSearchQueryChange)
                 Spacer(Modifier.height(12.dp))
                 FilterRow(state.selectedFilter, onFilterSelected)
                 Spacer(Modifier.height(8.dp))
@@ -128,51 +125,6 @@ fun GalleryScreen(
                 selectedId = null
             },
         )
-    }
-}
-
-@Composable
-private fun SearchBar(query: String, placeholder: String, onQueryChange: (String) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.size(12.dp))
-        BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            modifier = Modifier.weight(1f),
-            decorationBox = { innerTextField ->
-                if (query.isEmpty()) {
-                    Text(
-                        placeholder,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                innerTextField()
-            },
-        )
-        if (query.isNotEmpty()) {
-            Spacer(Modifier.size(8.dp))
-            Icon(
-                Icons.Filled.Close,
-                contentDescription = "Clear search",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .clickable { onQueryChange("") }
-                    .size(20.dp),
-            )
-        }
     }
 }
 

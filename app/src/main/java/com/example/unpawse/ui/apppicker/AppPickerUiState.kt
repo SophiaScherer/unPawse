@@ -80,6 +80,9 @@ enum class WeekendMode(val label: String) {
     UNLIMITED("No weekend limit"),
 }
 
+/** Placeholder in the picker's search field. */
+const val SEARCH_PLACEHOLDER = "Search apps..."
+
 /** Subtitle when no blocking window covers an app. */
 const val NO_SCHEDULES_SUMMARY = "No blocking schedule"
 
