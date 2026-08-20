@@ -45,6 +45,7 @@ import coil3.compose.AsyncImage
 import com.example.unpawse.ui.components.AiBadge
 import com.example.unpawse.ui.components.CatPhotoPlaceholder
 import com.example.unpawse.ui.components.EarnedChip
+import com.example.unpawse.ui.components.EmptyStateCard
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.theme.Dimens
@@ -90,6 +91,14 @@ fun GalleryScreen(
                 Spacer(Modifier.height(12.dp))
                 FilterRow(state.selectedFilter, onFilterSelected)
                 Spacer(Modifier.height(8.dp))
+            }
+        }
+
+        // The search field and chips stay above this in every case: the user has to be able to
+        // clear the query that produced the void.
+        state.emptyState?.let { empty ->
+            item(span = StaggeredGridItemSpan.FullLine) {
+                EmptyStateCard(title = empty.title, body = empty.body)
             }
         }
 
@@ -286,5 +295,22 @@ private fun CaptureCard(capture: CaptureItem, onClick: () -> Unit) {
 private fun GalleryScreenPreview() {
     UnPawseTheme {
         GalleryScreen(state = GalleryUiState.sample())
+    }
+}
+
+@Preview(name = "Gallery · empty", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 500)
+@Composable
+private fun GalleryEmptyPreview() {
+    UnPawseTheme {
+        GalleryScreen(
+            state = GalleryUiState.empty().copy(
+                emptyState = galleryEmptyState(
+                    hasSections = false,
+                    query = "",
+                    filter = GalleryFilter.ALL,
+                    libraryIsEmpty = true,
+                ),
+            ),
+        )
     }
 }

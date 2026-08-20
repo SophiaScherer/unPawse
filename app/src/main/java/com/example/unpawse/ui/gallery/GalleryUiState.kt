@@ -10,11 +10,19 @@ data class GalleryUiState(
     val sections: List<GallerySection>,
     /** Header avatar letter; see [com.example.unpawse.ui.format.avatarInitialFor]. */
     val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
+    /** What to say when [sections] is empty; null whenever there is a grid to show. */
+    val emptyState: GalleryEmpty? = null,
 ) {
     companion object {
         const val SEARCH_PLACEHOLDER = "Search by date or time..."
 
-        /** Empty real-data state: no captures yet. Used as the ViewModel's initial value. */
+        /**
+         * Empty real-data state: no captures yet. Used as the ViewModel's initial value.
+         *
+         * [emptyState] is deliberately null here rather than the "no photos yet" card: this is the
+         * frame before the repository has answered, so claiming the library is empty would flash a
+         * falsehood at a user who has hundreds.
+         */
         fun empty() = GalleryUiState(
             searchQuery = "",
             searchPlaceholder = SEARCH_PLACEHOLDER,
@@ -63,6 +71,12 @@ enum class GalleryFilter(val label: String) {
 }
 
 data class GallerySection(val title: String, val items: List<CaptureItem>)
+
+/**
+ * The two lines shown in place of an empty grid. Shaped like `HomeBanner`: the screen renders it,
+ * [galleryEmptyState] decides which one, so the copy is unit-testable.
+ */
+data class GalleryEmpty(val title: String, val body: String)
 
 /**
  * A single captured photo card. [aiConfidence] is null for bonus/streak captures (no AI badge);

@@ -344,6 +344,16 @@ private fun QuickAction(
     }
 }
 
+/**
+ * Today's blocks and verified cats. The heading and its icon used to be drawn unconditionally over a
+ * zero-row [ActivityTimeline], which is the "a bare heading reads as content that failed to load"
+ * shape the Stats achievements section was already fixed for.
+ *
+ * The card stays rather than being hidden: it names a feature the user hasn't met yet on a fresh
+ * install, and the line below says what will fill it. The copy holds in all three [ProtectionStatus]
+ * states — block rows need both permissions, but a verified cat needs neither, so the feed is never
+ * empty *because* protection is off.
+ */
 @Composable
 private fun RecentActivityCard(activities: List<ActivityItem>) {
     PawCard(modifier = Modifier.fillMaxWidth()) {
@@ -360,7 +370,15 @@ private fun RecentActivityCard(activities: List<ActivityItem>) {
             Icon(Icons.Filled.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(16.dp))
-        ActivityTimeline(entries = activities.map { it.toTimelineEntry() })
+        if (activities.isEmpty()) {
+            Text(
+                "Nothing yet today. Apps you hit a limit on, and every cat you photograph, show up here.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            ActivityTimeline(entries = activities.map { it.toTimelineEntry() })
+        }
     }
 }
 

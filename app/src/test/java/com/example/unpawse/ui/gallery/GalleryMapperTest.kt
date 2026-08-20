@@ -3,6 +3,8 @@ package com.example.unpawse.ui.gallery
 import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.capture.CaptureRetention
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
@@ -173,5 +175,60 @@ class GalleryMapperTest {
 
         assertEquals(listOf("Today", "Yesterday", "Jul 12"), sections.map { it.title })
         assertEquals(2, sections.first { it.title == "Today" }.items.size)
+    }
+
+    // --- Empty states ------------------------------------------------------------------------
+
+    private fun emptyFor(
+        query: String = "",
+        filter: GalleryFilter = GalleryFilter.ALL,
+        libraryIsEmpty: Boolean = false,
+    ) = galleryEmptyState(hasSections = false, query = query, filter = filter, libraryIsEmpty = libraryIsEmpty)
+
+    @Test
+    fun `a grid to show needs no empty state`() {
+        assertNull(
+            galleryEmptyState(
+                hasSections = true,
+                query = "nothing matches this",
+                filter = GalleryFilter.FAVORITES,
+                libraryIsEmpty = true,
+            ),
+        )
+    }
+
+    /** The whole point of the split: a full library must never be told it has no photos. */
+    @Test
+    fun `a search that matched nothing is not reported as an empty library`() {
+        val noMatch = emptyFor(query = "december")!!
+        val noLibrary = emptyFor(libraryIsEmpty = true)!!
+
+        assertEquals("No photos match that search", noMatch.title)
+        assertNotEquals(noLibrary.title, noMatch.title)
+    }
+
+    /** An empty library outranks the query: there is nothing to have searched through. */
+    @Test
+    fun `an empty library beats every filter and query`() {
+        val expected = emptyFor(libraryIsEmpty = true)!!.title
+
+        assertEquals(expected, emptyFor(query = "today", libraryIsEmpty = true)!!.title)
+        assertEquals(
+            expected,
+            emptyFor(filter = GalleryFilter.FAVORITES, libraryIsEmpty = true)!!.title,
+        )
+    }
+
+    @Test
+    fun `each filter that hides everything says which one did it`() {
+        assertEquals("No favourites yet", emptyFor(filter = GalleryFilter.FAVORITES)!!.title)
+        assertEquals("No photos this week", emptyFor(filter = GalleryFilter.THIS_WEEK)!!.title)
+        // Photos exist, none within the retention window ALL draws from.
+        assertEquals("No photos left in the window", emptyFor(filter = GalleryFilter.ALL)!!.title)
+    }
+
+    @Test
+    fun `a blank query is not a search`() {
+        assertNotEquals("No photos match that search", emptyFor(query = "   ")!!.title)
     }
 }

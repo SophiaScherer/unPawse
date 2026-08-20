@@ -539,7 +539,19 @@ class StatsMapperTest {
             Capture("id$it", "/tmp/x.jpg", capturedAt = 0L, confidence = 0.9f, isBonus = false)
         }
 
-        assertEquals("3 Photos", map(captures = captures).capturedPhotos)
+        val state = map(captures = captures)
+
+        assertEquals("3 Photos", state.capturedPhotos)
+        assertTrue(state.hasCapturedPhotos)
+    }
+
+    /** The card's tinted fill and party popper celebrate a collection, so zero can't have them. */
+    @Test
+    fun `an empty library is not a celebration`() {
+        val state = map(captures = emptyList())
+
+        assertFalse(state.hasCapturedPhotos)
+        assertEquals("No photos yet", state.capturedPhotos)
     }
 
     // --- Trend direction ------------------------------------------------------------------------

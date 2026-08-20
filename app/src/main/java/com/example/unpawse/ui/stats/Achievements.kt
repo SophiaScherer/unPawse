@@ -34,7 +34,12 @@ const val WEEK_STREAK_TARGET = 7
 /** How many blocks respected earn [AchievementId.BLOCKS_RESPECTED]. */
 const val BLOCKS_RESPECTED_TARGET = 25
 
-/** A badge's fixed presentation. The *earned* half is [evaluateAchievements]' business. */
+/**
+ * A badge's fixed presentation. The *earned* half is [evaluateAchievements]' business.
+ *
+ * [subtitle] states the criterion, so it reads correctly locked ("what you have to do") and earned
+ * ("what you did") — one string, no second copy to drift.
+ */
 data class AchievementRule(
     val id: AchievementId,
     val title: String,
@@ -106,9 +111,15 @@ fun evaluateAchievements(input: AchievementInput): Map<AchievementId, LocalDate?
  * The catalogue as UI rows: earned badges first, most recently earned at the front, then the locked
  * ones in catalogue order.
  *
- * Locked badges are **rendered, not hidden**. A fresh install showing five greyed "Coming Soon"
- * cards is content — it tells the user what there is to earn — whereas an empty section under a
- * heading reads as content that failed to load.
+ * Locked badges are **rendered, not hidden**: a fresh install showing five greyed cards is content
+ * — it tells the user what there is to earn — whereas an empty section under a heading reads as
+ * content that failed to load.
+ *
+ * A locked card carries **its own criterion**, the same subtitle its earned twin shows. It used to
+ * read the mockup's "Coming Soon", which describes an unreleased feature rather than an unearned
+ * reward, so a fresh install said five times over that a fully implemented system wasn't built yet
+ * — and never said what any badge was for. Locked stays legible from the lock icon and the card's
+ * half opacity, neither of which makes a claim about the roadmap.
  */
 fun toAchievements(unlockedOn: Map<AchievementId, LocalDate?>): List<Achievement> {
     val (earned, locked) = ACHIEVEMENT_CATALOGUE.partition { unlockedOn[it.id] != null }
@@ -118,14 +129,11 @@ fun toAchievements(unlockedOn: Map<AchievementId, LocalDate?>): List<Achievement
         .map { Achievement(it.title, it.subtitle, it.color, it.icon, unlocked = true) }
 
     val lockedRows = locked.map {
-        Achievement(it.title, LOCKED_SUBTITLE, it.color, AchievementIcon.LOCKED, unlocked = false)
+        Achievement(it.title, it.subtitle, it.color, AchievementIcon.LOCKED, unlocked = false)
     }
 
     return earnedRows + lockedRows
 }
-
-/** The mockup's copy for a badge that hasn't been earned. */
-const val LOCKED_SUBTITLE = "Coming Soon"
 
 /** The date of the [n]th capture ever, or null if there haven't been that many. */
 private fun nthCaptureDate(captureDates: List<LocalDate>, n: Int): LocalDate? =

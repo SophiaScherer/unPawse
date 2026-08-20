@@ -53,6 +53,14 @@ class GalleryViewModel(
                 selectedFilter = filter,
                 sections = sections,
                 avatarInitial = avatarInitialFor(name),
+                // The unfiltered list is what separates "nothing photographed yet" from "the chip
+                // hid it all", and it is already in scope here.
+                emptyState = galleryEmptyState(
+                    hasSections = sections.isNotEmpty(),
+                    query = query,
+                    filter = filter,
+                    libraryIsEmpty = captures.isEmpty(),
+                ),
             )
         }.stateIn(
             scope = viewModelScope,

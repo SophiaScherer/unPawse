@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.BackHeader
+import com.example.unpawse.ui.components.EmptyStateCard
 import com.example.unpawse.ui.components.IconTile
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.theme.Dimens
@@ -177,20 +178,11 @@ private fun LoadingState() {
 
 @Composable
 private fun EmptyState() {
-    PawCard {
-        Text(
-            text = "Nothing scheduled yet",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.size(6.dp))
-        Text(
-            text = "A schedule blocks apps at set times — bedtime, school hours, dinner — no matter " +
-                "how much time is left in their daily budget. There's no cat-photo escape from one.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    EmptyStateCard(
+        title = "Nothing scheduled yet",
+        body = "A schedule blocks apps at set times — bedtime, school hours, dinner — no matter " +
+            "how much time is left in their daily budget. There's no cat-photo escape from one.",
+    )
 }
 
 /** Interactive preview body so the switches and the Add button actually respond. */

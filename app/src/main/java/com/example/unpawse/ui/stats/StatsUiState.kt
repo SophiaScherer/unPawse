@@ -56,6 +56,12 @@ data class StatsUiState(
     val longestStreak: String,
     val unlocks: String,
     val capturedPhotos: String,
+    /**
+     * Whether there is a collection to celebrate. The card's fill and its party-popper glyph are a
+     * claim like any other, and a formatted "0 Photos" can't carry it — same rule as the donut arcs,
+     * which needed the seconds rather than the label beside them.
+     */
+    val hasCapturedPhotos: Boolean,
     val achievements: List<Achievement>,
 ) {
     companion object {
@@ -87,6 +93,7 @@ data class StatsUiState(
             longestStreak = NO_DATA,
             unlocks = NO_DATA,
             capturedPhotos = NO_DATA,
+            hasCapturedPhotos = false,
             achievements = emptyList(),
         )
 
@@ -117,11 +124,12 @@ data class StatsUiState(
             longestStreak = "12 Days",
             unlocks = "24/day",
             capturedPhotos = "1,204 Photos",
+            hasCapturedPhotos = true,
             // One of each so the preview covers both branches of the card.
             achievements = listOf(
                 Achievement("First Cat", "Your first verified cat", AchievementColor.CORAL,
                     AchievementIcon.TROPHY, unlocked = true),
-                Achievement("7-Day Streak", LOCKED_SUBTITLE, AchievementColor.SAGE,
+                Achievement("7-Day Streak", "A cat every day for a week", AchievementColor.SAGE,
                     AchievementIcon.LOCKED, unlocked = false),
             ),
         )

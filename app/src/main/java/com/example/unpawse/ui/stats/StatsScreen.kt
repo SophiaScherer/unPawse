@@ -101,7 +101,7 @@ fun StatsScreen(
                     caption = "TODAY, WHILE MONITORING")
             }
         }
-        item { CapturedPhotosBanner(state.capturedPhotos) }
+        item { CapturedPhotosBanner(state.capturedPhotos, state.hasCapturedPhotos) }
         // No emptiness guard any more: the catalogue is fixed, so a fresh install legitimately shows
         // every badge locked. That is content — it says what there is to earn — unlike the bare
         // heading over blank space this used to guard against.
@@ -302,33 +302,61 @@ private fun MiniStatCard(
     }
 }
 
+/**
+ * The photo tally. It celebrates a collection, so it only *looks* like a celebration once there is
+ * one: an empty library got the tinted fill and a party popper over the words "0 Photos". Zero is
+ * not an achievement, and the glyph and the fill are claims as much as the number is.
+ */
 @Composable
-private fun CapturedPhotosBanner(photos: String) {
+private fun CapturedPhotosBanner(photos: String, hasPhotos: Boolean) {
+    // Ink follows the fill: onPrimaryContainer is only the right contrast on the tinted branch.
+    val onCard = if (hasPhotos) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    val onCardVariant = if (hasPhotos) onCard else MaterialTheme.colorScheme.onSurfaceVariant
+
     PawCard(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        shadowElevation = 0.dp,
+        containerColor = if (hasPhotos) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.unPawseColors.cardSurface
+        },
+        shadowElevation = if (hasPhotos) 0.dp else 2.dp,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.5f)),
+                    .background(
+                        if (hasPhotos) {
+                            MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        },
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.PhotoLibrary, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                Icon(Icons.Filled.PhotoLibrary, contentDescription = null, tint = onCard)
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Captured Cat Photos", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    color = onCardVariant)
                 Text(photos, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    color = onCard)
+                if (!hasPhotos) {
+                    Text("Photograph your cat to start your collection.",
+                        style = MaterialTheme.typography.bodySmall, color = onCardVariant)
+                }
             }
-            Icon(Icons.Filled.Celebration, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f), modifier = Modifier.size(28.dp))
+            if (hasPhotos) {
+                Icon(Icons.Filled.Celebration, contentDescription = null,
+                    tint = onCard.copy(alpha = 0.5f), modifier = Modifier.size(28.dp))
+            }
         }
     }
 }
