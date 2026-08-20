@@ -78,7 +78,7 @@ fun StatsScreen(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 PreventedCard(state.preventedCount, Modifier.weight(1f))
-                TrendCard(state.trendLabel, state.trendIsUp, state.trendBars, Modifier.weight(1f))
+                TrendCard(state, Modifier.weight(1f))
             }
         }
         item { UsageBreakdownCard(state, onDetails) }
@@ -195,25 +195,32 @@ private fun PreventedCard(count: Int, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TrendCard(label: String, isUp: Boolean, bars: List<Float>, modifier: Modifier = Modifier) {
+private fun TrendCard(state: StatsUiState, modifier: Modifier = Modifier) {
     PawCard(modifier = modifier, containerColor = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 0.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Trend", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f))
-            // Follows the sign in [label]; this was pinned to TrendingDown, so a week where usage
-            // rose showed "+0.6h" beside a downward arrow.
-            Icon(
-                if (isUp) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
-                contentDescription = if (isUp) "Usage up week over week" else "Usage down week over week",
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(18.dp),
-            )
+            // Follows the sign in the label; this was pinned to TrendingDown, so a week where usage
+            // rose showed "+0.6h" beside a downward arrow. With no last week behind it there is no
+            // direction to report, so the arrow goes rather than defaulting — same rule as the
+            // vs-yesterday arrow above.
+            if (state.trendHasBaseline) {
+                Icon(
+                    if (state.trendIsUp) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
+                    contentDescription = if (state.trendIsUp) "Usage up week over week" else "Usage down week over week",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
-        Text(label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
+        Text(state.trendLabel, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer)
+        // The period is part of the claim, as on the Prevented card beside it.
+        Text(state.trendCaption, style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer)
         Spacer(Modifier.height(8.dp))
         MiniBarChart(
-            values = bars,
+            values = state.trendBars,
             barColor = MaterialTheme.colorScheme.primary,
             modifier = Modifier
                 .fillMaxWidth()

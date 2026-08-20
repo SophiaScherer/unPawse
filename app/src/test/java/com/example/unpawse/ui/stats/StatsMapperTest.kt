@@ -121,8 +121,21 @@ class StatsMapperTest {
 
         assertEquals(7, state.weeklyPoints.size)
         assertEquals(3, state.highlightDayIndex)
-        assertEquals(2f, state.weeklyPoints[3], 0.001f)
-        assertEquals(0f, state.weeklyPoints[0], 0.001f)
+        assertEquals(2f, state.weeklyPoints[3]!!, 0.001f)
+        assertEquals("a day with no usage row is a real zero", 0f, state.weeklyPoints[0]!!, 0.001f)
+    }
+
+    /**
+     * Days after today used to plot as zero, so on a Thursday the smoothed curve dived to the floor
+     * and stayed there — reading as three days of abstinence rather than three days that are yet
+     * to happen.
+     */
+    @Test
+    fun `the weekly chart stops at today`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 120)))
+
+        assertTrue("Fri-Sun have not happened", state.weeklyPoints.takeLast(3).all { it == null })
+        assertEquals("today is the last day plotted", 3, state.weeklyPoints.indexOfLast { it != null })
     }
 
     // --- Category breakdown ---------------------------------------------------------------------
@@ -397,6 +410,27 @@ class StatsMapperTest {
     }
 
     /**
+     * The seed the ViewModel renders before the repositories emit. It used to be `sample()`, so a
+     * cold open of Stats showed the mockup's figures to whoever opened the app — the same route
+     * Home and Settings have already closed.
+     */
+    @Test
+    fun `the seed state shares no figure with the mockup`() {
+        val empty = StatsUiState.empty()
+        val sample = StatsUiState.sample()
+
+        assertNotEquals(sample.dailyTotal, empty.dailyTotal)
+        assertNotEquals(sample.trendLabel, empty.trendLabel)
+        assertNotEquals(sample.preventedCount, empty.preventedCount)
+        assertNotEquals(sample.longestStreak, empty.longestStreak)
+        assertNotEquals(sample.capturedPhotos, empty.capturedPhotos)
+        assertFalse("no direction without a comparison", empty.trendHasBaseline)
+        assertTrue(empty.breakdown.isEmpty())
+        assertTrue(empty.achievements.isEmpty())
+        assertEquals("the axis is a real constant, not mockup data", WEEKDAY_LABELS, empty.weekdayLabels)
+    }
+
+    /**
      * The mapper builds [StatsUiState] field by field rather than from `sample().copy(...)`, so its
      * one remaining constant has to come from the mapper's own value. If someone reintroduces the
      * `.copy(...)` base this still passes — which is why the test above also pins a *computed*
@@ -547,12 +581,79 @@ class StatsMapperTest {
      */
     @Test
     fun `the trend uses the same calendar week the chart draws`() {
-        // today is Thursday 2026-07-16; Monday of this week is the 13th, so 4 days ago (the 12th)
-        // is last week and must not count toward this week.
-        val state = map(recentUsage = listOf(usage("a", 4, 60)))
+        // today is Thursday 2026-07-16; Monday of this week is the 13th, so 7 days ago (Thursday
+        // the 9th) is last week and must not count toward this week.
+        val state = map(recentUsage = listOf(usage("a", 7, 60)))
 
         assertEquals("this week saw no usage, last week saw an hour", "-1.0h", state.trendLabel)
         assertFalse(state.trendIsUp)
+    }
+
+    // --- Trend baseline and window --------------------------------------------------------------
+    // Last week used to be summed whole against a Monday-to-today this week: on a Wednesday, 3 days
+    // measured against 7, so the figure read hugely negative every Monday and drifted up all week.
+
+    /**
+     * A fresh install has no last week, so `lastWeekSeconds` was 0 and any usage at all rendered a
+     * signed figure with an upward arrow — a week-over-week change against a week that never was.
+     */
+    @Test
+    fun `a first install has no week to compare against`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 30)))
+
+        assertFalse(state.trendHasBaseline)
+        assertEquals("—", state.trendLabel)
+        assertEquals("NO DATA FOR LAST WEEK", state.trendCaption)
+    }
+
+    @Test
+    fun `last week's later days are outside the comparison`() {
+        // Sunday the 12th is last week, but past today's weekday — this week has no Sunday yet, so
+        // counting it would compare 4 days against 7.
+        val state = map(recentUsage = listOf(usage("a", 4, 60)))
+
+        assertFalse("nothing comparable was measured last Mon-Thu", state.trendHasBaseline)
+        assertEquals("—", state.trendLabel)
+    }
+
+    @Test
+    fun `the same weekday last week is the baseline`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 7, 60)))
+
+        assertTrue(state.trendHasBaseline)
+        assertEquals("an equal Thursday is no change", "0.0h", state.trendLabel)
+        assertEquals("VS LAST WEEK, SAME DAYS", state.trendCaption)
+    }
+
+    // --- Trend sparkline ------------------------------------------------------------------------
+    // The bars used to be a rolling five days while the headline above them compared calendar
+    // weeks: two windows in one card, with nothing to tell them apart.
+
+    @Test
+    fun `the sparkline covers the same week as the headline`() {
+        // today is Thursday; Tuesday saw half of today's usage.
+        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 2, 30)))
+
+        assertEquals(7, state.trendBars.size)
+        assertEquals(state.weekdayLabels.size, state.trendBars.size)
+        assertEquals(1f, state.trendBars[3]!!, 0.001f)
+        assertEquals(0.5f, state.trendBars[1]!!, 0.001f)
+        assertEquals("Monday saw nothing, which is a real zero", 0f, state.trendBars[0]!!, 0.001f)
+    }
+
+    @Test
+    fun `days still to come have no bar`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 60)))
+
+        assertTrue("Fri-Sun have not happened", state.trendBars.takeLast(3).all { it == null })
+        assertTrue("Mon-Thu have", state.trendBars.take(4).none { it == null })
+    }
+
+    @Test
+    fun `a week with no usage still has a bar per elapsed day`() {
+        val state = map()
+
+        assertEquals(listOf(0f, 0f, 0f, 0f), state.trendBars.take(4))
     }
 
     // --- Streak label ---------------------------------------------------------------------------

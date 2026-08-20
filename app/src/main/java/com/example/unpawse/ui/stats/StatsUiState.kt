@@ -1,8 +1,12 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
+import com.example.unpawse.ui.format.NO_DATA
 
-/** Immutable UI state for the Statistics screen. [sample] supplies mockup data for previews. */
+/**
+ * Immutable UI state for the Statistics screen. Production builds this from [toStatsUiState], or
+ * from [empty] before the first emission lands; [sample] is mockup data and is `@Preview`-only.
+ */
 data class StatsUiState(
     /** Header avatar letter; see [com.example.unpawse.ui.format.avatarInitialFor]. */
     val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
@@ -16,14 +20,28 @@ data class StatsUiState(
      * any usage at all is technically greater than zero.)
      */
     val deltaHasBaseline: Boolean,
-    val weeklyPoints: List<Float>,
+    /**
+     * Hours per day across the Mon–Sun week, `null` for a day still to come. A past day with no
+     * usage is a real `0f`; one numeric slot cannot say both that and "this day hasn't happened",
+     * which is the same reason [deltaHasBaseline] exists.
+     */
+    val weeklyPoints: List<Float?>,
     val weekdayLabels: List<String>,
     val highlightDayIndex: Int,
     val preventedCount: Int,
     val trendLabel: String,
     /** Whether week-over-week usage rose. Drives the arrow direction, which used to be hardcoded. */
     val trendIsUp: Boolean,
-    val trendBars: List<Float>,
+    /**
+     * Whether [trendLabel] is a real comparison. False until there is a last week to measure
+     * against — a fresh install summed zero for it and rendered "+0.5h" beside an upward arrow, a
+     * week-over-week change against a week that never happened. Same shape as [deltaHasBaseline].
+     */
+    val trendHasBaseline: Boolean,
+    /** The trend's period, stated on the card's face because week-to-date isn't guessable. */
+    val trendCaption: String,
+    /** One per day of the same week [trendLabel] compares; `null` for a day still to come. */
+    val trendBars: List<Float?>,
     /**
      * The figure in the middle of the donut: the total of [breakdown], formatted.
      *
@@ -41,19 +59,53 @@ data class StatsUiState(
     val achievements: List<Achievement>,
 ) {
     companion object {
+        /**
+         * The honest nothing-yet state, seeded into the ViewModel's `StateFlow` for the frame before
+         * the repositories emit. It used to be [sample], so every cold open of Stats flashed the
+         * mockup's "3h 24m", its 42 prevented interruptions and a 12-day streak nobody had earned.
+         * Home and Settings were fixed the same way; this was the last seed still doing it.
+         */
+        fun empty() = StatsUiState(
+            avatarInitial = DEFAULT_AVATAR_INITIAL,
+            dailyTotal = NO_DATA,
+            // No comparison has been made yet, so the card says nothing rather than guessing.
+            deltaText = "",
+            deltaIsPositive = false,
+            deltaHasBaseline = false,
+            weeklyPoints = emptyList(),
+            weekdayLabels = WEEKDAY_LABELS,
+            highlightDayIndex = -1,
+            preventedCount = 0,
+            trendLabel = NO_DATA,
+            trendIsUp = false,
+            trendHasBaseline = false,
+            trendCaption = "",
+            trendBars = emptyList(),
+            breakdownTotal = NO_DATA,
+            breakdown = emptyList(),
+            budgetLeftLabel = NO_DATA,
+            longestStreak = NO_DATA,
+            unlocks = NO_DATA,
+            capturedPhotos = NO_DATA,
+            achievements = emptyList(),
+        )
+
         fun sample() = StatsUiState(
             avatarInitial = 'S',
             dailyTotal = "3h 24m",
             deltaText = "12% from yesterday",
             deltaIsPositive = false,
             deltaHasBaseline = true,
-            weeklyPoints = listOf(2.1f, 2.6f, 2.9f, 3.4f, 3.8f, 2.2f, 3.4f),
+            weeklyPoints = listOf(2.1f, 2.6f, 2.9f, 3.4f, 3.8f, null, null),
             weekdayLabels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"),
             highlightDayIndex = 4,
             preventedCount = 42,
             trendLabel = "-5.2h",
             trendIsUp = false,
-            trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f),
+            trendHasBaseline = true,
+            trendCaption = "VS LAST WEEK, SAME DAYS",
+            // highlightDayIndex is Friday, so the weekend has not happened yet.
+            trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f, null, null),
             breakdownTotal = "2h 37m",
             breakdown = listOf(
                 UsageCategory("Social", "1h 12m", 72 * 60L, UsageColor.SOCIAL),

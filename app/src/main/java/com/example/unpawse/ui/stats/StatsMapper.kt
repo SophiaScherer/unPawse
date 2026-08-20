@@ -21,11 +21,14 @@ import kotlin.math.roundToInt
 const val STATS_HISTORY_DAYS = 14L
 
 private const val DAYS_IN_WEEK = 7
-private const val TREND_BAR_COUNT = 5
 private const val SECONDS_PER_HOUR = 3600f
 
 /** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
-private val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+internal val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+
+/** The trend's period, on the card's face — the rule the "THIS WEEK" line on Prevented follows. */
+private const val TREND_CAPTION = "VS LAST WEEK, SAME DAYS"
+private const val TREND_NO_BASELINE_CAPTION = "NO DATA FOR LAST WEEK"
 
 /**
  * Builds [StatsUiState] from usage history + captures. Pure and parameterised on [today]/[zone] so
@@ -62,12 +65,20 @@ internal fun toStatsUiState(
     val todaySeconds = usedOn(today)
     val yesterdaySeconds = usedOn(today.minusDays(1))
 
-    // Calendar weeks, deliberately the *same* Mon–Sun weeks the chart draws. These used to be
+    // Calendar weeks, deliberately the *same* Mon–Sun week the chart draws. These used to be
     // rolling 7-day windows, so on a Monday the trend counted days that the chart didn't show at
     // all — "usage up 0.6h this week" sat next to a chart that was flat all week.
-    val thisWeekSeconds = week.sumOf(::usedOn)
-    val lastWeekSeconds = (1..DAYS_IN_WEEK).sumOf { usedOn(monday.minusDays(it.toLong())) }
+    //
+    // Both sides stop at the same weekday. Last week used to be summed whole against a
+    // Monday-to-today this week, so on a Wednesday it was 3 days measured against 7 — hugely
+    // negative every Monday and drifting upward all week whatever the user actually did.
+    val elapsedThisWeek = week.take(today.dayOfWeek.value)
+    val thisWeekSeconds = elapsedThisWeek.sumOf(::usedOn)
+    val lastWeekSeconds = elapsedThisWeek.sumOf { usedOn(it.minusDays(DAYS_IN_WEEK.toLong())) }
     val trendDeltaSeconds = thisWeekSeconds - lastWeekSeconds
+    // No last week means nothing to compare against, so neither a figure nor an arrow is drawn —
+    // the same rule deltaHasBaseline carries one card over.
+    val trendHasBaseline = lastWeekSeconds > 0L
 
     // Blocks over the same Mon–Sun week the chart draws and the trend compares — the card says
     // "THIS WEEK" on its face, and all three must agree on which week that is.
@@ -98,13 +109,18 @@ internal fun toStatsUiState(
         // "Positive" means usage went *up* — the screen renders it as the unwelcome direction.
         deltaIsPositive = todaySeconds > yesterdaySeconds,
         deltaHasBaseline = yesterdaySeconds > 0L,
-        weeklyPoints = week.map { usedOn(it) / SECONDS_PER_HOUR },
+        // Null after today: the chart draws no mark for a day that hasn't happened. Plotting it as
+        // zero put Thu–Sun on the floor, and the smoothed curve dived off a cliff after today —
+        // four days of abstinence, drawn from four days that don't exist yet.
+        weeklyPoints = week.map { if (it.isAfter(today)) null else usedOn(it) / SECONDS_PER_HOUR },
         weekdayLabels = WEEKDAY_LABELS,
         highlightDayIndex = today.dayOfWeek.value - 1,
-        trendLabel = trendLabel(trendDeltaSeconds),
+        trendLabel = if (trendHasBaseline) trendLabel(trendDeltaSeconds) else NO_DATA,
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
         trendIsUp = trendDeltaSeconds > 0,
-        trendBars = trendBars { day -> usedOn(today.minusDays(day)) },
+        trendHasBaseline = trendHasBaseline,
+        trendCaption = if (trendHasBaseline) TREND_CAPTION else TREND_NO_BASELINE_CAPTION,
+        trendBars = weekBars(week, today, ::usedOn),
         breakdownTotal = formatSeconds(breakdown.sumOf { it.seconds }),
         breakdown = breakdown,
         budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
@@ -178,11 +194,29 @@ internal fun trendLabel(deltaSeconds: Long): String {
     return "$sign${rounded}h"
 }
 
-/** Last [TREND_BAR_COUNT] days, oldest first, normalised against the busiest of them. */
-private fun trendBars(usedOn: (Long) -> Long): List<Float> {
-    val days = (TREND_BAR_COUNT - 1 downTo 0).map { usedOn(it.toLong()) }
-    val peak = days.maxOrNull() ?: 0L
-    return if (peak == 0L) List(TREND_BAR_COUNT) { 0f } else days.map { it.toFloat() / peak }
+/**
+ * The Trend card's sparkline, normalised against the busiest day of the week.
+ *
+ * Drawn over the **same Mon–Sun week the headline compares**. It used to be a rolling five days,
+ * so one small card held two different windows with nothing to tell them apart.
+ *
+ * A day still to come is `null`, not `0f`: it has no value to draw, and a zero would claim a day
+ * spent off the phone. Same distinction [StatsUiState.weeklyPoints] makes.
+ */
+private fun weekBars(
+    week: List<LocalDate>,
+    today: LocalDate,
+    usedOn: (LocalDate) -> Long,
+): List<Float?> {
+    val elapsed = week.filterNot { it.isAfter(today) }
+    val peak = elapsed.maxOfOrNull(usedOn) ?: 0L
+    return week.map { day ->
+        when {
+            day.isAfter(today) -> null
+            peak == 0L -> 0f
+            else -> usedOn(day).toFloat() / peak
+        }
+    }
 }
 
 /**

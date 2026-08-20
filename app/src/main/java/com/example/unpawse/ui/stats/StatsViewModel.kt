@@ -85,7 +85,8 @@ class StatsViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
-        initialValue = StatsUiState.sample(),
+        // The nothing-yet state, not the mockup: this seed is what a cold open renders.
+        initialValue = StatsUiState.empty(),
     )
 
     companion object {
