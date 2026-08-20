@@ -320,7 +320,7 @@ private fun QuickAction(
     modifier: Modifier = Modifier,
     filled: Boolean = false,
 ) {
-    val container = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLowest
+    val container = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.unPawseColors.cardSurface
     val content = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
     PawCard(
         modifier = modifier,

@@ -97,7 +97,7 @@ fun StatsScreen(
                 // The caption is part of the claim: unlocks are only seen while the monitor service
                 // is alive, so an uncaptioned number would imply a complete tally it isn't.
                 MiniStatCard("Unlocks", state.unlocks, Icons.Filled.PhoneAndroid,
-                    MaterialTheme.colorScheme.surfaceContainerLowest, Modifier.weight(1f),
+                    MaterialTheme.unPawseColors.cardSurface, Modifier.weight(1f),
                     caption = "TODAY, WHILE MONITORING")
             }
         }

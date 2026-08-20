@@ -211,7 +211,7 @@ private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun CaptureCard(capture: CaptureItem, onClick: () -> Unit) {
-    val footerColor = if (capture.isBonus) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest
+    val footerColor = if (capture.isBonus) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.unPawseColors.cardSurface
     PawCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
