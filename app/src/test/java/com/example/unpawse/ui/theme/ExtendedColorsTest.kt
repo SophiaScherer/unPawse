@@ -97,6 +97,20 @@ class ExtendedColorsTest {
         assertTrue(luminance(dark.cardSurface) > luminance(DarkSurface))
     }
 
+    /**
+     * The achievement badge draws an icon on a category fill. It used to be a hardcoded white,
+     * which measured 1.29:1 on the light-theme sage circle — the badge was a blank disc.
+     */
+    @Test
+    fun `the category ink reads on every category fill`() {
+        eachTheme { theme, colors ->
+            colors.categories().forEach { (name, fill) ->
+                val ratio = contrastRatio(colors.onCategory, fill)
+                assertTrue("category ink is $ratio:1 on $name in $theme", ratio >= 4.5f)
+            }
+        }
+    }
+
     @Test
     fun `the success container carries its own text`() {
         eachTheme { theme, colors ->

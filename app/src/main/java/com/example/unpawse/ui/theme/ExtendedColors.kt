@@ -20,6 +20,8 @@ data class UnPawseExtendedColors(
     val categoryProductivity: Color,
     val categoryEntertainment: Color,
     val categoryOther: Color,
+    /** Ink for anything drawn *on* a category fill; one value serves all four in a given theme. */
+    val onCategory: Color,
     /** "Something was genuinely earned" — a granted permission, a verified cat, time banked. */
     val success: Color,
     val successContainer: Color,
@@ -33,6 +35,7 @@ private val LightExtendedColors = UnPawseExtendedColors(
     categoryProductivity = Sage,
     categoryEntertainment = Coral,
     categoryOther = OnSurfaceVariant,
+    onCategory = OnPrimary,
     success = Sage,
     successContainer = SageContainer,
     onSuccessContainer = OnSecondaryFixedVariant,
@@ -44,6 +47,7 @@ private val DarkExtendedColors = UnPawseExtendedColors(
     categoryProductivity = SecondaryFixedDim,
     categoryEntertainment = BrightCoral,
     categoryOther = DarkOutline,
+    onCategory = DarkSurface,
     success = SecondaryFixedDim,
     successContainer = DarkSuccessContainer,
     onSuccessContainer = SageContainer,

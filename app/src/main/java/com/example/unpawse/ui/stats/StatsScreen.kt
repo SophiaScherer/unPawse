@@ -52,6 +52,7 @@ import com.example.unpawse.ui.components.DonutSegment
 import com.example.unpawse.ui.components.LineChart
 import com.example.unpawse.ui.components.MiniBarChart
 import com.example.unpawse.ui.components.PawCard
+import com.example.unpawse.ui.theme.unPawseColors
 import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.theme.Dimens
@@ -342,10 +343,16 @@ private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modif
     // API 31+ against minSdk 26. Alpha plus the neutral container reads the same at every level, so
     // this is finished rather than pending — don't "complete" it with a RenderEffect.
     val alpha = if (achievement.unlocked) 1f else 0.5f
-    val circleColor = if (achievement.unlocked) {
-        achievement.color.toColor()
+    // The icon was a hardcoded white, which measured 1.29:1 on the light-theme sage circle — both
+    // states need ink chosen against the fill underneath it.
+    val circleColor: Color
+    val iconColor: Color
+    if (achievement.unlocked) {
+        circleColor = achievement.color.toColor()
+        iconColor = MaterialTheme.unPawseColors.onCategory
     } else {
-        MaterialTheme.colorScheme.primaryContainer
+        circleColor = MaterialTheme.colorScheme.primaryContainer
+        iconColor = MaterialTheme.colorScheme.onPrimaryContainer
     }
 
     PawCard(modifier = modifier.alpha(alpha)) {
@@ -363,7 +370,7 @@ private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modif
                 Icon(
                     imageVector = achievement.icon.toIcon(),
                     contentDescription = if (achievement.unlocked) null else "Not earned yet",
-                    tint = Color.White,
+                    tint = iconColor,
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -385,26 +392,39 @@ private fun AchievementIcon.toIcon(): ImageVector = when (this) {
     AchievementIcon.LOCKED -> Icons.Filled.Lock
 }
 
+// Fixed tokens rather than scheme slots: Social was `primary` and Entertainment `primaryContainer`,
+// one hue at two lightnesses, so the pair swapped appearance whenever the theme flipped. Other stays
+// neutral so it doesn't read as a fourth brand category competing with the three the user chose.
 @Composable
 private fun UsageColor.toColor(): Color = when (this) {
-    UsageColor.SOCIAL -> MaterialTheme.colorScheme.primary
-    UsageColor.PRODUCTIVITY -> MaterialTheme.colorScheme.secondary
-    UsageColor.ENTERTAINMENT -> MaterialTheme.colorScheme.primaryContainer
-    // The mockup's "everything else" legend dot; neutral so it doesn't read as a fourth brand
-    // category competing with the three the user actually chose between.
-    UsageColor.OTHER -> MaterialTheme.colorScheme.outlineVariant
+    UsageColor.SOCIAL -> MaterialTheme.unPawseColors.categorySocial
+    UsageColor.PRODUCTIVITY -> MaterialTheme.unPawseColors.categoryProductivity
+    UsageColor.ENTERTAINMENT -> MaterialTheme.unPawseColors.categoryEntertainment
+    UsageColor.OTHER -> MaterialTheme.unPawseColors.categoryOther
 }
 
+// Borrows the category hues so the app has one coral and one green rather than two of each. Same
+// inversion bug as above: these were container slots, which are pale in light and dark in dark.
 @Composable
 private fun AchievementColor.toColor(): Color = when (this) {
-    AchievementColor.CORAL -> MaterialTheme.colorScheme.tertiaryContainer
-    AchievementColor.SAGE -> MaterialTheme.colorScheme.secondaryContainer
+    AchievementColor.CORAL -> MaterialTheme.unPawseColors.categoryEntertainment
+    AchievementColor.SAGE -> MaterialTheme.unPawseColors.categoryProductivity
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1600)
+@Preview(name = "Stats", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1600)
 @Composable
 private fun StatsScreenPreview() {
     UnPawseTheme {
+        StatsScreen(state = StatsUiState.sample())
+    }
+}
+
+// The donut and the achievement rail are the two places a theme flip used to change what a colour
+// meant, so this screen is the one that most needs both previews side by side.
+@Preview(name = "Stats · dark", showBackground = true, backgroundColor = 0xFF171213, heightDp = 1600)
+@Composable
+private fun StatsScreenDarkPreview() {
+    UnPawseTheme(darkTheme = true) {
         StatsScreen(state = StatsUiState.sample())
     }
 }
