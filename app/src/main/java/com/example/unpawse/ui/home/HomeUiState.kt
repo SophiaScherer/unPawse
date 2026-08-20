@@ -1,9 +1,14 @@
 package com.example.unpawse.ui.home
 
+import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
+import com.example.unpawse.ui.format.DEFAULT_DISPLAY_NAME
+import com.example.unpawse.ui.format.NO_DATA
+
 /**
  * Immutable UI state for the Home screen. Screens are stateless and render whatever state they are
- * given; [sample] provides hardcoded mockup data for previews (and, for now, the running app). Swap
- * for a ViewModel-backed `StateFlow` later without changing [HomeScreen].
+ * given; [sample] is hardcoded mockup data and is now `@Preview`-only, matching `StatsUiState` and
+ * `SettingsUiState`. Production builds this from [toHomeUiState], or from [empty] before the first
+ * emission lands.
  */
 data class HomeUiState(
     val greeting: String,
@@ -18,8 +23,31 @@ data class HomeUiState(
     val activities: List<ActivityItem>,
     val bannerTitle: String,
     val bannerBody: String,
+    val protection: ProtectionStatus,
 ) {
     companion object {
+        /**
+         * The honest nothing-yet state, seeded into the ViewModel's `StateFlow` for the frame before
+         * the repositories emit. It used to be [sample], so every cold Home render briefly showed the
+         * mockup's "Sophia", her 2h 15m and her 12-day streak to whoever opened the app.
+         */
+        fun empty(protection: ProtectionStatus = ProtectionStatus.OFF) = HomeUiState(
+            greeting = "",
+            userName = DEFAULT_DISPLAY_NAME,
+            avatarInitial = DEFAULT_AVATAR_INITIAL,
+            screenTimeUsedLabel = NO_DATA,
+            progressFraction = 0f,
+            remainingLabel = NO_DATA,
+            streakDays = 0,
+            catCount = 0,
+            pausedAppsCount = 0,
+            activities = emptyList(),
+            bannerTitle = "",
+            bannerBody = "",
+            // Defaults to the status that claims nothing; the ViewModel seeds the real one.
+            protection = protection,
+        )
+
         fun sample() = HomeUiState(
             greeting = "Welcome back,",
             userName = "Sophia",
@@ -37,6 +65,7 @@ data class HomeUiState(
             ),
             bannerTitle = "Looking sharp today!",
             bannerBody = "You're in the top 5% of mindful users this week.",
+            protection = ProtectionStatus.ACTIVE,
         )
     }
 }
@@ -66,6 +95,26 @@ internal fun formatCountdown(remainingMillis: Long): String {
     } else {
         "%d:%02d".format(minutes, seconds)
     }
+}
+
+/**
+ * Whether unPawse can actually do what Home says it is doing. Deliberately three states, not a
+ * boolean: usage access alone makes tracking work, while the overlay permission is what lets a
+ * reached limit draw a block. A two-state flag would have to call the middle case either "on" (and
+ * promise a block that can never fire) or "off" (and hide figures that are genuinely being tracked)
+ * — the same trap as `deltaHasBaseline` and the theme override's tri-state.
+ *
+ * Resolved by `resolveProtection` from the same two checks the Settings permission rows read.
+ */
+enum class ProtectionStatus {
+    /** Both permissions granted: usage is tracked and a reached limit can block. */
+    ACTIVE,
+
+    /** Usage access only. Figures are real, but nothing can be blocked. */
+    TRACKING_ONLY,
+
+    /** No usage access. Nothing is measured, so there is no figure to publish. */
+    OFF,
 }
 
 /** A single Recent Activity event. [kind] drives the icon + tint in the screen. */

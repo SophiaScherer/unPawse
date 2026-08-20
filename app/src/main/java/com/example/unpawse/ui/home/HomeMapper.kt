@@ -11,6 +11,7 @@ import com.example.unpawse.data.usage.effectiveLimitMinutes
 import com.example.unpawse.data.usage.isLimitReached
 import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.format.displayNameOf
+import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.format.formatSeconds
 import java.time.DayOfWeek
@@ -33,23 +34,42 @@ internal fun greetingFor(time: LocalTime): String = when (time.hour) {
 }
 
 /**
+ * Which of [ProtectionStatus]' three states the granted permissions add up to. Pure, so the whole
+ * rule is unit-testable without a device — the Context-bound reads stay in the ViewModel's factory.
+ *
+ * Usage access is the gate: `UsageMonitorController.startIfPermitted` refuses without it and only
+ * it, so nothing is measured at all when it is missing, whatever the overlay permission says.
+ */
+internal fun resolveProtection(
+    usageAccessGranted: Boolean,
+    overlayAccessGranted: Boolean,
+): ProtectionStatus = when {
+    !usageAccessGranted -> ProtectionStatus.OFF
+    !overlayAccessGranted -> ProtectionStatus.TRACKING_ONLY
+    else -> ProtectionStatus.ACTIVE
+}
+
+/**
  * Builds [HomeUiState] from today's usage + the capture history. Pure and parameterised on
  * [today]/[zone] so it's unit-testable without a clock (same shape as `GalleryMapper`).
  *
  * The greeting and the profile (name/avatar) are now real: the greeting follows the time of day and
- * the name comes from the persisted setting (blank falls back to a friendly default). Next-break
- * countdown and banner are still placeholder copy — see [HomeUiState.sample].
+ * the name comes from the persisted setting (blank falls back to a friendly default).
  */
 internal fun toHomeUiState(
     monitoredApps: List<MonitoredApp>,
     todayUsage: List<DailyUsage>,
     captures: List<Capture>,
     userName: String,
+    protection: ProtectionStatus,
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
     time: LocalTime = LocalTime.now(zone),
 ): HomeUiState {
     val displayName = displayNameOf(userName)
+    // Without usage access nothing accrues, so every usage figure below is a claim the app can't
+    // back. Tracking-only still measures honestly — it just can't act on what it measures.
+    val measuring = protection != ProtectionStatus.OFF
     val enabled = monitoredApps.filter { it.enabled }
     val usageByPackage = todayUsage.associateBy { it.packageName }
 
@@ -64,24 +84,43 @@ internal fun toHomeUiState(
     val streakDays = currentStreakDays(captureDates, today)
 
     val banner = buildBanner(
+        protection = protection,
         streakDays = streakDays,
         remainingSeconds = remainingSeconds,
         budgetSeconds = budget?.budgetSeconds ?: 0L,
     )
 
-    return HomeUiState.sample().copy(
+    // Constructed field by field, deliberately **not** `HomeUiState.sample().copy(...)`. Home was the
+    // last mapper inheriting from a mockup; the route it left open is that a field added later and
+    // forgotten here would silently render sample data. Same move already made in `StatsMapper` and
+    // `SettingsMapper`.
+    return HomeUiState(
         greeting = greetingFor(time),
         userName = displayName,
         avatarInitial = avatarInitialFor(userName),
-        screenTimeUsedLabel = formatSeconds(usedSeconds),
-        progressFraction = budget?.usedFraction ?: 0f,
-        remainingLabel = formatSeconds(remainingSeconds),
+        screenTimeUsedLabel = if (measuring) formatSeconds(usedSeconds) else NO_DATA,
+        progressFraction = if (measuring) budget?.usedFraction ?: 0f else 0f,
+        // Keyed on there being no budget at all, never on the figure reaching zero: a capped app that
+        // has burned its allowance is a real "0m", and collapsing the two made a fresh install open
+        // on "0m Remaining" directly above a banner telling the user to go and add some limits.
+        remainingLabel = if (measuring && budget != null) formatSeconds(budget.remainingSeconds) else NO_DATA,
         streakDays = streakDays,
         catCount = capturesToday.size,
         pausedAppsCount = enabled.size,
-        activities = buildActivities(enabled, usageByPackage, capturesToday, zone, today.dayOfWeek),
+        activities = buildActivities(
+            enabledApps = enabled,
+            usageByPackage = usageByPackage,
+            capturesToday = capturesToday,
+            zone = zone,
+            day = today.dayOfWeek,
+            // A "Blocked … Now" row is a claim that a block is up right now, which needs both
+            // permissions. Reporting one beside a banner saying limits can't be enforced would put
+            // the same contradiction back on the screen a step to the left.
+            reportBlocks = protection == ProtectionStatus.ACTIVE,
+        ),
         bannerTitle = banner.title,
         bannerBody = banner.body,
+        protection = protection,
     )
 }
 
@@ -90,10 +129,33 @@ internal data class HomeBanner(val title: String, val body: String)
 
 /**
  * Copy for the celebratory Home banner, derived from real metrics — never an invented number.
- * Ranked most-noteworthy first: setup guidance when nothing is monitored, then a streak celebration,
- * then budget-based nudges. Kept pure so each branch is unit-testable.
+ * Ranked most-noteworthy first: what is stopping unPawse working at all, then setup guidance when
+ * nothing is monitored, then a streak celebration, then budget-based nudges. Kept pure so each
+ * branch is unit-testable.
+ *
+ * **Permissions outrank limits**, deliberately. Limits configured without them do nothing whatever,
+ * which is exactly the bug this ranking exists to prevent: a 30m Chrome limit with neither permission
+ * granted used to reach the cheerful "You still have 30m of screen time left" branch.
  */
 internal fun buildBanner(
+    protection: ProtectionStatus,
+    streakDays: Int,
+    remainingSeconds: Long,
+    budgetSeconds: Long,
+): HomeBanner = when (protection) {
+    ProtectionStatus.OFF -> HomeBanner(
+        title = "Protection is off",
+        body = "Grant screen time access in Settings so unPawse can track your apps.",
+    )
+    ProtectionStatus.TRACKING_ONLY -> HomeBanner(
+        title = "Limits can't be enforced",
+        body = "Let unPawse display over other apps so a reached limit can block.",
+    )
+    ProtectionStatus.ACTIVE -> activeBanner(streakDays, remainingSeconds, budgetSeconds)
+}
+
+/** The everyday banners, reached only once unPawse can actually do what they imply. */
+private fun activeBanner(
     streakDays: Int,
     remainingSeconds: Long,
     budgetSeconds: Long,
@@ -132,8 +194,9 @@ private fun buildActivities(
     capturesToday: List<Capture>,
     zone: ZoneId,
     day: DayOfWeek,
+    reportBlocks: Boolean,
 ): List<ActivityItem> {
-    val blocked = enabledApps.mapNotNull { app ->
+    val blocked = if (!reportBlocks) emptyList() else enabledApps.mapNotNull { app ->
         val usage = usageByPackage[app.packageName] ?: return@mapNotNull null
         // Asks the enforcement path's own question. Open-coding it against `dailyLimitMinutes` put an
         // uncapped app permanently in the list, reporting "Daily limit of -1m reached."

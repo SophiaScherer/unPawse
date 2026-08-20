@@ -42,6 +42,9 @@ fun UnPawseNavHost(
             HomeRoute(
                 // "Edit Limits" opens the App Picker, which owns app selection and per-app limits.
                 onEditLimits = { navController.navigate(Routes.APP_PICKER) },
+                // The two permission rows that fix this live in Settings and already deep-link out
+                // to the system screens, so Home hands off rather than duplicating that.
+                onFixProtection = { navController.navigateToTab(TopLevelDestination.SETTINGS) },
             )
         }
 
