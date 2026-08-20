@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.AlertDialog
@@ -52,6 +53,7 @@ import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.StatPill
 import com.example.unpawse.ui.components.TimelineEntry
+import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 
@@ -70,6 +72,7 @@ fun HomeScreen(
     onEditLimits: () -> Unit = {},
     onStartFocus: (Int) -> Unit = {},
     onStopFocus: () -> Unit = {},
+    onFixProtection: () -> Unit = {},
 ) {
     // Ephemeral: the duration picker shown by both "Start Focus" and the Focus card.
     var showFocusPicker by remember { mutableStateOf(false) }
@@ -106,7 +109,12 @@ fun HomeScreen(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 FocusCard(focus, onStart = { showFocusPicker = true }, onStop = onStopFocus, Modifier.weight(1f))
-                PauseProtectionCard(state.pausedAppsCount, Modifier.weight(1f))
+                PauseProtectionCard(
+                    protection = state.protection,
+                    appsActive = state.pausedAppsCount,
+                    onFix = onFixProtection,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
 
@@ -145,7 +153,9 @@ private fun ScreenTimeCard(state: HomeUiState) {
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Screen time",
+                        // The figure above is blanked when nothing is being measured, so the caption
+                        // has to say why rather than labelling an em dash "Screen time".
+                        text = if (state.protection == ProtectionStatus.OFF) "Not tracking" else "Screen time",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -231,13 +241,31 @@ private fun FocusDurationDialog(onSelect: (Int) -> Unit, onDismiss: () -> Unit) 
 }
 
 @Composable
-private fun PauseProtectionCard(appsActive: Int, modifier: Modifier = Modifier) {
-    // Informational only: it reports how many apps are actively protected; it is not a control.
-    PawCard(modifier = modifier) {
+private fun PauseProtectionCard(
+    protection: ProtectionStatus,
+    appsActive: Int,
+    onFix: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val healthy = protection == ProtectionStatus.ACTIVE
+    val statusText = when (protection) {
+        // "1 Apps Active" was the mockup's phrasing surviving into a real count.
+        ProtectionStatus.ACTIVE -> if (appsActive == 1) "1 App Active" else "$appsActive Apps Active"
+        ProtectionStatus.TRACKING_ONLY -> "Can't block"
+        ProtectionStatus.OFF -> "Protection off"
+    }
+
+    // Informational while protection is healthy — but a card reporting a problem with no way to act
+    // on it is a dead end, so it becomes a tap through to Settings exactly when there is a fix.
+    PawCard(modifier = modifier, onClick = if (healthy) null else onFix) {
         IconTile(
-            icon = Icons.Filled.Shield,
-            tint = MaterialTheme.colorScheme.primary,
-            background = MaterialTheme.colorScheme.primaryContainer,
+            icon = if (healthy) Icons.Filled.Shield else Icons.Filled.Warning,
+            tint = if (healthy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            background = if (healthy) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.errorContainer
+            },
             shape = CircleShape,
         )
         Spacer(Modifier.height(12.dp))
@@ -248,11 +276,17 @@ private fun PauseProtectionCard(appsActive: Int, modifier: Modifier = Modifier) 
                 modifier = Modifier
                     .size(8.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondary),
+                    .background(
+                        if (healthy) {
+                            MaterialTheme.colorScheme.secondary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                    ),
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                "$appsActive Apps Active",
+                statusText,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -397,5 +431,39 @@ private fun HomeScreenPreview() {
 private fun HomeScreenDarkPreview() {
     UnPawseTheme(darkTheme = true) {
         HomeScreen(state = HomeUiState.sample())
+    }
+}
+
+/** Usage access granted, overlay missing: the figures are real, but nothing can be blocked. */
+@Preview(name = "Home · can't block", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1400)
+@Composable
+private fun HomeScreenTrackingOnlyPreview() {
+    UnPawseTheme {
+        HomeScreen(
+            state = HomeUiState.sample().copy(
+                protection = ProtectionStatus.TRACKING_ONLY,
+                bannerTitle = "Limits can't be enforced",
+                bannerBody = "Let unPawse display over other apps so a reached limit can block.",
+            ),
+        )
+    }
+}
+
+/** No usage access: nothing is measured, so the ring and the remaining figure have nothing to say. */
+@Preview(name = "Home · protection off", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1400)
+@Composable
+private fun HomeScreenProtectionOffPreview() {
+    UnPawseTheme {
+        HomeScreen(
+            state = HomeUiState.sample().copy(
+                protection = ProtectionStatus.OFF,
+                screenTimeUsedLabel = NO_DATA,
+                progressFraction = 0f,
+                remainingLabel = NO_DATA,
+                activities = emptyList(),
+                bannerTitle = "Protection is off",
+                bannerBody = "Grant screen time access in Settings so unPawse can track your apps.",
+            ),
+        )
     }
 }

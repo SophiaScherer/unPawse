@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun HomeRoute(
     onEditLimits: () -> Unit,
+    onFixProtection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -37,5 +38,6 @@ fun HomeRoute(
         onEditLimits = onEditLimits,
         onStartFocus = viewModel::startFocus,
         onStopFocus = viewModel::stopFocus,
+        onFixProtection = onFixProtection,
     )
 }
