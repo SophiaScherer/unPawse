@@ -4,7 +4,6 @@ import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -282,8 +281,21 @@ class AchievementRulesTest {
 
         assertEquals(ACHIEVEMENT_CATALOGUE.size, rows.size)
         assertTrue(rows.none { it.unlocked })
-        assertTrue(rows.all { it.subtitle == LOCKED_SUBTITLE })
         assertTrue(rows.all { it.icon == AchievementIcon.LOCKED })
+    }
+
+    /**
+     * A locked card states what earns it. It used to say "Coming Soon" on all five, which describes
+     * an unreleased feature rather than an unearned reward — every rule here is implemented.
+     */
+    @Test
+    fun `a locked badge states its criterion, not a roadmap promise`() {
+        val rows = toAchievements(evaluate()).associateBy { it.title }
+
+        ACHIEVEMENT_CATALOGUE.forEach { rule ->
+            assertEquals(rule.subtitle, rows.getValue(rule.title).subtitle)
+        }
+        assertTrue(rows.values.none { it.subtitle.contains("Coming", ignoreCase = true) })
     }
 
     @Test
@@ -311,6 +323,5 @@ class AchievementRulesTest {
         assertTrue(firstCat.unlocked)
         assertEquals("Your first verified cat", firstCat.subtitle)
         assertEquals(AchievementIcon.TROPHY, firstCat.icon)
-        assertFalse(firstCat.subtitle == LOCKED_SUBTITLE)
     }
 }

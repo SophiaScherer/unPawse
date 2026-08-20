@@ -30,6 +30,9 @@ internal val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "
 private const val TREND_CAPTION = "VS LAST WEEK, SAME DAYS"
 private const val TREND_NO_BASELINE_CAPTION = "NO DATA FOR LAST WEEK"
 
+/** Not [NO_DATA]: a library with nothing in it is a known fact, not a missing measurement. */
+private const val NO_PHOTOS_LABEL = "No photos yet"
+
 /**
  * Builds [StatsUiState] from usage history + captures. Pure and parameterised on [today]/[zone] so
  * it's unit-testable without a clock.
@@ -125,7 +128,10 @@ internal fun toStatsUiState(
         breakdown = breakdown,
         budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
         longestStreak = dayCountLabel(longestStreakDays(captureDates)),
-        capturedPhotos = "${captures.size} Photos",
+        // "0 Photos" under a party popper celebrates nothing; the card goes neutral and asks
+        // instead. The count is the flag, so the screen never has to parse the label back.
+        capturedPhotos = if (captures.isEmpty()) NO_PHOTOS_LABEL else "${captures.size} Photos",
+        hasCapturedPhotos = captures.isNotEmpty(),
         preventedCount = preventedThisWeek,
         unlocks = unlocksLabel(unlocks, today),
         achievements = toAchievements(
