@@ -10,6 +10,34 @@
 
 The design system ("Warm Minimalist") centers on a blush-pink (`#F5B6C8`) / plum (`#815060`) Material 3 palette over a warm-white surface, Inter-style typography, 24dp rounded cards, pill buttons, and a "squishy" 98%-press-scale feel. Source tokens live in the mockup's `DESIGN.md`.
 
+## Working Agreement
+
+How work lands here, as opposed to what the code does. Everything below this section describes the
+app; this one describes the process, and it is the part a fresh agent has no other way to learn.
+
+- **One plan is one pull request; one phase of that plan is one commit.** Phases are the unit of
+  review, so they are drawn along seams that make sense to a reader — a shared component extracted,
+  one screen fixed, the docs updated — not along whatever happens to be mechanically convenient to
+  edit in one pass.
+- **Stop at every phase boundary and ask before starting the next.** Plan approval approves the
+  plan's *contents*; it is not standing permission to run it end to end. This is the instruction
+  most likely to be lost, because consecutive phases usually touch unrelated files and so *feel*
+  like one continuous task.
+- **Write the phase's commit message the moment the phase ends**, before asking to continue. This is
+  not bookkeeping for later: the act of writing it is what marks the boundary. Deferring the
+  messages to the end of the plan removes the only signal that a phase finished at all, and the last
+  edit of one phase silently becomes the first edit of the next.
+- **Never stage and never commit.** Write the message, leave the working tree dirty; the repository
+  owner reviews and commits. `git add` included — a broad stage sweeps unrelated work into someone
+  else's commit.
+- **A phase isn't done because the edits are written.** `:app:assembleDebug`, `:app:lintDebug` and
+  `:app:testDebugUnitTest` are the floor, and anything `Context`-bound (services, the overlay,
+  permissions, notifications, workers) is verified on a device — the "Verified on an API-36
+  emulator" notes throughout this file are what that looks like when it is done properly.
+- **Update this file in the phase that earned the change**, not in a documentation phase at the end.
+  A decision recorded three commits after it was made is a decision the intervening commits cannot
+  explain themselves by.
+
 ## Tech Stack
 
 - **Language:** Kotlin
