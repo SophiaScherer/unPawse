@@ -1,14 +1,9 @@
 package com.example.unpawse.ui.home
 
-import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
-import com.example.unpawse.ui.format.DEFAULT_DISPLAY_NAME
-import com.example.unpawse.ui.format.NO_DATA
-
 /**
  * Immutable UI state for the Home screen. Screens are stateless and render whatever state they are
- * given; [sample] is hardcoded mockup data and is now `@Preview`-only, matching `StatsUiState` and
- * `SettingsUiState`. Production builds this from [toHomeUiState], or from [empty] before the first
- * emission lands.
+ * given; [sample] provides hardcoded mockup data for previews (and, for now, the running app). Swap
+ * for a ViewModel-backed `StateFlow` later without changing [HomeScreen].
  */
 data class HomeUiState(
     val greeting: String,
@@ -25,26 +20,6 @@ data class HomeUiState(
     val bannerBody: String,
 ) {
     companion object {
-        /**
-         * The honest nothing-yet state, seeded into the ViewModel's `StateFlow` for the frame before
-         * the repositories emit. It used to be [sample], so every cold Home render briefly showed the
-         * mockup's "Sophia", her 2h 15m and her 12-day streak to whoever opened the app.
-         */
-        fun empty() = HomeUiState(
-            greeting = "",
-            userName = DEFAULT_DISPLAY_NAME,
-            avatarInitial = DEFAULT_AVATAR_INITIAL,
-            screenTimeUsedLabel = NO_DATA,
-            progressFraction = 0f,
-            remainingLabel = NO_DATA,
-            streakDays = 0,
-            catCount = 0,
-            pausedAppsCount = 0,
-            activities = emptyList(),
-            bannerTitle = "",
-            bannerBody = "",
-        )
-
         fun sample() = HomeUiState(
             greeting = "Welcome back,",
             userName = "Sophia",

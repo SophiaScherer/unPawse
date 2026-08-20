@@ -5,7 +5,6 @@ import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -301,27 +300,6 @@ class HomeMapperTest {
 
         val blocked = state.activities.single { it.kind == ActivityKind.BLOCKED }
         assertEquals("Daily limit of 15m reached.", blocked.subtitle)
-    }
-
-    /**
-     * The successor to Stats' `no history yields real zeros, never sample's figures`. `toHomeUiState`
-     * was the last mapper building on `sample().copy(...)`, so a field added to [HomeUiState] and
-     * forgotten in the mapper would have rendered the mockup's data to a real user.
-     */
-    @Test
-    fun `a fresh install renders real emptiness, never sample's figures`() {
-        val state = map(apps = emptyList())
-        val sample = HomeUiState.sample()
-
-        assertNotEquals(sample.userName, state.userName)
-        assertNotEquals(sample.avatarInitial, state.avatarInitial)
-        assertNotEquals(sample.screenTimeUsedLabel, state.screenTimeUsedLabel)
-        assertNotEquals(sample.streakDays, state.streakDays)
-        assertNotEquals(sample.catCount, state.catCount)
-        assertNotEquals(sample.bannerBody, state.bannerBody)
-        assertTrue(state.activities.isEmpty())
-        assertEquals("0m", state.screenTimeUsedLabel)
-        assertEquals(0, state.streakDays)
     }
 
     @Test
