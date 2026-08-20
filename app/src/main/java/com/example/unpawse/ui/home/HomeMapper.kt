@@ -37,8 +37,7 @@ internal fun greetingFor(time: LocalTime): String = when (time.hour) {
  * [today]/[zone] so it's unit-testable without a clock (same shape as `GalleryMapper`).
  *
  * The greeting and the profile (name/avatar) are now real: the greeting follows the time of day and
- * the name comes from the persisted setting (blank falls back to a friendly default). Next-break
- * countdown and banner are still placeholder copy — see [HomeUiState.sample].
+ * the name comes from the persisted setting (blank falls back to a friendly default).
  */
 internal fun toHomeUiState(
     monitoredApps: List<MonitoredApp>,
@@ -69,7 +68,11 @@ internal fun toHomeUiState(
         budgetSeconds = budget?.budgetSeconds ?: 0L,
     )
 
-    return HomeUiState.sample().copy(
+    // Constructed field by field, deliberately **not** `HomeUiState.sample().copy(...)`. Home was the
+    // last mapper inheriting from a mockup; the route it left open is that a field added later and
+    // forgotten here would silently render sample data. Same move already made in `StatsMapper` and
+    // `SettingsMapper`.
+    return HomeUiState(
         greeting = greetingFor(time),
         userName = displayName,
         avatarInitial = avatarInitialFor(userName),
