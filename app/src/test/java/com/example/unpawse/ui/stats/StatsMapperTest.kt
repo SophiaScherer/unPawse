@@ -121,8 +121,21 @@ class StatsMapperTest {
 
         assertEquals(7, state.weeklyPoints.size)
         assertEquals(3, state.highlightDayIndex)
-        assertEquals(2f, state.weeklyPoints[3], 0.001f)
-        assertEquals(0f, state.weeklyPoints[0], 0.001f)
+        assertEquals(2f, state.weeklyPoints[3]!!, 0.001f)
+        assertEquals("a day with no usage row is a real zero", 0f, state.weeklyPoints[0]!!, 0.001f)
+    }
+
+    /**
+     * Days after today used to plot as zero, so on a Thursday the smoothed curve dived to the floor
+     * and stayed there — reading as three days of abstinence rather than three days that are yet
+     * to happen.
+     */
+    @Test
+    fun `the weekly chart stops at today`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 120)))
+
+        assertTrue("Fri-Sun have not happened", state.weeklyPoints.takeLast(3).all { it == null })
+        assertEquals("today is the last day plotted", 3, state.weeklyPoints.indexOfLast { it != null })
     }
 
     // --- Category breakdown ---------------------------------------------------------------------

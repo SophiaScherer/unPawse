@@ -109,7 +109,10 @@ internal fun toStatsUiState(
         // "Positive" means usage went *up* — the screen renders it as the unwelcome direction.
         deltaIsPositive = todaySeconds > yesterdaySeconds,
         deltaHasBaseline = yesterdaySeconds > 0L,
-        weeklyPoints = week.map { usedOn(it) / SECONDS_PER_HOUR },
+        // Null after today: the chart draws no mark for a day that hasn't happened. Plotting it as
+        // zero put Thu–Sun on the floor, and the smoothed curve dived off a cliff after today —
+        // four days of abstinence, drawn from four days that don't exist yet.
+        weeklyPoints = week.map { if (it.isAfter(today)) null else usedOn(it) / SECONDS_PER_HOUR },
         weekdayLabels = WEEKDAY_LABELS,
         highlightDayIndex = today.dayOfWeek.value - 1,
         trendLabel = if (trendHasBaseline) trendLabel(trendDeltaSeconds) else NO_DATA,

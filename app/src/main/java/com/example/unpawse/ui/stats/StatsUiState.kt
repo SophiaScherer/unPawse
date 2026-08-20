@@ -16,7 +16,12 @@ data class StatsUiState(
      * any usage at all is technically greater than zero.)
      */
     val deltaHasBaseline: Boolean,
-    val weeklyPoints: List<Float>,
+    /**
+     * Hours per day across the Mon–Sun week, `null` for a day still to come. A past day with no
+     * usage is a real `0f`; one numeric slot cannot say both that and "this day hasn't happened",
+     * which is the same reason [deltaHasBaseline] exists.
+     */
+    val weeklyPoints: List<Float?>,
     val weekdayLabels: List<String>,
     val highlightDayIndex: Int,
     val preventedCount: Int,
@@ -56,7 +61,7 @@ data class StatsUiState(
             deltaText = "12% from yesterday",
             deltaIsPositive = false,
             deltaHasBaseline = true,
-            weeklyPoints = listOf(2.1f, 2.6f, 2.9f, 3.4f, 3.8f, 2.2f, 3.4f),
+            weeklyPoints = listOf(2.1f, 2.6f, 2.9f, 3.4f, 3.8f, null, null),
             weekdayLabels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"),
             highlightDayIndex = 4,
             preventedCount = 42,
