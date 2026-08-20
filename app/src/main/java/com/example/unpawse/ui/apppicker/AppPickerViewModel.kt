@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
+import com.example.unpawse.data.apps.DeviceUsageProvider
 import com.example.unpawse.data.apps.InstalledApp
 import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.schedule.ScheduleRepository
@@ -23,36 +24,54 @@ import kotlinx.coroutines.launch
  * Drives the app picker: joins the device's installed apps with the monitored-app rows and writes
  * the user's choices back to [UsageRepository].
  *
- * The installed-app list is loaded once (it can't change while the picker is open in any way that
- * matters) and held in a flow so it composes with the live monitored-apps stream; `null` means
- * "still loading".
+ * Both device reads — what is installed and how much each has been used — are one-shot and land in
+ * a single [DeviceApps] holder; `null` means "still loading". They share a holder rather than a flow
+ * each because the top-level `combine` is capped at five arguments (see AGENTS.md), and this keeps
+ * it exactly there.
  */
 class AppPickerViewModel(
     private val usageRepository: UsageRepository,
     private val installedAppsProvider: InstalledAppsProvider,
+    private val deviceUsageProvider: DeviceUsageProvider,
     scheduleRepository: ScheduleRepository,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
-    private val installedApps = MutableStateFlow<List<InstalledApp>?>(null)
+    private val sortOrder = MutableStateFlow(AppSort.ALPHABETICAL)
+    private val deviceApps = MutableStateFlow<DeviceApps?>(null)
 
     init {
-        viewModelScope.launch { installedApps.value = installedAppsProvider.installedApps() }
+        viewModelScope.launch {
+            deviceApps.value = DeviceApps(
+                installed = installedAppsProvider.installedApps(),
+                dailyAverageSeconds = deviceUsageProvider.dailyAverageSeconds(),
+            )
+        }
     }
 
     val uiState: StateFlow<AppPickerUiState> = combine(
-        installedApps,
+        deviceApps,
         usageRepository.observeMonitoredApps(),
         searchQuery,
         scheduleRepository.observeWindows(),
-    ) { installed, monitored, query, windows ->
-        if (installed == null) {
-            AppPickerUiState(searchQuery = query, isLoading = true)
+        sortOrder,
+    ) { device, monitored, query, windows, sort ->
+        if (device == null) {
+            AppPickerUiState(searchQuery = query, isLoading = true, sort = sort)
         } else {
             AppPickerUiState(
                 searchQuery = query,
-                apps = toAppLimitItems(installed, monitored, query, windows),
+                apps = toAppLimitItems(
+                    installed = device.installed,
+                    monitored = monitored,
+                    searchQuery = query,
+                    scheduleWindows = windows,
+                    dailyAverageSeconds = device.dailyAverageSeconds,
+                    sort = sort,
+                ),
                 isLoading = false,
+                sort = sort,
+                usageAccessGranted = device.dailyAverageSeconds != null,
             )
         }
     }.stateIn(
@@ -63,6 +82,24 @@ class AppPickerViewModel(
 
     fun onSearchChange(query: String) {
         searchQuery.value = query
+    }
+
+    fun onSortChange(sort: AppSort) {
+        sortOrder.value = sort
+    }
+
+    /**
+     * Re-reads the usage figures, which is how granting usage access takes effect on return without
+     * re-entering the screen — the app-op isn't observable, so the Route calls this on resume.
+     *
+     * The installed list is deliberately left alone: it can't change while the picker is open in any
+     * way that matters, and a PackageManager sweep on every resume would be wasted work.
+     */
+    fun refresh() {
+        val loaded = deviceApps.value ?: return
+        viewModelScope.launch {
+            deviceApps.value = loaded.copy(dailyAverageSeconds = deviceUsageProvider.dailyAverageSeconds())
+        }
     }
 
     /**
@@ -121,9 +158,20 @@ class AppPickerViewModel(
                 AppPickerViewModel(
                     container.usageRepository,
                     container.installedAppsProvider,
+                    container.deviceUsageProvider,
                     container.scheduleRepository,
                 )
             }
         }
     }
 }
+
+/**
+ * The two one-shot device reads the picker needs, held together so the ViewModel's `combine` stays
+ * at its five-argument limit. [dailyAverageSeconds] is `null` when usage access is missing, which is
+ * also what tells the UI to say so.
+ */
+private data class DeviceApps(
+    val installed: List<InstalledApp>,
+    val dailyAverageSeconds: Map<String, Long>?,
+)

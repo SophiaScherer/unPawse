@@ -8,6 +8,7 @@ import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -183,5 +184,99 @@ class AppPickerMapperTest {
             .single { it.packageName == "com.instagram.android" }
 
         assertEquals(AppCategory.PRODUCTIVITY, item.category)
+    }
+
+    // --- Sorting and recent-usage averages ---------------------------------------------------
+
+    /** Instagram used most, Spotify least; deliberately not alphabetical order. */
+    private val averages = mapOf(
+        "com.instagram.android" to 5_400L,
+        "com.spotify.music" to 600L,
+        "com.zhiliaoapp.musically" to 3_600L,
+    )
+
+    private fun sortedBy(sort: AppSort, usage: Map<String, Long>? = averages) =
+        toAppLimitItems(
+            installed, monitored = emptyList(), searchQuery = "",
+            dailyAverageSeconds = usage, sort = sort,
+        ).map { it.label }
+
+    @Test
+    fun `most used ranks by recent average, not by name`() {
+        assertEquals(listOf("Instagram", "TikTok", "Spotify"), sortedBy(AppSort.MOST_USED))
+    }
+
+    @Test
+    fun `alphabetical ignores usage entirely`() {
+        assertEquals(listOf("Instagram", "Spotify", "TikTok"), sortedBy(AppSort.ALPHABETICAL))
+    }
+
+    @Test
+    fun `apps tied on usage fall back to alphabetical order`() {
+        // Without the tie-break the order would depend on the incoming list, so it could differ
+        // between two renders of the same data.
+        val tied = installed.associate { it.packageName to 1_800L }
+
+        assertEquals(listOf("Instagram", "Spotify", "TikTok"), sortedBy(AppSort.MOST_USED, tied))
+    }
+
+    @Test
+    fun `most used on a device with no history reads as plain alphabetical`() {
+        assertEquals(listOf("Instagram", "Spotify", "TikTok"), sortedBy(AppSort.MOST_USED, emptyMap()))
+    }
+
+    @Test
+    fun `without usage access every average is absent, not zero`() {
+        val items = toAppLimitItems(installed, monitored = emptyList(), searchQuery = "", dailyAverageSeconds = null)
+
+        assertTrue(items.all { it.dailyAverageSeconds == null })
+    }
+
+    @Test
+    fun `a package missing from a measured map is a real zero`() {
+        // Measured, and it was none — which must stay distinct from "nothing was measured".
+        val items = toAppLimitItems(
+            installed, monitored = emptyList(), searchQuery = "",
+            dailyAverageSeconds = mapOf("com.instagram.android" to 5_400L),
+        )
+
+        assertEquals(0L, items.single { it.label == "Spotify" }.dailyAverageSeconds)
+    }
+
+    @Test
+    fun `search filters first, then the survivors are ranked`() {
+        val items = toAppLimitItems(
+            installed, monitored = emptyList(), searchQuery = "s",
+            dailyAverageSeconds = averages, sort = AppSort.MOST_USED,
+        )
+
+        // "Instagram" and "Spotify" both contain an s; TikTok does not.
+        assertEquals(listOf("Instagram", "Spotify"), items.map { it.label })
+    }
+
+    // --- The figure a row prints ------------------------------------------------------------------
+
+    @Test
+    fun `no measurement prints nothing at all`() {
+        assertNull(dailyAverageLabel(null))
+    }
+
+    @Test
+    fun `a measured zero says so in words`() {
+        assertEquals("Not used", dailyAverageLabel(0L))
+    }
+
+    @Test
+    fun `a sub-minute average is not rendered as zero`() {
+        // formatMinutes floors, so "0m/day" would put a daily habit beside apps never opened.
+        assertEquals("<1m/day", dailyAverageLabel(40L))
+        assertEquals("<1m/day", dailyAverageLabel(59L))
+    }
+
+    @Test
+    fun `everyday averages read as durations per day`() {
+        assertEquals("1m/day", dailyAverageLabel(60L))
+        assertEquals("45m/day", dailyAverageLabel(2_700L))
+        assertEquals("2h 30m/day", dailyAverageLabel(9_000L))
     }
 }
