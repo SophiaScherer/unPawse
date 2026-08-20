@@ -49,6 +49,7 @@ import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
+import com.example.unpawse.ui.theme.unPawseColors
 import java.io.File
 
 @Composable
@@ -267,10 +268,10 @@ private fun CaptureCard(capture: CaptureItem, onClick: () -> Unit) {
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                     Icon(Icons.Filled.Timer, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(14.dp))
+                        tint = MaterialTheme.unPawseColors.success, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.size(4.dp))
                     Text(capture.earnedLabel, style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.secondary)
+                        color = MaterialTheme.unPawseColors.success)
                 }
             } else {
                 Text(capture.caption, style = MaterialTheme.typography.bodySmall,

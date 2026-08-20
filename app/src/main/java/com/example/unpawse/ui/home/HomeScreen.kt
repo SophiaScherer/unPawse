@@ -56,6 +56,7 @@ import com.example.unpawse.ui.components.TimelineEntry
 import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
+import com.example.unpawse.ui.theme.unPawseColors
 
 /** Focus-session lengths offered by the duration picker, in minutes. */
 private val FOCUS_DURATION_OPTIONS = listOf(15, 30, 60)
@@ -278,7 +279,7 @@ private fun PauseProtectionCard(
                     .clip(CircleShape)
                     .background(
                         if (healthy) {
-                            MaterialTheme.colorScheme.secondary
+                            MaterialTheme.unPawseColors.success
                         } else {
                             MaterialTheme.colorScheme.error
                         },
@@ -400,8 +401,8 @@ private fun PromoBanner(title: String, body: String) {
 private fun ActivityItem.toTimelineEntry(): TimelineEntry = when (kind) {
     ActivityKind.VERIFIED -> TimelineEntry(
         icon = Icons.Filled.Verified,
-        iconTint = MaterialTheme.colorScheme.secondary,
-        iconBackground = MaterialTheme.colorScheme.secondaryContainer,
+        iconTint = MaterialTheme.unPawseColors.success,
+        iconBackground = MaterialTheme.unPawseColors.successContainer,
         title = title, subtitle = subtitle, time = time,
     )
     ActivityKind.BLOCKED -> TimelineEntry(

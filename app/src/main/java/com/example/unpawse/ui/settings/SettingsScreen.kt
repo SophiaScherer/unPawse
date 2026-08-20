@@ -56,6 +56,7 @@ import com.example.unpawse.ui.components.OptionPickerDialog
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
 import com.example.unpawse.ui.components.SettingsRow
+import com.example.unpawse.ui.theme.unPawseColors
 import com.example.unpawse.ui.components.ValueText
 import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.navigation.SettingsRowIds
@@ -215,12 +216,12 @@ fun SettingsScreen(
                     },
                     leadingIcon = if (state.usageAccessGranted) Icons.Filled.Shield else Icons.Filled.Warning,
                     iconTint = if (state.usageAccessGranted) {
-                        MaterialTheme.colorScheme.secondary
+                        MaterialTheme.unPawseColors.success
                     } else {
                         MaterialTheme.colorScheme.error
                     },
                     iconBackground = if (state.usageAccessGranted) {
-                        MaterialTheme.colorScheme.secondaryContainer
+                        MaterialTheme.unPawseColors.successContainer
                     } else {
                         MaterialTheme.colorScheme.errorContainer
                     },
@@ -236,12 +237,12 @@ fun SettingsScreen(
                     },
                     leadingIcon = if (state.overlayAccessGranted) Icons.Filled.Shield else Icons.Filled.Warning,
                     iconTint = if (state.overlayAccessGranted) {
-                        MaterialTheme.colorScheme.secondary
+                        MaterialTheme.unPawseColors.success
                     } else {
                         MaterialTheme.colorScheme.error
                     },
                     iconBackground = if (state.overlayAccessGranted) {
-                        MaterialTheme.colorScheme.secondaryContainer
+                        MaterialTheme.unPawseColors.successContainer
                     } else {
                         MaterialTheme.colorScheme.errorContainer
                     },
@@ -303,12 +304,12 @@ fun SettingsScreen(
                     },
                     leadingIcon = if (state.notificationsGranted) Icons.Filled.Shield else Icons.Filled.Warning,
                     iconTint = if (state.notificationsGranted) {
-                        MaterialTheme.colorScheme.secondary
+                        MaterialTheme.unPawseColors.success
                     } else {
                         MaterialTheme.colorScheme.error
                     },
                     iconBackground = if (state.notificationsGranted) {
-                        MaterialTheme.colorScheme.secondaryContainer
+                        MaterialTheme.unPawseColors.successContainer
                     } else {
                         MaterialTheme.colorScheme.errorContainer
                     },

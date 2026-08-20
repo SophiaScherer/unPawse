@@ -111,6 +111,15 @@ class ExtendedColorsTest {
         }
     }
 
+    /** Success is drawn as a dot, an icon and a label straight onto a card, never on its container. */
+    @Test
+    fun `success reads against the card it is drawn on`() {
+        eachTheme { theme, colors ->
+            val ratio = contrastRatio(colors.success, colors.cardSurface)
+            assertTrue("success is $ratio:1 on the $theme card", ratio >= 4.5f)
+        }
+    }
+
     @Test
     fun `the success container carries its own text`() {
         eachTheme { theme, colors ->

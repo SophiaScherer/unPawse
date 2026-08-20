@@ -142,7 +142,7 @@ private fun DailyScreenTimeCard(state: StatsUiState) {
                     val deltaTint = when {
                         !state.deltaHasBaseline -> MaterialTheme.colorScheme.onSurfaceVariant
                         state.deltaIsPositive -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.unPawseColors.success
                     }
                     if (state.deltaHasBaseline) {
                         Icon(
