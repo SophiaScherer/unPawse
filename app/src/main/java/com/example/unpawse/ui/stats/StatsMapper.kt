@@ -24,7 +24,7 @@ private const val DAYS_IN_WEEK = 7
 private const val SECONDS_PER_HOUR = 3600f
 
 /** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
-private val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+internal val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
 /** The trend's period, on the card's face — the rule the "THIS WEEK" line on Prevented follows. */
 private const val TREND_CAPTION = "VS LAST WEEK, SAME DAYS"

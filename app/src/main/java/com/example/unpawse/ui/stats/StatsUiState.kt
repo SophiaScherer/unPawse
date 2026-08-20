@@ -1,8 +1,12 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
+import com.example.unpawse.ui.format.NO_DATA
 
-/** Immutable UI state for the Statistics screen. [sample] supplies mockup data for previews. */
+/**
+ * Immutable UI state for the Statistics screen. Production builds this from [toStatsUiState], or
+ * from [empty] before the first emission lands; [sample] is mockup data and is `@Preview`-only.
+ */
 data class StatsUiState(
     /** Header avatar letter; see [com.example.unpawse.ui.format.avatarInitialFor]. */
     val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
@@ -55,6 +59,37 @@ data class StatsUiState(
     val achievements: List<Achievement>,
 ) {
     companion object {
+        /**
+         * The honest nothing-yet state, seeded into the ViewModel's `StateFlow` for the frame before
+         * the repositories emit. It used to be [sample], so every cold open of Stats flashed the
+         * mockup's "3h 24m", its 42 prevented interruptions and a 12-day streak nobody had earned.
+         * Home and Settings were fixed the same way; this was the last seed still doing it.
+         */
+        fun empty() = StatsUiState(
+            avatarInitial = DEFAULT_AVATAR_INITIAL,
+            dailyTotal = NO_DATA,
+            // No comparison has been made yet, so the card says nothing rather than guessing.
+            deltaText = "",
+            deltaIsPositive = false,
+            deltaHasBaseline = false,
+            weeklyPoints = emptyList(),
+            weekdayLabels = WEEKDAY_LABELS,
+            highlightDayIndex = -1,
+            preventedCount = 0,
+            trendLabel = NO_DATA,
+            trendIsUp = false,
+            trendHasBaseline = false,
+            trendCaption = "",
+            trendBars = emptyList(),
+            breakdownTotal = NO_DATA,
+            breakdown = emptyList(),
+            budgetLeftLabel = NO_DATA,
+            longestStreak = NO_DATA,
+            unlocks = NO_DATA,
+            capturedPhotos = NO_DATA,
+            achievements = emptyList(),
+        )
+
         fun sample() = StatsUiState(
             avatarInitial = 'S',
             dailyTotal = "3h 24m",

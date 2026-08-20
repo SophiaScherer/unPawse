@@ -410,6 +410,27 @@ class StatsMapperTest {
     }
 
     /**
+     * The seed the ViewModel renders before the repositories emit. It used to be `sample()`, so a
+     * cold open of Stats showed the mockup's figures to whoever opened the app — the same route
+     * Home and Settings have already closed.
+     */
+    @Test
+    fun `the seed state shares no figure with the mockup`() {
+        val empty = StatsUiState.empty()
+        val sample = StatsUiState.sample()
+
+        assertNotEquals(sample.dailyTotal, empty.dailyTotal)
+        assertNotEquals(sample.trendLabel, empty.trendLabel)
+        assertNotEquals(sample.preventedCount, empty.preventedCount)
+        assertNotEquals(sample.longestStreak, empty.longestStreak)
+        assertNotEquals(sample.capturedPhotos, empty.capturedPhotos)
+        assertFalse("no direction without a comparison", empty.trendHasBaseline)
+        assertTrue(empty.breakdown.isEmpty())
+        assertTrue(empty.achievements.isEmpty())
+        assertEquals("the axis is a real constant, not mockup data", WEEKDAY_LABELS, empty.weekdayLabels)
+    }
+
+    /**
      * The mapper builds [StatsUiState] field by field rather than from `sample().copy(...)`, so its
      * one remaining constant has to come from the mapper's own value. If someone reintroduces the
      * `.copy(...)` base this still passes — which is why the test above also pins a *computed*
