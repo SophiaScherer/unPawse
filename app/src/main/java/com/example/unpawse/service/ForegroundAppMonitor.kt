@@ -19,17 +19,22 @@ import kotlin.time.Duration.Companion.seconds
  */
 interface ForegroundAppMonitor {
     /**
-     * Emits the current foreground package about once per poll interval, or `null` when nothing is
-     * in front (screen off) or it isn't known yet. Emits on every tick — including repeats — so
-     * callers can measure elapsed time between ticks.
+     * Emits the current foreground package about once per poll interval, or `null` when it isn't
+     * known — the screen is off, nothing has been seen yet, or the app we were tracking went away
+     * and nothing replaced it. Emits on every tick — including repeats — so callers can measure
+     * elapsed time between ticks.
      */
     fun foregroundApp(): Flow<String?>
 }
 
 /**
  * [UsageStatsManager]-backed monitor. Each tick queries only the events *since the last tick* and
- * remembers the most recent "resumed" package, so a user sitting still in one app keeps reporting
- * that app without re-querying a wide window.
+ * folds them over what was in front before, so a user sitting still in one app keeps reporting that
+ * app without re-querying a wide window.
+ *
+ * It consumes departures as well as arrivals. Reporting the last resumed package forever made the
+ * block permanently escapable: returning from Recents raises no fresh resume, so the monitor stayed
+ * pointed at the launcher, usage stopped accruing and no block ever fired again.
  *
  * Requires the `PACKAGE_USAGE_STATS` app-op (see [UsageAccess]); without it `queryEvents` simply
  * returns nothing and this emits `null` forever rather than crashing.
@@ -45,40 +50,56 @@ class UsageStatsForegroundAppMonitor(
     private val powerManager = appContext.getSystemService(PowerManager::class.java)
 
     override fun foregroundApp(): Flow<String?> = flow {
-        var lastKnown: String? = null
+        var lastKnown: ForegroundActivity? = null
         var cursor = now() - INITIAL_LOOKBACK_MILLIS
 
         while (true) {
             val tick = now()
-            if (powerManager?.isInteractive != false) {
-                latestResumedPackage(cursor, tick)?.let { lastKnown = it }
+            lastKnown = if (powerManager?.isInteractive != false) {
+                resolveForeground(lastKnown, transitionsIn(cursor, tick))
             } else {
                 // Screen off: nothing is in the foreground, so time must stop accruing. Without
                 // this the last app would keep "being used" all night.
-                lastKnown = null
+                null
             }
             cursor = tick
 
-            emit(lastKnown)
+            // Callers only ever need the package; the activity is this class's bookkeeping.
+            emit(lastKnown?.packageName)
             delay(pollInterval)
         }
     }.flowOn(Dispatchers.IO)
 
-    /** The package of the most recent foreground transition in the window, or null if there was none. */
-    @Suppress("DEPRECATION") // MOVE_TO_FOREGROUND == ACTIVITY_RESUMED (API 29+); same value, works on minSdk 26.
-    private fun latestResumedPackage(beginMillis: Long, endMillis: Long): String? {
-        val manager = usageStatsManager ?: return null
+    /** Every foreground arrival and departure in the window, oldest first. */
+    @Suppress(
+        // MOVE_TO_FOREGROUND/BACKGROUND == ACTIVITY_RESUMED/PAUSED (API 29+); same values, and the
+        // deprecated names are the ones that compile against minSdk 26.
+        "DEPRECATION",
+        // ACTIVITY_STOPPED is API 29 but a compile-time constant, so it inlines; older platforms
+        // simply never emit that type and the pause alone carries them.
+        "InlinedApi",
+    )
+    private fun transitionsIn(beginMillis: Long, endMillis: Long): List<ForegroundTransition> {
+        val manager = usageStatsManager ?: return emptyList()
         val events = manager.queryEvents(beginMillis, endMillis)
+        // One instance, refilled per event by the platform — copy what we keep out of it.
         val event = UsageEvents.Event()
-        var latest: String? = null
+        val transitions = mutableListOf<ForegroundTransition>()
 
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                latest = event.packageName
+            val resumed = when (event.eventType) {
+                UsageEvents.Event.MOVE_TO_FOREGROUND -> true
+                UsageEvents.Event.MOVE_TO_BACKGROUND, UsageEvents.Event.ACTIVITY_STOPPED -> false
+                else -> continue
             }
+            val packageName = event.packageName ?: continue
+            transitions += ForegroundTransition(
+                activity = ForegroundActivity(packageName, event.className),
+                resumed = resumed,
+            )
         }
-        return latest
+        return transitions
     }
 
     companion object {
