@@ -33,8 +33,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.data.apps.RECENT_DAYS
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.ui.components.BackHeader
+import com.example.unpawse.ui.components.EmptyStateCard
+import com.example.unpawse.ui.components.FilterChip
 import com.example.unpawse.ui.components.clearFocusOnScroll
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.SearchField
@@ -54,6 +57,8 @@ fun AppPickerScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onSearchChange: (String) -> Unit = {},
+    onSortChange: (AppSort) -> Unit = {},
+    onGrantUsageAccess: () -> Unit = {},
     onToggleMonitored: (AppLimitItem, Boolean) -> Unit = { _, _ -> },
     onLimitChange: (AppLimitItem, Int) -> Unit = { _, _ -> },
     onWeekendLimitChange: (AppLimitItem, Int?) -> Unit = { _, _ -> },
@@ -74,6 +79,24 @@ fun AppPickerScreen(
             onQueryChange = onSearchChange,
             modifier = Modifier.padding(horizontal = Dimens.ScreenHMargin),
         )
+
+        Spacer(Modifier.size(Dimens.StackGap))
+
+        SortControls(
+            sort = state.sort,
+            // No figures means the caption would be describing something the rows don't show.
+            showAverageCaption = state.usageAccessGranted,
+            onSortChange = { dismissKeyboard(); onSortChange(it) },
+            modifier = Modifier.padding(horizontal = Dimens.ScreenHMargin),
+        )
+
+        if (!state.usageAccessGranted) {
+            Spacer(Modifier.size(Dimens.StackGap))
+            UsageAccessNotice(
+                onClick = { dismissKeyboard(); onGrantUsageAccess() },
+                modifier = Modifier.padding(horizontal = Dimens.ScreenHMargin),
+            )
+        }
 
         Spacer(Modifier.size(Dimens.StackGap))
 
@@ -121,6 +144,55 @@ private fun AppPickerHeader(monitoredCount: Int, onBack: () -> Unit) {
 }
 
 /**
+ * How the list is ordered, plus what the figures under each name mean.
+ *
+ * The caption is the period the averages cover — a figure that doesn't state its window is the trap
+ * AGENTS.md records for the Stats cards, and it is stated once here rather than on every row.
+ */
+@Composable
+private fun SortControls(
+    sort: AppSort,
+    showAverageCaption: Boolean,
+    onSortChange: (AppSort) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AppSort.entries.forEach { option ->
+                FilterChip(
+                    label = option.label,
+                    selected = option == sort,
+                    onClick = { onSortChange(option) },
+                )
+            }
+        }
+        if (showAverageCaption) {
+            Spacer(Modifier.size(6.dp))
+            Text(
+                text = "Daily average, last $RECENT_DAYS days",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * Shown whenever usage access is missing, in either sort — both the ranking and every row's figure
+ * are degraded, so it is one state rather than two. Tapping hands off to the system screen: a card
+ * that reports a problem gets a way to act on it, like Home's Pause Protection card.
+ */
+@Composable
+private fun UsageAccessNotice(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    EmptyStateCard(
+        title = "Usage figures need usage access",
+        body = "Grant it to sort by most used and see what each app costs you per day. " +
+            "Tap here to open the setting.",
+        modifier = modifier.clickable(onClick = onClick),
+    )
+}
+
+/**
  * One app: icon, name, monitor switch, and — when monitored — its everyday limit, its weekend
  * override, and which blocking schedules cover it.
  */
@@ -137,13 +209,22 @@ private fun AppLimitRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             AppIcon(packageName = item.packageName, label = item.label)
             Spacer(Modifier.width(16.dp))
-            Text(
-                text = item.label,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                // Absent rather than zeroed when there is no figure — see AppLimitItem.
+                dailyAverageLabel(item.dailyAverageSeconds)?.let { average ->
+                    Text(
+                        text = average,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             Spacer(Modifier.width(12.dp))
             Switch(checked = item.monitored, onCheckedChange = onToggleMonitored)
         }
@@ -233,6 +314,15 @@ private fun AppPickerPreviewContent() {
     AppPickerScreen(
         state = state,
         onSearchChange = { query -> state = state.copy(searchQuery = query) },
+        onSortChange = { sort ->
+            state = state.copy(
+                sort = sort,
+                apps = when (sort) {
+                    AppSort.ALPHABETICAL -> state.apps.sortedBy { it.label.lowercase() }
+                    AppSort.MOST_USED -> state.apps.sortedByDescending { it.dailyAverageSeconds ?: 0L }
+                },
+            )
+        },
         onToggleMonitored = { item, on ->
             state = state.copy(
                 apps = state.apps.map { if (it.packageName == item.packageName) it.copy(monitored = on) else it },

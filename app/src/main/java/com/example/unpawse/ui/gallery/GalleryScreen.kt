@@ -1,7 +1,6 @@
 package com.example.unpawse.ui.gallery
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +16,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
@@ -42,6 +39,7 @@ import com.example.unpawse.ui.components.AiBadge
 import com.example.unpawse.ui.components.CatPhotoPlaceholder
 import com.example.unpawse.ui.components.EarnedChip
 import com.example.unpawse.ui.components.EmptyStateCard
+import com.example.unpawse.ui.components.FilterChip
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.components.clearFocusOnScroll
@@ -143,31 +141,6 @@ private fun FilterRow(selectedFilter: GalleryFilter, onFilterSelected: (GalleryF
                 onClick = { onFilterSelected(filter) },
             )
         }
-    }
-}
-
-@Composable
-private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val container = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
-    val content = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .clickable(onClick = onClick)
-            .background(container)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (selected) {
-            Icon(Icons.Filled.Check, contentDescription = null, tint = content, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.size(6.dp))
-        }
-        Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = content,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-        )
     }
 }
 

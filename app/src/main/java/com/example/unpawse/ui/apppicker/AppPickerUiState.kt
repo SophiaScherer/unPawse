@@ -12,6 +12,9 @@ data class AppPickerUiState(
     val searchQuery: String = "",
     val apps: List<AppLimitItem> = emptyList(),
     val isLoading: Boolean = true,
+    val sort: AppSort = AppSort.ALPHABETICAL,
+    /** False only when usage access is missing, which is what blanks every row's average. */
+    val usageAccessGranted: Boolean = true,
 ) {
     val monitoredCount: Int get() = apps.count { it.monitored }
 
@@ -23,22 +26,28 @@ data class AppPickerUiState(
                 AppLimitItem(
                     "com.instagram.android", "Instagram", monitored = true, dailyLimitMinutes = 30,
                     weekendLimitMinutes = 90, scheduleSummary = "Bedtime, School hours",
-                    category = AppCategory.SOCIAL,
+                    category = AppCategory.SOCIAL, dailyAverageSeconds = 4_500,
                 ),
                 AppLimitItem(
                     "com.zhiliaoapp.musically", "TikTok", monitored = true, dailyLimitMinutes = 45,
                     weekendLimitMinutes = UNLIMITED_MINUTES, scheduleSummary = "Bedtime",
-                    category = AppCategory.SOCIAL,
+                    category = AppCategory.SOCIAL, dailyAverageSeconds = 7_320,
                 ),
                 AppLimitItem(
                     "com.spotify.music", "Spotify", monitored = false,
                     dailyLimitMinutes = DEFAULT_LIMIT_MINUTES, category = AppCategory.ENTERTAINMENT,
+                    dailyAverageSeconds = 1_200,
                 ),
                 AppLimitItem(
                     "com.google.android.youtube", "YouTube", monitored = true, dailyLimitMinutes = 90,
                     scheduleSummary = "Bedtime", category = AppCategory.ENTERTAINMENT,
+                    dailyAverageSeconds = 9_000,
                 ),
-                AppLimitItem("com.reddit.frontpage", "Reddit", monitored = false, dailyLimitMinutes = DEFAULT_LIMIT_MINUTES),
+                // A real zero: measured, and this one genuinely went untouched.
+                AppLimitItem(
+                    "com.reddit.frontpage", "Reddit", monitored = false,
+                    dailyLimitMinutes = DEFAULT_LIMIT_MINUTES, dailyAverageSeconds = 0,
+                ),
             ),
         )
     }
@@ -51,6 +60,11 @@ data class AppPickerUiState(
  * [UNLIMITED_MINUTES] means no cap. [scheduleSummary] names the blocking windows that cover this
  * app, so the "when" half of a limit is visible from where the "how much" half is set.
  * [category] is the Stats bucket this app's time counts toward.
+ *
+ * [dailyAverageSeconds] is what the platform says this app has cost per day lately. `null` means
+ * **no figure exists** (usage access is missing); `0` is a measured nothing. One slot cannot say
+ * both, which is why this is nullable rather than defaulting to zero — see `ProtectionStatus` and
+ * `deltaHasBaseline` for the same rule elsewhere. Display only; it reaches no repository.
  */
 data class AppLimitItem(
     val packageName: String,
@@ -60,6 +74,7 @@ data class AppLimitItem(
     val weekendLimitMinutes: Int? = null,
     val scheduleSummary: String = NO_SCHEDULES_SUMMARY,
     val category: AppCategory = AppCategory.OTHER,
+    val dailyAverageSeconds: Long? = null,
 ) {
     val weekendMode: WeekendMode
         get() = when {
@@ -78,6 +93,18 @@ enum class WeekendMode(val label: String) {
     SAME_AS_WEEKDAYS("Same as weekdays"),
     CUSTOM("Different at weekends"),
     UNLIMITED("No weekend limit"),
+}
+
+/**
+ * How the picker orders its rows.
+ *
+ * Alphabetical is the default because it is stable: the list a user learned last time is the list
+ * they get this time. "Most used" is the opt-in that answers the question the screen exists for —
+ * which apps are actually worth limiting — and needs usage access to mean anything.
+ */
+enum class AppSort(val label: String) {
+    ALPHABETICAL("A–Z"),
+    MOST_USED("Most used"),
 }
 
 /** Placeholder in the picker's search field. */

@@ -4,8 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.unpawse.service.UsageAccess
 
 /**
  * Stateful wrapper around [AppPickerScreen]: owns the [AppPickerViewModel] and streams the real
@@ -21,11 +23,23 @@ fun AppPickerRoute(
     val viewModel: AppPickerViewModel = viewModel(factory = AppPickerViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // Usage access isn't observable, so re-read the figures on every resume — that is what makes
+    // granting it from the notice below land without re-entering the screen. Same pattern
+    // `HomeRoute` and `SettingsRoute` use for their permission rows.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose {}
+    }
+
     AppPickerScreen(
         state = state,
         modifier = modifier,
         onBack = onBack,
         onSearchChange = viewModel::onSearchChange,
+        onSortChange = viewModel::onSortChange,
+        // The Route owns the intent, not the NavHost and not the screen — the split `SettingsRoute`
+        // already uses for its two special-permission rows.
+        onGrantUsageAccess = { context.startActivity(UsageAccess.settingsIntent(context)) },
         onToggleMonitored = viewModel::onToggleMonitored,
         onLimitChange = viewModel::onLimitChange,
         onWeekendLimitChange = viewModel::onWeekendLimitChange,
