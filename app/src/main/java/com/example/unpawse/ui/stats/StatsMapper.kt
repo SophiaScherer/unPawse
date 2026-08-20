@@ -7,6 +7,7 @@ import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.dailyBudget
 import com.example.unpawse.ui.format.avatarInitialFor
+import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.format.formatSeconds
 import com.example.unpawse.data.capture.longestStreakDays
 import com.example.unpawse.data.capture.toLocalDate
@@ -123,9 +124,6 @@ internal fun toStatsUiState(
         ),
     )
 }
-
-/** Shown where a metric has no backing data yet, rather than an invented number. */
-private const val NO_DATA = "—"
 
 /**
  * Budget headroom as a percentage, or [NO_DATA] when nothing monitored has a cap. A day made

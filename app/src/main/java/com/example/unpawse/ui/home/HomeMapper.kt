@@ -11,6 +11,7 @@ import com.example.unpawse.data.usage.effectiveLimitMinutes
 import com.example.unpawse.data.usage.isLimitReached
 import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.format.displayNameOf
+import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.format.formatSeconds
 import java.time.DayOfWeek
@@ -78,7 +79,10 @@ internal fun toHomeUiState(
         avatarInitial = avatarInitialFor(userName),
         screenTimeUsedLabel = formatSeconds(usedSeconds),
         progressFraction = budget?.usedFraction ?: 0f,
-        remainingLabel = formatSeconds(remainingSeconds),
+        // Keyed on there being no budget at all, never on the figure reaching zero: a capped app that
+        // has burned its allowance is a real "0m", and collapsing the two made a fresh install open
+        // on "0m Remaining" directly above a banner telling the user to go and add some limits.
+        remainingLabel = budget?.let { formatSeconds(it.remainingSeconds) } ?: NO_DATA,
         streakDays = streakDays,
         catCount = capturesToday.size,
         pausedAppsCount = enabled.size,

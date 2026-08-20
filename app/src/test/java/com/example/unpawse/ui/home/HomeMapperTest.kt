@@ -4,6 +4,7 @@ import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UNLIMITED_MINUTES
+import com.example.unpawse.ui.format.NO_DATA
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -330,5 +331,40 @@ class HomeMapperTest {
 
         assertEquals(0f, state.progressFraction, 0f)
         assertEquals("Welcome to unPawse!", state.bannerTitle)
+        // Not "0m": there is no budget to have any of left.
+        assertEquals(NO_DATA, state.remainingLabel)
+    }
+
+    // --- "Nothing to measure" is not the same as "none left" -------------------------------------
+    // One numeric slot can't say both, so a fresh install used to open on "0m Remaining" — identical
+    // to a burned budget — directly above a banner telling the user to go and add some limits.
+
+    @Test
+    fun `no limits configured blanks the remaining figure`() {
+        val state = map(apps = emptyList())
+
+        assertEquals(NO_DATA, state.remainingLabel)
+        assertEquals("Welcome to unPawse!", state.bannerTitle)
+    }
+
+    @Test
+    fun `a spent budget is still a real zero`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 30)),
+            todayUsage = listOf(usage("a", 30)),
+        )
+
+        assertEquals("0m", state.remainingLabel)
+        assertEquals("Limit reached", state.bannerTitle)
+    }
+
+    @Test
+    fun `an over-budget app reports zero rather than blank`() {
+        val state = map(
+            apps = listOf(app("a", "Alpha", 30)),
+            todayUsage = listOf(usage("a", 90)),
+        )
+
+        assertEquals("0m", state.remainingLabel)
     }
 }
