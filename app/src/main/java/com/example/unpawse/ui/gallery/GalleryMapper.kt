@@ -65,6 +65,55 @@ private fun Capture.matchesDateTime(query: String, today: LocalDate, zone: ZoneI
 }
 
 /**
+ * What to show in place of an empty grid, or null when there is one.
+ *
+ * An empty grid means four different things and the sections list can't tell them apart: nothing
+ * photographed yet, a search that matched nothing, a chip that filtered everything out, or a library
+ * whose every photo has aged past the retention window. Offering the same "no photos yet" line for
+ * all four tells a user with a full library that they have none. Ranked most specific first, and
+ * pure so every branch is unit-tested.
+ */
+internal fun galleryEmptyState(
+    hasSections: Boolean,
+    query: String,
+    filter: GalleryFilter,
+    libraryIsEmpty: Boolean,
+): GalleryEmpty? = when {
+    hasSections -> null
+
+    libraryIsEmpty -> GalleryEmpty(
+        title = "No cat photos yet",
+        body = "Every cat you photograph lands here, grouped by the day you took it — the ones " +
+            "that bought you time back and the ones you just felt like taking. They stay on this " +
+            "device.",
+    )
+
+    query.isNotBlank() -> GalleryEmpty(
+        title = "No photos match that search",
+        body = "Search looks at when a photo was taken — try \"Today\", \"Yesterday\", a month " +
+            "and day like \"Jul 12\", or a time like \"2:30 PM\".",
+    )
+
+    filter == GalleryFilter.FAVORITES -> GalleryEmpty(
+        title = "No favourites yet",
+        body = "Tap a photo and star it to keep it here. Favourites are also exempt from the " +
+            "storage window, so they aren't cleared out with the rest.",
+    )
+
+    filter == GalleryFilter.THIS_WEEK -> GalleryEmpty(
+        title = "No photos this week",
+        body = "Nothing in the last seven days. Switch to All to see everything still stored.",
+    )
+
+    // Photos exist, but every one has aged past the window Settings keeps them for.
+    else -> GalleryEmpty(
+        title = "No photos left in the window",
+        body = "Your photos are cleared after the period set in Settings → Photo storage. " +
+            "Favourites survive it — check that chip.",
+    )
+}
+
+/**
  * Groups captures (already newest-first from the DAO) into day sections for the Gallery. Pure and
  * parameterized on [today]/[zone] so it's unit-testable without touching the real clock.
  */
