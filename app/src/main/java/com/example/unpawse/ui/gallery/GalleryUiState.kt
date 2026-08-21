@@ -40,17 +40,18 @@ data class GalleryUiState(
                 GallerySection(
                     title = "Today",
                     items = listOf(
-                        CaptureItem("1", "14:32 PM", 98.4f, "+45m", "Verification successful", 1.1f),
-                        CaptureItem("2", "11:05 AM", 92.1f, "+30m", "Verification successful", 0.85f),
-                        CaptureItem("3", "09:12 AM", null, "+2h Earned", "Daily streak bonus!", 0.8f, isBonus = true),
-                        CaptureItem("4", "08:45 AM", 99.9f, "+15m", "Verification successful", 1.25f),
+                        CaptureItem("1", "14:32 PM", 98.4f, "Verified", "+45m earned", "Verification successful", 1.1f),
+                        CaptureItem("2", "11:05 AM", 92.1f, "Verified", "+30m earned", "Verification successful", 0.85f),
+                        CaptureItem("3", "09:12 AM", 95.0f, "Bonus", "+2h earned", "Daily streak bonus!", 0.8f, isBonus = true),
+                        // Earned nothing: the preview needs the absent time row too.
+                        CaptureItem("4", "08:45 AM", 99.9f, "Verified", null, "Verification successful", 1.25f),
                     ),
                 ),
                 GallerySection(
                     title = "Yesterday",
                     items = listOf(
-                        CaptureItem("5", "19:20 PM", null, "+45m", "Verification successful", 1.0f),
-                        CaptureItem("6", "17:15 PM", null, "+30m", "Verification successful", 1.15f),
+                        CaptureItem("5", "19:20 PM", null, "Verified", "+45m earned", "Verification successful", 1.0f),
+                        CaptureItem("6", "17:15 PM", null, "Verified", null, "Verification successful", 1.15f),
                     ),
                 ),
             ),
@@ -80,17 +81,25 @@ data class GallerySection(val title: String, val items: List<CaptureItem>)
 data class GalleryEmpty(val title: String, val body: String)
 
 /**
- * A single captured photo card. [aiConfidence] is null for bonus/streak captures (no AI badge);
- * [isBonus] switches the footer to the pink "streak bonus" treatment. [aspectRatio] is the photo's
- * own width-over-height, from [captureAspectRatio] — so the grid staggers by what the shots really
- * are rather than by anything invented. [imagePath] is the absolute path to a real captured JPEG;
- * when null (sample/preview data) the card falls back to [CatPhotoPlaceholder].
+ * A single captured photo card.
+ *
+ * The footer's two slots hold two different facts: [earnedLabel] says what *kind* of capture this
+ * was ("Bonus"/"Verified"), [earnedTimeLabel] what it was *worth*. The latter is null when the
+ * capture bought nothing, so a card never claims time it didn't earn. [isBonus] is a streak fact
+ * rather than a reward one — it switches the footer to the pink "streak bonus" treatment and
+ * nothing else. [aiConfidence] is null when no AI badge should be drawn.
+ *
+ * [aspectRatio] is the photo's own width-over-height, from [captureAspectRatio] — so the grid
+ * staggers by what the shots really are rather than by anything invented. [imagePath] is the
+ * absolute path to a real captured JPEG; when null (sample/preview data) the card falls back to
+ * [CatPhotoPlaceholder].
  */
 data class CaptureItem(
     val id: String,
     val timeLabel: String,
     val aiConfidence: Float?,
     val earnedLabel: String,
+    val earnedTimeLabel: String?,
     val caption: String,
     val aspectRatio: Float,
     val isBonus: Boolean = false,

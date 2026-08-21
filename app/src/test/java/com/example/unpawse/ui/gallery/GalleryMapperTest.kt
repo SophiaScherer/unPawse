@@ -24,6 +24,7 @@ class GalleryMapperTest {
         daysAgo: Long,
         favorite: Boolean = false,
         bonus: Boolean = false,
+        earnedMinutes: Int = 0,
         widthPx: Int = 0,
         heightPx: Int = 0,
     ) = Capture(
@@ -33,9 +34,13 @@ class GalleryMapperTest {
         confidence = 0.9f,
         isBonus = bonus,
         isFavorite = favorite,
+        earnedMinutes = earnedMinutes,
         widthPx = widthPx,
         heightPx = heightPx,
     )
+
+    private fun itemFor(capture: Capture) =
+        listOf(capture).toGallerySections(today, zone).single().items.single()
 
     /** A bonus capture passed the detector like any other, so its confidence stays on the card. */
     @Test
@@ -56,6 +61,46 @@ class GalleryMapperTest {
         assertEquals(90f, plain.aiConfidence)
         assertEquals("Verified", plain.earnedLabel)
         assertEquals("Verification successful", plain.caption)
+    }
+
+    /**
+     * The card's two footer slots hold two different facts, and this is the one that used to be
+     * missing: the chip said "Bonus" and the row beside the clock said "Bonus" again.
+     */
+    @Test
+    fun `a capture that earned time reports what it bought`() {
+        val item = itemFor(capture("earner", daysAgo = 0, earnedMinutes = 15))
+
+        assertEquals("Verified", item.earnedLabel)
+        assertEquals("+15m earned", item.earnedTimeLabel)
+    }
+
+    @Test
+    fun `an hour of earned time is formatted, not printed in minutes`() {
+        assertEquals("+1h earned", itemFor(capture("hour", daysAgo = 0, earnedMinutes = 60)).earnedTimeLabel)
+    }
+
+    /** Null rather than "+0m": most captures buy nothing, and the card must not claim otherwise. */
+    @Test
+    fun `a capture that earned nothing has no time label`() {
+        assertNull(itemFor(capture("plain", daysAgo = 0)).earnedTimeLabel)
+    }
+
+    /** `isBonus` is a streak fact; it says nothing about whether the reward loop paid out. */
+    @Test
+    fun `a bonus that earned nothing keeps its chip and gains no time row`() {
+        val item = itemFor(capture("bonus", daysAgo = 0, bonus = true))
+
+        assertEquals("Bonus", item.earnedLabel)
+        assertNull(item.earnedTimeLabel)
+    }
+
+    @Test
+    fun `a bonus can also have earned time`() {
+        val item = itemFor(capture("both", daysAgo = 0, bonus = true, earnedMinutes = 15))
+
+        assertEquals("Bonus", item.earnedLabel)
+        assertEquals("+15m earned", item.earnedTimeLabel)
     }
 
     @Test
