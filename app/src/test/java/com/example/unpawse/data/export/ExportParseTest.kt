@@ -33,7 +33,7 @@ class ExportParseTest {
         usage = listOf(ExportUsageDay("2026-07-15", "com.ig", 2_700, 900, blockedCount = 3)),
         unlocks = listOf(ExportUnlockDay("2026-07-15", 24)),
         captures = listOf(
-            ExportCapture("abc", 1_700_000_000_000, 0.93f, isBonus = true, isFavorite = true, fileName = "abc.jpg", earnedMinutes = 15),
+            ExportCapture("abc", 1_700_000_000_000, 0.93f, isBonus = true, isFavorite = true, fileName = "abc.jpg", earnedMinutes = 15, widthPx = 1600, heightPx = 1200),
             ExportCapture("def", 1_700_000_001_000, 0.81f, isBonus = false, isFavorite = false),
         ),
     )
@@ -92,6 +92,9 @@ class ExportParseTest {
         assertNull(capture.fileName)
         assertEquals(0, capture.earnedMinutes)
         assertTrue(capture.isFavorite)
+        // No shape recorded before v7; 0 reads as "unknown" and the Gallery falls back to a default.
+        assertEquals(0, capture.widthPx)
+        assertEquals(0, capture.heightPx)
     }
 
     /** A v5 document has no warning/reminder keys, so they fall back to the shipped defaults. */

@@ -19,12 +19,16 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Result of a single shutter press: the JPEG to persist and the ML Kit [InputImage] to classify.
+ * Result of a single shutter press: the JPEG to persist, the ML Kit [InputImage] to classify, and
+ * the shot's dimensions — taken from the upright bitmap rather than read back off the file, and
+ * stored with the capture because the Gallery shapes a tile from them.
  * Not a `data class` — it wraps a byte array, so structural equality would be misleading.
  */
 class CapturedImage(
     val jpegBytes: ByteArray,
     val inputImage: InputImage,
+    val widthPx: Int,
+    val heightPx: Int,
 )
 
 /**
@@ -48,8 +52,14 @@ suspend fun LifecycleCameraController.captureImage(context: Context): CapturedIm
             bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
             out.toByteArray()
         }
-        // Rotation is already applied, so hand ML Kit an upright bitmap (0°).
-        CapturedImage(jpegBytes = jpeg, inputImage = InputImage.fromBitmap(bitmap, 0))
+        // Rotation is already applied, so hand ML Kit an upright bitmap (0°) — and the dimensions
+        // below are post-rotation, which is why a landscape shot reads as landscape.
+        CapturedImage(
+            jpegBytes = jpeg,
+            inputImage = InputImage.fromBitmap(bitmap, 0),
+            widthPx = bitmap.width,
+            heightPx = bitmap.height,
+        )
     }
 }
 

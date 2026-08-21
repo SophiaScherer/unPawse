@@ -7,15 +7,21 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
-import kotlin.math.absoluteValue
 
 private val TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a")
 private val DATE_FORMAT = DateTimeFormatter.ofPattern("MMM d")
 
 private val WEEK_MILLIS = TimeUnit.DAYS.toMillis(7)
 
-// Portrait-leaning ratios reused to keep the staggered masonry look with real (cropped) photos.
-private val ASPECT_RATIOS = floatArrayOf(0.8f, 0.85f, 1.0f, 1.1f, 1.15f, 1.25f)
+/**
+ * Tile shape for a capture whose dimensions aren't recorded — a row imported from a v6-or-older
+ * export document. Portrait, because that is how a phone is usually held.
+ */
+internal const val DEFAULT_CAPTURE_ASPECT_RATIO = 0.75f
+
+/** Bounds on a tile's shape; see [captureAspectRatio]. Layout limits, not a look. */
+private const val MIN_CAPTURE_ASPECT_RATIO = 0.6f
+private const val MAX_CAPTURE_ASPECT_RATIO = 1.6f
 
 /**
  * Keeps only captures taken at/after [cutoffMillis] — the Gallery's "last month" display window.
@@ -114,6 +120,24 @@ internal fun galleryEmptyState(
 }
 
 /**
+ * Width-over-height for a capture's tile, so the grid is staggered by what the photos actually are.
+ *
+ * This used to be `ASPECT_RATIOS[id.hashCode() % size]`: the masonry look was produced by cropping
+ * each photo to a shape its UUID happened to pick, so a cat's ears could be cut off to vary the
+ * grid. Rotation is baked in at capture, so portrait and landscape shots differ here for real; a
+ * library shot entirely one way now reads as a uniform grid, which is the honest answer.
+ *
+ * Unknown dimensions fall back to [DEFAULT_CAPTURE_ASPECT_RATIO]. The clamp is the one place the
+ * app still overrides the photo, and it is a layout bound: an extreme panorama would otherwise
+ * produce a tile a few pixels tall, or one taller than the screen.
+ */
+internal fun captureAspectRatio(widthPx: Int, heightPx: Int): Float {
+    if (widthPx <= 0 || heightPx <= 0) return DEFAULT_CAPTURE_ASPECT_RATIO
+    return (widthPx.toFloat() / heightPx)
+        .coerceIn(MIN_CAPTURE_ASPECT_RATIO, MAX_CAPTURE_ASPECT_RATIO)
+}
+
+/**
  * Groups captures (already newest-first from the DAO) into day sections for the Gallery. Pure and
  * parameterized on [today]/[zone] so it's unit-testable without touching the real clock.
  */
@@ -146,7 +170,7 @@ private fun Capture.toCaptureItem(zone: ZoneId): CaptureItem {
         aiConfidence = confidence * 100f,
         earnedLabel = if (isBonus) "Bonus" else "Verified",
         caption = if (isBonus) "Daily streak bonus!" else "Verification successful",
-        aspectRatio = ASPECT_RATIOS[id.hashCode().absoluteValue % ASPECT_RATIOS.size],
+        aspectRatio = captureAspectRatio(widthPx, heightPx),
         isBonus = isBonus,
         imagePath = filePath,
         isFavorite = isFavorite,

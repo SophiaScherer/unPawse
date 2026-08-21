@@ -12,9 +12,10 @@ import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
- * Prunes the capture library to the user's retention window
- * ([com.example.unpawse.data.settings.SettingsRepository.retentionDays]): non-favorite photos older
- * than the cutoff are deleted (row + JPEG); favorites are kept forever.
+ * Keeps the capture library and the files on disk telling the same story. Two passes: rows whose
+ * JPEG has gone are dropped, then the library is pruned to the user's retention window
+ * ([com.example.unpawse.data.settings.SettingsRepository.retentionDays]) — non-favorite photos older
+ * than the cutoff are deleted (row + JPEG); favorites survive the purge, though not a missing file.
  * Mirrors [MonitorHealthWorker]'s WorkManager pattern — persisted across reboots and idempotently
  * scheduled once per process start.
  */
@@ -25,6 +26,10 @@ class CaptureRetentionWorker(
 
     override suspend fun doWork(): Result {
         val container = applicationContext.appContainer()
+        // Rows whose JPEG has gone can never render again, and their count contradicts the size
+        // beside it in Settings. Same job as the purge below: make the rows match the disk.
+        container.captureRepository.reconcileMissingFiles()
+
         // Read the window per run rather than at schedule time, so changing it in Photo storage
         // takes effect on the next purge instead of needing the job rescheduled.
         val windowDays = container.settingsRepository.retentionDays.first()

@@ -16,8 +16,10 @@ import org.json.JSONObject
  * v6 moved the document into a ZIP bundle (`export.json` + `photos/`) and added `captures[].fileName`
  *   and `earnedMinutes`, plus `settings.warningMinutes` / `reminderMinutes`. Older documents stay
  *   readable: [parseExportJson] takes v1–v6 and lets each missing field fall back to its default.
+ * v7 added `captures[].widthPx` / `heightPx`, the shape a Gallery tile is drawn at. Absent in older
+ *   documents, which read as 0 — "unknown shape" — and fall back to a default ratio.
  */
-const val EXPORT_FORMAT_VERSION = 6
+const val EXPORT_FORMAT_VERSION = 7
 
 /**
  * Everything unPawse holds about you, in one plain structure.
@@ -108,6 +110,9 @@ data class ExportCapture(
     val fileName: String? = null,
     /** What this capture bought back. Real history the Home feed reports, so it round-trips. */
     val earnedMinutes: Int = 0,
+    /** The photo's own dimensions, 0 when the document predates v7. See [ExportCapture.fileName]. */
+    val widthPx: Int = 0,
+    val heightPx: Int = 0,
 )
 
 /**
@@ -244,6 +249,8 @@ private fun JSONObject.toCapture(): ExportCapture? {
         isFavorite = optBoolean("isFavorite"),
         fileName = optNullableString("fileName"),
         earnedMinutes = optInt("earnedMinutes"),
+        widthPx = optInt("widthPx"),
+        heightPx = optInt("heightPx"),
     )
 }
 
@@ -303,3 +310,5 @@ private fun ExportCapture.toJson() = JSONObject()
     // Absent when the JPEG couldn't be read at export time, which reads correctly as "no photo".
     .put("fileName", fileName)
     .put("earnedMinutes", earnedMinutes)
+    .put("widthPx", widthPx)
+    .put("heightPx", heightPx)

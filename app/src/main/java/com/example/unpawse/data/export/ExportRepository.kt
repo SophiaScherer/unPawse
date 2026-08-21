@@ -138,4 +138,6 @@ private fun Capture.toExport() = ExportCapture(
     isFavorite = isFavorite,
     fileName = File(filePath).name,
     earnedMinutes = earnedMinutes,
+    widthPx = widthPx,
+    heightPx = heightPx,
 )

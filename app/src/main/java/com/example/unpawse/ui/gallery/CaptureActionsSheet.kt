@@ -31,12 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import com.example.unpawse.ui.components.CatPhotoPlaceholder
-import java.io.File
+import com.example.unpawse.ui.components.CapturePhoto
 
 /**
  * Bottom sheet of actions for a single capture: favorite/unfavorite, share, and delete (guarded by a
@@ -105,17 +102,13 @@ private fun SheetHeader(capture: CaptureItem) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val thumbModifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp))
-        if (capture.imagePath != null) {
-            AsyncImage(
-                model = File(capture.imagePath),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = thumbModifier,
-            )
-        } else {
-            CatPhotoPlaceholder(seed = capture.id.hashCode(), modifier = thumbModifier)
-        }
+        CapturePhoto(
+            imagePath = capture.imagePath,
+            seed = capture.id.hashCode(),
+            // No room for the caption at 56dp; the glyph alone carries it here.
+            compact = true,
+            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
+        )
         Spacer(Modifier.size(12.dp))
         Column {
             Text(capture.timeLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
