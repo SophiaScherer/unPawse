@@ -154,9 +154,12 @@ private fun deleteAllMessage(state: PhotoStorageUiState): String {
     val photos = countLabel(state.photoCount, "photo")
     val favourites = when (state.favoriteCount) {
         0 -> ""
-        else -> ", including ${countLabel(state.favoriteCount, "favourite")}"
+        // Closing comma included: without it the clause never shuts and the sentence read
+        // "your 3 photos, including 1 favourite and frees 105 KB".
+        else -> ", including ${countLabel(state.favoriteCount, "favourite")},"
     }
-    return "This deletes all $photos$favourites and frees ${state.storageLabel}. " +
+    // "your", not "all": the title above already says all, and "all 1 photo" doesn't parse.
+    return "This deletes your $photos$favourites and frees ${state.storageLabel}. " +
         "Your screen-time history is not affected. This cannot be undone."
 }
 
