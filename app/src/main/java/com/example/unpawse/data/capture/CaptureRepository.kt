@@ -99,6 +99,31 @@ class CaptureRepository(
     }
 
     /**
+     * Drops rows whose JPEG is no longer on disk, returning how many went. Run at process start and
+     * again on each retention pass.
+     *
+     * A row can outlive its file: Auto Backup restores the database and the photos separately, so a
+     * partial cloud restore leaves rows pointing at nothing (seen as "27 photos · 0 B" in Settings,
+     * where the count comes from the rows and the size from the disk). Such a row can never render
+     * again, so keeping it would only buy a permanently dead tile and a count that contradicts the
+     * size beside it.
+     *
+     * **One-directional, deliberately: rows without files, never files without rows.** The mirror
+     * sweep would race a capture in flight — [saveCapture] writes the JPEG and only then inserts the
+     * row, and this runs from a worker sharing a process with the camera. Orphaned *files* are
+     * reclaimed by [deleteAllCaptures] instead, where the user has asked for exactly that.
+     *
+     * Goes through [deleteCapture] so the delete path stays defined in one place. Unlike
+     * [purgeExpired] it does not spare favorites: the photo is gone either way, and a starred row
+     * pointing at nothing is the most misleading kind.
+     */
+    suspend fun reconcileMissingFiles(): Int {
+        val missing = dao.observeAll().first().filterNot { photoStorage.exists(it.filePath) }
+        missing.forEach { deleteCapture(it.toDomain()) }
+        return missing.size
+    }
+
+    /**
      * Deletes every capture, favorites included — the user asked for all of them, and a "delete all"
      * that quietly spared some photos would misreport what it did. Goes through [deleteCapture] so
      * rows and JPEGs come away together.

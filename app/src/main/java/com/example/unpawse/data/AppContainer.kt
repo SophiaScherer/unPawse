@@ -249,6 +249,11 @@ class DefaultAppContainer(context: Context) : AppContainer {
             focusSession.endTimeMillis.collect { settingsRepository.setFocusEndMillis(it) }
         }
 
+        // Reconcile the library against the disk once per process. A partial cloud restore lands
+        // before first launch, so process start is when it matters; the retention worker repeats it
+        // for a process that outlives one.
+        appScope.launch { captureRepository.reconcileMissingFiles() }
+
         // Keep the recap job in step with its toggle. Owning this here rather than in the Settings
         // ViewModel means the schedule is correct even for a process that never opens Settings, and
         // leaves the UI with nothing to know about WorkManager.

@@ -32,6 +32,9 @@ class PhotoStorage(private val baseDir: File) {
         withContext(Dispatchers.IO) { runCatching { File(path).delete() } }
     }
 
+    /** Whether the JPEG a capture row points at is still on disk. */
+    suspend fun exists(path: String): Boolean = withContext(Dispatchers.IO) { File(path).isFile }
+
     /**
      * Total bytes the stored JPEGs occupy, for the Photo storage screen. Reads the directory rather
      * than summing anything recorded in the database, so it reflects what is really on disk even if
