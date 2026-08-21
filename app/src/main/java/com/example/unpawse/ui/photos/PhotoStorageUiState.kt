@@ -2,6 +2,7 @@ package com.example.unpawse.ui.photos
 
 import com.example.unpawse.data.capture.CaptureRetention
 import com.example.unpawse.ui.format.formatBytes
+import com.example.unpawse.ui.format.countLabel
 
 /**
  * Immutable UI state for the Photo storage screen. [storageBytes] is measured off disk rather than
@@ -40,6 +41,5 @@ data class PhotoStorageUiState(
 /** The Settings row subtitle, e.g. "142 photos · 38.4 MB". */
 fun photoStorageSummary(photoCount: Int, storageBytes: Long): String {
     if (photoCount == 0) return "No photos yet"
-    val photos = if (photoCount == 1) "1 photo" else "$photoCount photos"
-    return "$photos · ${formatBytes(storageBytes)}"
+    return "${countLabel(photoCount, "photo")} · ${formatBytes(storageBytes)}"
 }

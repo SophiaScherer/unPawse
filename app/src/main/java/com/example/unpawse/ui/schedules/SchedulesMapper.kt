@@ -7,6 +7,7 @@ import com.example.unpawse.data.schedule.WEEKENDS_MASK
 import com.example.unpawse.data.schedule.daysIn
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.ui.format.formatMinuteOfDay
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.format.formatTimeRange
 import java.time.format.TextStyle
 import java.util.Locale
@@ -100,7 +101,6 @@ internal fun schedulesSummary(windows: List<ScheduleWindow>, locale: Locale = Lo
     val active = windows.filter { it.enabled }
     if (active.isEmpty()) return "All schedules paused"
 
-    val count = if (active.size == 1) "1 schedule" else "${active.size} schedules"
     val first = active.first()
-    return "$count · ${first.label} ${formatMinuteOfDay(first.startMinuteOfDay, locale)}"
+    return "${countLabel(active.size, "schedule")} · ${first.label} ${formatMinuteOfDay(first.startMinuteOfDay, locale)}"
 }

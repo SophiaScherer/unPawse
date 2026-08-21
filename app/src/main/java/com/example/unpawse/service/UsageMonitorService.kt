@@ -16,6 +16,7 @@ import com.example.unpawse.R
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.AppContainer
 import com.example.unpawse.ui.block.BlockUiState
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.format.formatMinuteOfDay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -343,11 +344,7 @@ class UsageMonitorService : Service() {
  */
 internal fun warningText(appLabel: String, remainingMinutes: Int): String {
     // Remaining minutes are floored, so 0 means "under a minute" rather than "none".
-    val left = when (remainingMinutes) {
-        0 -> "Less than a minute"
-        1 -> "1 minute"
-        else -> "$remainingMinutes minutes"
-    }
+    val left = if (remainingMinutes == 0) "Less than a minute" else countLabel(remainingMinutes, "minute")
     return "$left of $appLabel left today. Photograph a cat to earn more."
 }
 

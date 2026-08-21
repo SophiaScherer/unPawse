@@ -1,6 +1,7 @@
 package com.example.unpawse.data.capture
 
 import java.util.concurrent.TimeUnit
+import com.example.unpawse.ui.format.countLabel
 
 /**
  * Single source of truth for the photo-retention window. Shared so the purge worker
@@ -33,5 +34,5 @@ object CaptureRetention {
 
     /** Picker label for a window, e.g. "30 days" / "Keep forever". */
     fun label(windowDays: Int): String =
-        if (windowDays <= KEEP_FOREVER) "Keep forever" else "$windowDays days"
+        if (windowDays <= KEEP_FOREVER) "Keep forever" else countLabel(windowDays, "day")
 }

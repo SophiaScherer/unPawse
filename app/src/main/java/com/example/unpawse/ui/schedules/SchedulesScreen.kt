@@ -37,6 +37,7 @@ import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.EmptyStateCard
 import com.example.unpawse.ui.components.IconTile
 import com.example.unpawse.ui.components.PawCard
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 
@@ -119,9 +120,8 @@ fun SchedulesScreen(
 private fun summaryFor(state: SchedulesUiState): String = when {
     state.isLoading -> "Loading…"
     state.windows.isEmpty() -> "No schedules yet"
-    state.activeCount == 1 -> "1 schedule active"
     state.activeCount == 0 -> "All paused"
-    else -> "${state.activeCount} schedules active"
+    else -> "${countLabel(state.activeCount, "schedule")} active"
 }
 
 /** One window: name, hours, days and scope, with a switch to pause it without deleting it. */

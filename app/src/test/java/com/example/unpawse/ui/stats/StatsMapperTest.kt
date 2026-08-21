@@ -62,6 +62,9 @@ class StatsMapperTest {
         zone = zone,
     )
 
+    private fun millis(daysAgo: Long): Long =
+        today.minusDays(daysAgo).atStartOfDay(zone).plusHours(10).toInstant().toEpochMilli()
+
     private fun unlocks(daysAgo: Long, count: Int) =
         DailyUnlocks(today.minusDays(daysAgo).toString(), count)
 
@@ -545,6 +548,16 @@ class StatsMapperTest {
         assertTrue(state.hasCapturedPhotos)
     }
 
+    /** A library of one used to read "1 Photos" — the count the pluralisation rule had missed. */
+    @Test
+    fun `a library of one is singular`() {
+        val state = map(
+            captures = listOf(Capture("id", "/tmp/x.jpg", capturedAt = 0L, confidence = 0.9f)),
+        )
+
+        assertEquals("1 Photo", state.capturedPhotos)
+    }
+
     /** The card's tinted fill and party popper celebrate a collection, so zero can't have them. */
     @Test
     fun `an empty library is not a celebration`() {
@@ -672,12 +685,23 @@ class StatsMapperTest {
 
     @Test
     fun `a one-day streak is singular`() {
-        assertEquals("1 Day", dayCountLabel(1))
+        val state = map(
+            captures = listOf(Capture("id", "/tmp/x.jpg", capturedAt = millis(0), confidence = 0.9f)),
+        )
+
+        assertEquals("1 Day", state.longestStreak)
     }
 
     @Test
     fun `other day counts are plural`() {
-        assertEquals("0 Days", dayCountLabel(0))
-        assertEquals("2 Days", dayCountLabel(2))
+        assertEquals("0 Days", map().longestStreak)
+
+        val state = map(
+            captures = listOf(0L, 1L).map {
+                Capture("id$it", "/tmp/x.jpg", capturedAt = millis(it), confidence = 0.9f)
+            },
+        )
+
+        assertEquals("2 Days", state.longestStreak)
     }
 }

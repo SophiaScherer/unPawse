@@ -1,5 +1,7 @@
 package com.example.unpawse.ui.camera
 
+import com.example.unpawse.ui.format.countLabel
+
 /**
  * Viewfinder hint copy. Pure top-level functions rather than private helpers on the ViewModel, for
  * the same reason as `warningText` and the `SettingsMapper` labels: the wording of a refusal is the
@@ -23,8 +25,5 @@ internal fun savedHint(outcome: RewardOutcome): String = when (outcome) {
 internal fun retryText(retrySeconds: Long): String = when {
     retrySeconds <= 0 -> "a moment"
     retrySeconds < 60 -> "under a minute"
-    else -> {
-        val minutes = ((retrySeconds + 59) / 60).toInt()
-        if (minutes == 1) "1 minute" else "$minutes minutes"
-    }
+    else -> countLabel(((retrySeconds + 59) / 60).toInt(), "minute")
 }

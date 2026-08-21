@@ -6,6 +6,7 @@ import com.example.unpawse.ml.sensitivityToMinConfidence
 import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.ui.format.formatMinutes
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.photos.photoStorageSummary
 import com.example.unpawse.ui.schedules.schedulesSummary
 import kotlin.math.roundToInt
@@ -45,8 +46,7 @@ internal fun dailyLimitSummary(apps: List<MonitoredApp>): String {
     if (enabled.isEmpty()) return "No limits set yet"
 
     val total = formatMinutes(enabled.sumOf { it.dailyLimitMinutes })
-    val appCount = if (enabled.size == 1) "1 app" else "${enabled.size} apps"
-    return "$total across $appCount"
+    return "$total across ${countLabel(enabled.size, "app")}"
 }
 
 /** The "Reminder frequency" value, e.g. "Every 30m" / "Off". */

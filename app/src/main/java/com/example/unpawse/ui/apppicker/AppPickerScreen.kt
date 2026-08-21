@@ -42,6 +42,7 @@ import com.example.unpawse.ui.components.clearFocusOnScroll
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.SearchField
 import com.example.unpawse.ui.components.ValueStepper
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
@@ -134,7 +135,7 @@ private fun AppPickerHeader(monitoredCount: Int, onBack: () -> Unit) {
         subtitle = if (monitoredCount == 0) {
             "No apps limited yet"
         } else {
-            "$monitoredCount app${if (monitoredCount == 1) "" else "s"} limited"
+            "${countLabel(monitoredCount, "app")} limited"
         },
         onBack = onBack,
         // This header sits outside the list, so it pads itself; the 12dp back-off aligns the arrow

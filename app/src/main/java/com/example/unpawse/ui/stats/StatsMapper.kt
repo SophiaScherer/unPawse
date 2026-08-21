@@ -9,6 +9,7 @@ import com.example.unpawse.data.usage.dailyBudget
 import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.format.formatSeconds
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.data.capture.longestStreakDays
 import com.example.unpawse.data.capture.toLocalDate
 import java.time.LocalDate
@@ -127,10 +128,10 @@ internal fun toStatsUiState(
         breakdownTotal = formatSeconds(breakdown.sumOf { it.seconds }),
         breakdown = breakdown,
         budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
-        longestStreak = dayCountLabel(longestStreakDays(captureDates)),
+        longestStreak = countLabel(longestStreakDays(captureDates), "Day"),
         // "0 Photos" under a party popper celebrates nothing; the card goes neutral and asks
         // instead. The count is the flag, so the screen never has to parse the label back.
-        capturedPhotos = if (captures.isEmpty()) NO_PHOTOS_LABEL else "${captures.size} Photos",
+        capturedPhotos = if (captures.isEmpty()) NO_PHOTOS_LABEL else countLabel(captures.size, "Photo"),
         hasCapturedPhotos = captures.isNotEmpty(),
         preventedCount = preventedThisWeek,
         unlocks = unlocksLabel(unlocks, today),
@@ -181,9 +182,6 @@ private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String = when
         "${abs(percent)}% from yesterday"
     }
 }
-
-/** "3 Days", but "1 Day" — the count used to be pluralised unconditionally. */
-internal fun dayCountLabel(days: Int): String = if (days == 1) "1 Day" else "$days Days"
 
 /**
  * Week-over-week change, signed. Zero is written without a sign: `-0.0h` was reachable whenever
