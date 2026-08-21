@@ -27,7 +27,7 @@ class ExportSnapshotTest {
         captures: List<ExportCapture> = listOf(
             ExportCapture(
                 "abc-123", 1_700_000_000_000, 0.93f, isBonus = false, isFavorite = true,
-                fileName = "abc-123.jpg", earnedMinutes = 15,
+                fileName = "abc-123.jpg", earnedMinutes = 15, widthPx = 1200, heightPx = 1600,
             ),
         ),
         userName: String = "Sophia",
@@ -116,6 +116,9 @@ class ExportSnapshotTest {
         assertTrue(capture.getBoolean("isFavorite"))
         assertEquals("abc-123.jpg", capture.getString("fileName"))
         assertEquals(15, capture.getInt("earnedMinutes"))
+        // The shape a Gallery tile is drawn at; without it a restored library is all one ratio.
+        assertEquals(1200, capture.getInt("widthPx"))
+        assertEquals(1600, capture.getInt("heightPx"))
     }
 
     /** A capture whose JPEG couldn't be read has no name, and the key drops out entirely. */

@@ -106,6 +106,8 @@ class CameraViewModel(
                         bytes = captured.jpegBytes,
                         confidence = result.confidence,
                         isBonus = isBonus,
+                        widthPx = captured.widthPx,
+                        heightPx = captured.heightPx,
                     )
                     val outcome = creditBlockedApp()
                     // Record what this photo was worth, so the Home feed can report it instead of

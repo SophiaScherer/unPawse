@@ -30,6 +30,7 @@ data class GalleryUiState(
             sections = emptyList(),
         )
 
+        /** Preview-only, ratios included: no production path builds a [CaptureItem] from here. */
         fun sample() = GalleryUiState(
             searchQuery = "",
             searchPlaceholder = SEARCH_PLACEHOLDER,
@@ -80,9 +81,10 @@ data class GalleryEmpty(val title: String, val body: String)
 
 /**
  * A single captured photo card. [aiConfidence] is null for bonus/streak captures (no AI badge);
- * [isBonus] switches the footer to the pink "streak bonus" treatment. [aspectRatio] varies the
- * card height to produce the staggered masonry look. [imagePath] is the absolute path to a real
- * captured JPEG; when null (sample/preview data) the card falls back to [CatPhotoPlaceholder].
+ * [isBonus] switches the footer to the pink "streak bonus" treatment. [aspectRatio] is the photo's
+ * own width-over-height, from [captureAspectRatio] — so the grid staggers by what the shots really
+ * are rather than by anything invented. [imagePath] is the absolute path to a real captured JPEG;
+ * when null (sample/preview data) the card falls back to [CatPhotoPlaceholder].
  */
 data class CaptureItem(
     val id: String,

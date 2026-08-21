@@ -29,7 +29,7 @@ import com.example.unpawse.data.usage.UsageDao
         ScheduleWindowEntity::class,
         DailyUnlocksEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class CaptureDatabase : RoomDatabase() {

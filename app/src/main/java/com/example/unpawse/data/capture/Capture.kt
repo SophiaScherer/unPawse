@@ -14,6 +14,9 @@ package com.example.unpawse.data.capture
  *   [com.example.unpawse.service.CaptureRetentionWorker]) and only surface under the Favorites filter.
  * @param earnedMinutes bonus minutes this capture bought back, or 0 when it bought none. Lets the
  *   Home feed report what a cat was actually worth instead of assuming every cat earned time.
+ * @param widthPx pixel width of the stored JPEG, or 0 when unknown (a pre-v7 imported row). With
+ *   [heightPx] this is what gives a Gallery tile its shape; see [CaptureEntity.widthPx].
+ * @param heightPx pixel height of the stored JPEG, or 0 when unknown.
  */
 data class Capture(
     val id: String,
@@ -23,4 +26,6 @@ data class Capture(
     val isBonus: Boolean = false,
     val isFavorite: Boolean = false,
     val earnedMinutes: Int = 0,
+    val widthPx: Int = 0,
+    val heightPx: Int = 0,
 )

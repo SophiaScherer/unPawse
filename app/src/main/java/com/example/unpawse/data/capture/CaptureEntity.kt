@@ -22,6 +22,17 @@ data class CaptureEntity(
      * Home feed could only *assume* every cat earned time, which is exactly what it used to do.
      */
     val earnedMinutes: Int = 0,
+    /**
+     * Pixel dimensions of the stored JPEG, or 0 when unknown — a row imported from a v6-or-older
+     * export document, which carried no shape.
+     *
+     * Stored rather than measured at render time: the Gallery needs the shape *before* it lays a
+     * tile out, and reading it off the file then would mean disk IO per tile and a reflow as each
+     * image arrived. Rotation is already baked into the pixels at capture, so a landscape shot is
+     * genuinely landscape here.
+     */
+    val widthPx: Int = 0,
+    val heightPx: Int = 0,
 )
 
 /** Domain → entity, for an import; every other write builds the entity directly. */
@@ -33,6 +44,8 @@ internal fun Capture.toEntity(): CaptureEntity = CaptureEntity(
     isBonus = isBonus,
     isFavorite = isFavorite,
     earnedMinutes = earnedMinutes,
+    widthPx = widthPx,
+    heightPx = heightPx,
 )
 
 /** Entity → domain mapping kept next to the entity so both evolve together. */
@@ -44,4 +57,6 @@ internal fun CaptureEntity.toDomain(): Capture = Capture(
     isBonus = isBonus,
     isFavorite = isFavorite,
     earnedMinutes = earnedMinutes,
+    widthPx = widthPx,
+    heightPx = heightPx,
 )

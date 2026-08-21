@@ -219,4 +219,6 @@ private fun ExportCapture.toDomain(filePath: String) = Capture(
     isBonus = isBonus,
     isFavorite = isFavorite,
     earnedMinutes = earnedMinutes,
+    widthPx = widthPx,
+    heightPx = heightPx,
 )

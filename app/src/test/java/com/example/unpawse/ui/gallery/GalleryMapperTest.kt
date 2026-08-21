@@ -5,6 +5,7 @@ import com.example.unpawse.data.capture.CaptureRetention
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
@@ -23,6 +24,8 @@ class GalleryMapperTest {
         daysAgo: Long,
         favorite: Boolean = false,
         bonus: Boolean = false,
+        widthPx: Int = 0,
+        heightPx: Int = 0,
     ) = Capture(
         id = id,
         filePath = "/tmp/$id.jpg",
@@ -30,6 +33,8 @@ class GalleryMapperTest {
         confidence = 0.9f,
         isBonus = bonus,
         isFavorite = favorite,
+        widthPx = widthPx,
+        heightPx = heightPx,
     )
 
     /** A bonus capture passed the detector like any other, so its confidence stays on the card. */
@@ -175,6 +180,53 @@ class GalleryMapperTest {
 
         assertEquals(listOf("Today", "Yesterday", "Jul 12"), sections.map { it.title })
         assertEquals(2, sections.first { it.title == "Today" }.items.size)
+    }
+
+    // --- Tile shape --------------------------------------------------------------------------
+
+    @Test
+    fun `a tile is shaped by the photo, portrait and landscape differing`() {
+        val portrait = capture("p", daysAgo = 0, widthPx = 1200, heightPx = 1600)
+        val landscape = capture("l", daysAgo = 0, widthPx = 1600, heightPx = 1200)
+
+        val items = listOf(portrait, landscape).toGallerySections(today, zone).single().items
+            .associateBy { it.id }
+
+        assertEquals(0.75f, items.getValue("p").aspectRatio)
+        assertEquals(1.3333334f, items.getValue("l").aspectRatio)
+    }
+
+    /**
+     * The regression against the old `ASPECT_RATIOS[id.hashCode() % size]`: shape is a fact about
+     * the photo, so two photos of the same size must be drawn the same whatever their ids are.
+     */
+    @Test
+    fun `two captures of the same size get the same shape whatever their ids`() {
+        val a = capture("aaaaaaaa-0000", daysAgo = 0, widthPx = 1200, heightPx = 1600)
+        val b = capture("zzzzzzzz-9999", daysAgo = 0, widthPx = 1200, heightPx = 1600)
+
+        val ratios = listOf(a, b).toGallerySections(today, zone).single().items
+            .map { it.aspectRatio }.distinct()
+
+        assertEquals(1, ratios.size)
+    }
+
+    /** A pre-v7 imported row records no shape; it gets the default rather than a made-up one. */
+    @Test
+    fun `unknown dimensions fall back to the default ratio`() {
+        assertEquals(DEFAULT_CAPTURE_ASPECT_RATIO, captureAspectRatio(0, 0))
+        assertEquals(DEFAULT_CAPTURE_ASPECT_RATIO, captureAspectRatio(1600, 0))
+        assertEquals(DEFAULT_CAPTURE_ASPECT_RATIO, captureAspectRatio(-1600, 1200))
+    }
+
+    /** A layout bound, not a look: an extreme shot must not produce a sliver or a screen-filler. */
+    @Test
+    fun `an extreme shape is clamped at both ends`() {
+        val panorama = captureAspectRatio(8000, 1000)
+        val tower = captureAspectRatio(1000, 8000)
+
+        assertTrue("panorama clamped: $panorama", panorama in 1f..1.6f)
+        assertTrue("tower clamped: $tower", tower in 0.6f..1f)
     }
 
     // --- Empty states ------------------------------------------------------------------------

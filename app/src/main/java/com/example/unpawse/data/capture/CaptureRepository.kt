@@ -33,9 +33,17 @@ class CaptureRepository(
      * confirmed as a cat (see the ML layer), so every stored row is a verified cat photo.
      *
      * Stamps [capturedAt] from the wall clock, so a caller deciding [isBonus] against an injected
-     * date must pin both together in tests.
+     * date must pin both together in tests. [widthPx]/[heightPx] are the shot's own dimensions —
+     * what a Gallery tile is shaped by; they default to 0 ("unknown") for callers that have no
+     * bitmap to hand.
      */
-    suspend fun saveCapture(bytes: ByteArray, confidence: Float, isBonus: Boolean = false): Capture {
+    suspend fun saveCapture(
+        bytes: ByteArray,
+        confidence: Float,
+        isBonus: Boolean = false,
+        widthPx: Int = 0,
+        heightPx: Int = 0,
+    ): Capture {
         val filePath = photoStorage.save(bytes)
         val entity = CaptureEntity(
             id = UUID.randomUUID().toString(),
@@ -43,6 +51,8 @@ class CaptureRepository(
             capturedAt = System.currentTimeMillis(),
             confidence = confidence,
             isBonus = isBonus,
+            widthPx = widthPx,
+            heightPx = heightPx,
         )
         dao.insert(entity)
         return entity.toDomain()
