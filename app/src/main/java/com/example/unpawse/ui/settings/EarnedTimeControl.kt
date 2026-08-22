@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -24,6 +25,10 @@ import com.example.unpawse.ui.format.formatMinutes
  *
  * Laid out as a [SettingsRow] with the stepper beneath rather than in the trailing slot, matching
  * how the App Picker presents its per-app limit stepper.
+ *
+ * The rules row underneath is the other half of the number: the grant is only what a cat is worth
+ * *if* it pays out at all, and the three bounds deciding that were previously stated nowhere in the
+ * app. It sits here rather than in its own section because this is the row it qualifies.
  */
 @Composable
 fun EarnedTimeControl(
@@ -49,6 +54,13 @@ fun EarnedTimeControl(
             max = SettingsRepository.MAX_EARNED_MINUTES_PER_CAT,
             format = ::formatMinutes,
             modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        // Informational, like "Total daily limit": these are fixed policy, not a control — so no
+        // onClick and no chevron, which is what tells the user there is nothing to tap.
+        SettingsRow(
+            title = "How earning works",
+            subtitle = rewardRulesSummary(),
+            leadingIcon = Icons.Filled.Info,
         )
     }
 }
