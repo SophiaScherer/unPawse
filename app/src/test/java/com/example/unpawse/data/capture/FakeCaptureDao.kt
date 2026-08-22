@@ -25,6 +25,9 @@ internal class FakeCaptureDao : CaptureDao {
 
     override suspend fun findById(id: String): CaptureEntity? = rows[id]
 
+    // Mirrors the real query's ordering contract: newest first, so callers get the same row.
+    override suspend fun latest(): CaptureEntity? = rows.values.maxByOrNull { it.capturedAt }
+
     override suspend fun allCapturedAt(): List<Long> = rows.values.map { it.capturedAt }
 
     override suspend fun setFavorite(id: String, favorite: Boolean) {

@@ -38,6 +38,13 @@ const val MISSING_PHOTO_LABEL = "Photo file missing"
  * rectangle. Naming it is the point: an invisible failure reads as the app being fine.
  *
  * [compact] drops the caption for slots too small to hold it (the sheet's 56dp thumbnail).
+ *
+ * [decorative] answers a different question: **is this slot a record, or is it the app's own
+ * artwork?** A Gallery tile *is* a particular capture, so a missing file has to be named — that is
+ * what this component exists for. The block overlay's hero and Home's banner merely borrow a photo
+ * from the library, so there the honest fallback is the stand-in gradient; making "Photo file
+ * missing" the centrepiece of a block screen would report a loss the user did not ask about, in the
+ * one place they are least able to act on it.
  */
 @Composable
 fun CapturePhoto(
@@ -45,6 +52,7 @@ fun CapturePhoto(
     seed: Int,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    decorative: Boolean = false,
 ) {
     // Keyed on the path so a recycled grid slot re-tries the new photo rather than inheriting the
     // previous one's failure.
@@ -53,7 +61,11 @@ fun CapturePhoto(
     when {
         imagePath == null -> CatPhotoPlaceholder(seed = seed, modifier = modifier)
 
-        failed -> MissingPhoto(modifier = modifier, compact = compact)
+        failed -> if (decorative) {
+            CatPhotoPlaceholder(seed = seed, modifier = modifier)
+        } else {
+            MissingPhoto(modifier = modifier, compact = compact)
+        }
 
         else -> AsyncImage(
             model = File(imagePath),

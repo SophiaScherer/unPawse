@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.unpawse.ui.components.CatPhotoPlaceholder
+import com.example.unpawse.ui.components.CapturePhoto
 import com.example.unpawse.ui.components.StatPill
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.unPawseColors
@@ -51,6 +51,12 @@ data class BlockUiState(
      * blocks and the debug route, which have no reward to describe.
      */
     val reward: RewardTerms? = null,
+    /**
+     * The user's most recent cat, drawn as the hero. Orthogonal to every other field — the same
+     * photo whatever the block's reason — so the service attaches it once rather than each factory
+     * taking it. Null falls back to the stand-in gradient.
+     */
+    val photoPath: String? = null,
 ) {
     companion object {
         fun sample() = BlockUiState()
@@ -149,7 +155,7 @@ fun BlockOverlayScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     MeowChipRow()
-                    CatIllustration()
+                    CatIllustration(state.photoPath)
                     Spacer(Modifier.height(20.dp))
                     Text(
                         state.headline,
@@ -269,7 +275,7 @@ private fun MeowChipRow() {
 }
 
 @Composable
-private fun CatIllustration() {
+private fun CatIllustration(photoPath: String?) {
     Box(
         modifier = Modifier
             .size(180.dp)
@@ -278,8 +284,12 @@ private fun CatIllustration() {
             .padding(12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        CatPhotoPlaceholder(
+        // Decorative: a missing file falls back to the stand-in rather than making "Photo file
+        // missing" the centrepiece of a screen the user cannot act on it from.
+        CapturePhoto(
+            imagePath = photoPath,
             seed = 2,
+            decorative = true,
             modifier = Modifier
                 .fillMaxSize()
                 .clip(CircleShape),

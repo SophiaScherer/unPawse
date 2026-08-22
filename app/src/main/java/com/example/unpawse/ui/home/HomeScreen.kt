@@ -45,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.ActivityTimeline
-import com.example.unpawse.ui.components.CatPhotoPlaceholder
+import com.example.unpawse.ui.components.CapturePhoto
 import com.example.unpawse.ui.components.IconTile
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ProgressRing
@@ -128,7 +128,7 @@ fun HomeScreen(
 
         item { RecentActivityCard(state.activities) }
 
-        item { PromoBanner(state.bannerTitle, state.bannerBody) }
+        item { PromoBanner(state.bannerTitle, state.bannerBody, state.bannerPhotoPath) }
     }
 }
 
@@ -384,7 +384,7 @@ private fun RecentActivityCard(activities: List<ActivityItem>) {
 }
 
 @Composable
-private fun PromoBanner(title: String, body: String) {
+private fun PromoBanner(title: String, body: String, photoPath: String?) {
     PawCard(
         modifier = Modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -406,8 +406,12 @@ private fun PromoBanner(title: String, body: String) {
                 )
             }
             Spacer(Modifier.width(16.dp))
-            CatPhotoPlaceholder(
+            // Decorative: this borrows a photo from the library rather than reporting one, so a
+            // file that has gone missing falls back to the stand-in instead of naming the loss.
+            CapturePhoto(
+                imagePath = photoPath,
                 seed = 0,
+                decorative = true,
                 modifier = Modifier
                     .size(96.dp)
                     .clip(RoundedCornerShape(16.dp)),

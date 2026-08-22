@@ -23,6 +23,10 @@ interface CaptureDao {
     @Query("SELECT * FROM captures WHERE id = :id")
     suspend fun findById(id: String): CaptureEntity?
 
+    /** The newest capture, or null for an empty library. One row, for the block overlay's hero. */
+    @Query("SELECT * FROM captures ORDER BY capturedAt DESC LIMIT 1")
+    suspend fun latest(): CaptureEntity?
+
     /** Timestamps only: the streak rule needs the dates, not whole rows or their JPEG paths. */
     @Query("SELECT capturedAt FROM captures")
     suspend fun allCapturedAt(): List<Long>

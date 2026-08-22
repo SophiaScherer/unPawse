@@ -171,6 +171,9 @@ class UsageMonitorService : Service() {
         val container = appContainer()
         container.usageTracker.blockRequired.collect { event ->
             val label = container.usageRepository.appLabel(event.packageName) ?: event.packageName
+            // The same hero whatever the block's reason, so it is read once here rather than
+            // threaded through four copy factories that have nothing else to do with it.
+            val heroPhoto = container.captureRepository.latestCapture()?.filePath
             when (event.reason) {
                 BlockReason.LIMIT -> {
                     // Ask the reward policy what a cat is worth here, rather than only whether it is
@@ -197,9 +200,11 @@ class UsageMonitorService : Service() {
                         container.blockOverlayController.show(
                             packageName = event.packageName,
                             reason = BlockReason.LIMIT,
-                            state = terms
-                                ?.let { BlockUiState.forApp(label, it) }
-                                ?: BlockUiState.forAppOutOfRewards(label),
+                            state = (
+                                terms
+                                    ?.let { BlockUiState.forApp(label, it) }
+                                    ?: BlockUiState.forAppOutOfRewards(label)
+                                ).copy(photoPath = heroPhoto),
                             onOpenCamera = { onOpenCamera(container.blockOverlayController) },
                             onExit = { onExit(container) },
                         )
@@ -211,7 +216,7 @@ class UsageMonitorService : Service() {
                         container.blockOverlayController.show(
                             packageName = event.packageName,
                             reason = BlockReason.FOCUS,
-                            state = BlockUiState.forFocus(label),
+                            state = BlockUiState.forFocus(label).copy(photoPath = heroPhoto),
                             onOpenCamera = {},
                             onExit = { onFocusExit(container) },
                         )
@@ -221,9 +226,11 @@ class UsageMonitorService : Service() {
                     // Also escape-less, so also no blockSession. The tracker sends the window's end
                     // along with the event; without one there is nothing honest to promise, so fall
                     // back to the focus copy rather than inventing a time.
-                    val state = event.endsAtMinuteOfDay
-                        ?.let { BlockUiState.forSchedule(label, formatMinuteOfDay(it)) }
-                        ?: BlockUiState.forFocus(label)
+                    val state = (
+                        event.endsAtMinuteOfDay
+                            ?.let { BlockUiState.forSchedule(label, formatMinuteOfDay(it)) }
+                            ?: BlockUiState.forFocus(label)
+                        ).copy(photoPath = heroPhoto)
                     withContext(Dispatchers.Main) {
                         container.blockOverlayController.show(
                             packageName = event.packageName,

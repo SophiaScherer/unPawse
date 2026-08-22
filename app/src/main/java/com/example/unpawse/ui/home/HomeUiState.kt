@@ -23,6 +23,8 @@ data class HomeUiState(
     val activities: List<ActivityItem>,
     val bannerTitle: String,
     val bannerBody: String,
+    /** The user's most recent cat, shown beside the banner. Null until they have photographed one. */
+    val bannerPhotoPath: String?,
     val protection: ProtectionStatus,
 ) {
     companion object {
@@ -44,6 +46,7 @@ data class HomeUiState(
             activities = emptyList(),
             bannerTitle = "",
             bannerBody = "",
+            bannerPhotoPath = null,
             // Defaults to the status that claims nothing; the ViewModel seeds the real one.
             protection = protection,
         )
@@ -65,6 +68,8 @@ data class HomeUiState(
             ),
             bannerTitle = "Looking sharp today!",
             bannerBody = "You're in the top 5% of mindful users this week.",
+            // No stock photo here either: the preview draws the same stand-in a new user sees.
+            bannerPhotoPath = null,
             protection = ProtectionStatus.ACTIVE,
         )
     }
