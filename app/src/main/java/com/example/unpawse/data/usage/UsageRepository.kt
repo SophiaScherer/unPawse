@@ -132,15 +132,27 @@ class UsageRepository(
      * once-a-second usage accrual.
      */
     suspend fun tryEarnMinutes(packageName: String, minutes: Int): RewardDecision {
+        val decision = previewReward(packageName, minutes)
+        if (decision is RewardDecision.Granted) addEarnedMinutes(packageName, decision.minutes)
+        return decision
+    }
+
+    /**
+     * What a cat would be worth right now, deciding nothing and crediting nothing — so the block
+     * overlay can state its terms *before* the user walks off to find a cat.
+     *
+     * Shares [decideReward] with [tryEarnMinutes] rather than re-deriving the bounds, which is the
+     * whole point: the overlay cannot promise a payout the camera would then refuse. It is a
+     * preview and never a second credit path — [tryEarnMinutes] remains the only one that writes.
+     */
+    suspend fun previewReward(packageName: String, minutes: Int): RewardDecision {
         val row = dao.usageFor(packageName, todayKey())
-        val decision = decideReward(
+        return decideReward(
             requestedMinutes = minutes,
             earnedSecondsToday = row.earned,
             lastEarnedAtMillis = row.lastEarnedAt,
             nowMillis = now(),
         )
-        if (decision is RewardDecision.Granted) addEarnedMinutes(packageName, decision.minutes)
-        return decision
     }
 
     /** Bonus minutes [packageName] can still earn today; 0 once its cap is spent. */

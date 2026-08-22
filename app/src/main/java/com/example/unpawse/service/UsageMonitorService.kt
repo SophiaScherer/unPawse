@@ -16,6 +16,7 @@ import com.example.unpawse.R
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.AppContainer
 import com.example.unpawse.ui.block.BlockUiState
+import com.example.unpawse.ui.block.rewardTerms
 import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.format.formatMinuteOfDay
 import kotlinx.coroutines.CoroutineScope
@@ -172,11 +173,22 @@ class UsageMonitorService : Service() {
             val label = container.usageRepository.appLabel(event.packageName) ?: event.packageName
             when (event.reason) {
                 BlockReason.LIMIT -> {
-                    // An app that has spent its daily bonus allowance can't be bought back today,
-                    // so don't offer the camera — and don't arm a debt no cat could settle, which
-                    // would only let a later capture appear to matter.
-                    val canEarn = container.usageRepository.earnableMinutes(event.packageName) > 0
-                    if (canEarn) {
+                    // Ask the reward policy what a cat is worth here, rather than only whether it is
+                    // worth anything: the overlay states the answer, so it must be the same answer
+                    // the camera will give. Null terms mean the daily allowance is spent — the app
+                    // can't be bought back today, so don't offer the camera and don't arm a debt no
+                    // cat could settle, which would only let a later capture appear to matter.
+                    val grantMinutes = container.earnedMinutesPerCat.value
+                    val terms = rewardTerms(
+                        appName = label,
+                        decision = container.usageRepository.previewReward(
+                            event.packageName,
+                            grantMinutes,
+                        ),
+                        grantMinutes = grantMinutes,
+                        earnableMinutes = container.usageRepository.earnableMinutes(event.packageName),
+                    )
+                    if (terms != null) {
                         // Arm the debt before showing, so the camera knows what it's earning for.
                         container.blockSession.start(event.packageName)
                     }
@@ -185,11 +197,9 @@ class UsageMonitorService : Service() {
                         container.blockOverlayController.show(
                             packageName = event.packageName,
                             reason = BlockReason.LIMIT,
-                            state = if (canEarn) {
-                                BlockUiState.forApp(label)
-                            } else {
-                                BlockUiState.forAppOutOfRewards(label)
-                            },
+                            state = terms
+                                ?.let { BlockUiState.forApp(label, it) }
+                                ?: BlockUiState.forAppOutOfRewards(label),
                             onOpenCamera = { onOpenCamera(container.blockOverlayController) },
                             onExit = { onExit(container) },
                         )
