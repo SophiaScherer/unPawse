@@ -54,6 +54,7 @@ import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.StatPill
 import com.example.unpawse.ui.components.TimelineEntry
 import com.example.unpawse.ui.format.NO_DATA
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.unPawseColors
@@ -251,7 +252,7 @@ private fun PauseProtectionCard(
     val healthy = protection == ProtectionStatus.ACTIVE
     val statusText = when (protection) {
         // "1 Apps Active" was the mockup's phrasing surviving into a real count.
-        ProtectionStatus.ACTIVE -> if (appsActive == 1) "1 App Active" else "$appsActive Apps Active"
+        ProtectionStatus.ACTIVE -> "${countLabel(appsActive, "App")} Active"
         ProtectionStatus.TRACKING_ONLY -> "Can't block"
         ProtectionStatus.OFF -> "Protection off"
     }

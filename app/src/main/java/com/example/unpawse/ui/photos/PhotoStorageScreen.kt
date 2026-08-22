@@ -28,6 +28,7 @@ import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
 import com.example.unpawse.ui.components.SettingsRow
 import com.example.unpawse.ui.components.ValueText
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 
@@ -150,13 +151,15 @@ private fun deleteAllMessage(state: PhotoStorageUiState): String {
         return "This clears ${state.storageLabel} of leftover photo files. " +
             "Your screen-time history is not affected."
     }
-    val photos = if (state.photoCount == 1) "1 photo" else "${state.photoCount} photos"
+    val photos = countLabel(state.photoCount, "photo")
     val favourites = when (state.favoriteCount) {
         0 -> ""
-        1 -> ", including 1 favourite"
-        else -> ", including ${state.favoriteCount} favourites"
+        // Closing comma included: without it the clause never shuts and the sentence read
+        // "your 3 photos, including 1 favourite and frees 105 KB".
+        else -> ", including ${countLabel(state.favoriteCount, "favourite")},"
     }
-    return "This deletes all $photos$favourites and frees ${state.storageLabel}. " +
+    // "your", not "all": the title above already says all, and "all 1 photo" doesn't parse.
+    return "This deletes your $photos$favourites and frees ${state.storageLabel}. " +
         "Your screen-time history is not affected. This cannot be undone."
 }
 

@@ -192,16 +192,21 @@ private fun CaptureCard(capture: CaptureItem, onClick: () -> Unit) {
             if (capture.isBonus) {
                 Text(capture.caption, style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            } else {
+                Text(capture.caption, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // Gated on the reward, not on the milestone: this row used to sit inside the bonus
+            // branch and repeat the chip's "Bonus" beside a clock, while the ordinary cat that
+            // actually bought fifteen minutes back never said so.
+            capture.earnedTimeLabel?.let { earned ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                     Icon(Icons.Filled.Timer, contentDescription = null,
                         tint = MaterialTheme.unPawseColors.success, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.size(4.dp))
-                    Text(capture.earnedLabel, style = MaterialTheme.typography.labelMedium,
+                    Text(earned, style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.unPawseColors.success)
                 }
-            } else {
-                Text(capture.caption, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

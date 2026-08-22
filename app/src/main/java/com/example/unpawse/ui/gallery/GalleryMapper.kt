@@ -2,6 +2,7 @@ package com.example.unpawse.ui.gallery
 
 import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.capture.CaptureRetention
+import com.example.unpawse.ui.format.formatMinutes
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -169,6 +170,9 @@ private fun Capture.toCaptureItem(zone: ZoneId): CaptureItem {
         // badge would hide a number the app really computed.
         aiConfidence = confidence * 100f,
         earnedLabel = if (isBonus) "Bonus" else "Verified",
+        // What the cat was worth, beside what kind of cat it was. Null rather than "+0m": a capture
+        // that bought nothing is the common case, and `isBonus` says nothing about the reward.
+        earnedTimeLabel = if (earnedMinutes > 0) "+${formatMinutes(earnedMinutes)} earned" else null,
         caption = if (isBonus) "Daily streak bonus!" else "Verification successful",
         aspectRatio = captureAspectRatio(widthPx, heightPx),
         isBonus = isBonus,
