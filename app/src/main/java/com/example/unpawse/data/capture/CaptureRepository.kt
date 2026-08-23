@@ -24,6 +24,15 @@ class CaptureRepository(
     fun observeCaptures(): Flow<List<Capture>> =
         dao.observeAll().map { rows -> rows.map(CaptureEntity::toDomain) }
 
+    /**
+     * The user's most recent cat, for the block overlay's artwork.
+     *
+     * A one-row query rather than a read off [observeCaptures]: the overlay is raised from a service
+     * that holds no capture flow, and loading the whole library to show one photo would be waste.
+     * Home takes the same photo off the capture list it already collects.
+     */
+    suspend fun latestCapture(): Capture? = dao.latest()?.toDomain()
+
     /** Local dates that have at least one capture, for the streak rules in [Streaks.kt]. */
     suspend fun captureDates(zone: ZoneId = ZoneId.systemDefault()): Set<LocalDate> =
         dao.allCapturedAt().mapTo(mutableSetOf()) { it.toLocalDate(zone) }

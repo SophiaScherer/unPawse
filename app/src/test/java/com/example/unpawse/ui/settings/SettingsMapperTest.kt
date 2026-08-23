@@ -2,7 +2,11 @@ package com.example.unpawse.ui.settings
 
 import com.example.unpawse.BuildConfig
 import com.example.unpawse.data.schedule.ScheduleWindow
+import com.example.unpawse.data.usage.DAILY_EARNED_CAP_MINUTES
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.data.usage.REWARD_COOLDOWN_MINUTES
+import com.example.unpawse.service.BLOCK_REDEEM_WINDOW_MINUTES
+import com.example.unpawse.ui.format.formatMinutes
 import com.example.unpawse.ui.theme.ThemeMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -158,6 +162,35 @@ class SettingsMapperTest {
     fun `the reward grant reads as time back per cat`() {
         assertEquals("15m back per verified cat", earnedTimeSummary(15))
         assertEquals("1h back per verified cat", earnedTimeSummary(60))
+    }
+
+    /**
+     * The row exists so the bounds are stated somewhere; a clause silently dropped would put one of
+     * them back to being discoverable only by being refused.
+     */
+    @Test
+    fun `the rules row states all three bounds on earning`() {
+        val summary = rewardRulesSummary()
+
+        assertTrue("should state the daily cap: $summary",
+            summary.contains(formatMinutes(DAILY_EARNED_CAP_MINUTES)))
+        assertTrue("should state the cooldown: $summary",
+            summary.contains("every $REWARD_COOLDOWN_MINUTES minutes"))
+        assertTrue("should state the redemption window: $summary",
+            summary.contains("within $BLOCK_REDEEM_WINDOW_MINUTES minutes"))
+    }
+
+    /**
+     * A copy snapshot at the shipped policy: the clause test above proves each figure is present,
+     * this one proves they add up to a sentence someone can read. A deliberate policy change is
+     * expected to update it; the guard against the copy quietly drifting is the test above.
+     */
+    @Test
+    fun `the rules row reads as one sentence`() {
+        assertEquals(
+            "Up to 1h per app each day, one cat every 10 minutes, and only within 5 minutes of a block.",
+            rewardRulesSummary(),
+        )
     }
 
     /**

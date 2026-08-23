@@ -7,9 +7,11 @@ import com.example.unpawse.data.usage.REWARD_COOLDOWN_MINUTES
 import com.example.unpawse.data.usage.RewardDecision
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ui.block.BlockUiState
+import com.example.unpawse.ui.block.rewardTerms
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -223,6 +225,42 @@ class RewardLoopTest {
 
         assertEquals(0, repo.earnableMinutes("com.ig"))
         assertFalse(BlockUiState.forAppOutOfRewards("Instagram").showCamera)
+    }
+
+    /**
+     * The overlay's terms come from the same decision the camera will make, so the two can't
+     * disagree. This is the pairing the service performs; a cooldown keeps the camera because the
+     * wait ends and the photo is saved either way, while a spent cap takes it away for good today.
+     */
+    @Test
+    fun `a cooldown still offers the camera, and says how long is left`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 15)
+        repo.addUsage("com.ig", 15.minutes)
+        repo.tryEarnMinutes("com.ig", BONUS_MINUTES_PER_CAT)
+
+        val terms = rewardTerms(
+            appName = "Instagram",
+            decision = repo.previewReward("com.ig", BONUS_MINUTES_PER_CAT),
+            grantMinutes = BONUS_MINUTES_PER_CAT,
+            earnableMinutes = repo.earnableMinutes("com.ig"),
+        )
+
+        assertNotNull("a cooldown is a wait, not a refusal", terms)
+        assertTrue(BlockUiState.forApp("Instagram", terms).showCamera)
+        assertTrue(terms!!.cooldownNote!!.contains("Instagram"))
+    }
+
+    /** The preview must never credit: reading the terms twice can't move the earned total. */
+    @Test
+    fun `previewing a reward changes nothing`() = runBlocking {
+        repo.setLimit("com.ig", "Instagram", dailyLimitMinutes = 15)
+        repo.addUsage("com.ig", 15.minutes)
+
+        repo.previewReward("com.ig", BONUS_MINUTES_PER_CAT)
+        repo.previewReward("com.ig", BONUS_MINUTES_PER_CAT)
+
+        assertTrue("still blocked", repo.isLimitReached("com.ig"))
+        assertEquals(DAILY_EARNED_CAP_MINUTES, repo.earnableMinutes("com.ig"))
     }
 
     @Test

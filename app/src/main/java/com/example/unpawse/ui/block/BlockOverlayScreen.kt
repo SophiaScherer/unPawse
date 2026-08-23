@@ -33,7 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.unpawse.ui.components.CatPhotoPlaceholder
+import com.example.unpawse.ui.components.CapturePhoto
+import com.example.unpawse.ui.components.StatPill
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.unPawseColors
 
@@ -45,15 +46,32 @@ data class BlockUiState(
     val body: String = "To continue using this app, go find your cat and take a picture.",
     val footer: String = "Healthy habits happen one break at a time.",
     val showCamera: Boolean = true,
+    /**
+     * What a cat is worth here and how much of today's allowance is left. Null for the escape-less
+     * blocks and the debug route, which have no reward to describe.
+     */
+    val reward: RewardTerms? = null,
+    /**
+     * The user's most recent cat, drawn as the hero. Orthogonal to every other field — the same
+     * photo whatever the block's reason — so the service attaches it once rather than each factory
+     * taking it. Null falls back to the stand-in gradient.
+     */
+    val photoPath: String? = null,
 ) {
     companion object {
         fun sample() = BlockUiState()
 
-        /** The real thing: names the app whose limit was actually hit. */
-        fun forApp(appName: String) = BlockUiState(
+        /**
+         * The real thing: names the app whose limit was actually hit, and states what a cat buys.
+         *
+         * [reward] defaults to null so the debug route and the tests that only care about
+         * [showCamera] stay unchanged; the service always passes real terms.
+         */
+        fun forApp(appName: String, reward: RewardTerms? = null) = BlockUiState(
             appName = appName,
             subtitle = "You've reached today's limit for $appName.",
             body = "To keep using $appName, go find your cat and take a picture.",
+            reward = reward,
         )
 
         /**
@@ -137,7 +155,7 @@ fun BlockOverlayScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     MeowChipRow()
-                    CatIllustration()
+                    CatIllustration(state.photoPath)
                     Spacer(Modifier.height(20.dp))
                     Text(
                         state.headline,
@@ -161,6 +179,7 @@ fun BlockOverlayScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
+                    state.reward?.let { RewardTermsPanel(it) }
                     Spacer(Modifier.height(24.dp))
                     if (state.showCamera) {
                         Button(
@@ -190,6 +209,35 @@ fun BlockOverlayScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * The reward rules, stated up front rather than discovered by being refused. Reuses [StatPill] —
+ * the value-over-label chip Home's progress card already draws — so this adds copy, not components.
+ */
+@Composable
+private fun RewardTermsPanel(terms: RewardTerms) {
+    Spacer(Modifier.height(20.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        StatPill(value = terms.grantValue, label = terms.grantLabel, modifier = Modifier.weight(1f))
+        StatPill(
+            value = terms.allowanceValue,
+            label = terms.allowanceLabel,
+            modifier = Modifier.weight(1f),
+        )
+    }
+    terms.cooldownNote?.let { note ->
+        Spacer(Modifier.height(10.dp))
+        Text(
+            note,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -227,7 +275,7 @@ private fun MeowChipRow() {
 }
 
 @Composable
-private fun CatIllustration() {
+private fun CatIllustration(photoPath: String?) {
     Box(
         modifier = Modifier
             .size(180.dp)
@@ -236,8 +284,12 @@ private fun CatIllustration() {
             .padding(12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        CatPhotoPlaceholder(
+        // Decorative: a missing file falls back to the stand-in rather than making "Photo file
+        // missing" the centrepiece of a screen the user cannot act on it from.
+        CapturePhoto(
+            imagePath = photoPath,
             seed = 2,
+            decorative = true,
             modifier = Modifier
                 .fillMaxSize()
                 .clip(CircleShape),
@@ -250,5 +302,25 @@ private fun CatIllustration() {
 private fun BlockOverlayPreview() {
     UnPawseTheme {
         BlockOverlayScreen(state = BlockUiState.sample())
+    }
+}
+
+/** The state the service actually raises: the terms are the tallest thing added to this card. */
+@Preview(name = "Block · reward terms", showBackground = true, heightDp = 900)
+@Composable
+private fun BlockOverlayRewardPreview() {
+    UnPawseTheme {
+        BlockOverlayScreen(
+            state = BlockUiState.forApp(
+                appName = "Chrome",
+                reward = RewardTerms(
+                    grantValue = "+15m",
+                    grantLabel = "Per cat",
+                    allowanceValue = "45m",
+                    allowanceLabel = "Bonus left today",
+                    cooldownNote = "Chrome can earn again in 6 minutes.",
+                ),
+            ),
+        )
     }
 }

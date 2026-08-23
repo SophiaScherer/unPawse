@@ -45,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.ActivityTimeline
-import com.example.unpawse.ui.components.CatPhotoPlaceholder
+import com.example.unpawse.ui.components.CapturePhoto
 import com.example.unpawse.ui.components.IconTile
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ProgressRing
@@ -55,6 +55,7 @@ import com.example.unpawse.ui.components.StatPill
 import com.example.unpawse.ui.components.TimelineEntry
 import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.format.countLabel
+import com.example.unpawse.ui.format.pluralOf
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.unPawseColors
@@ -128,7 +129,7 @@ fun HomeScreen(
 
         item { RecentActivityCard(state.activities) }
 
-        item { PromoBanner(state.bannerTitle, state.bannerBody) }
+        item { PromoBanner(state.bannerTitle, state.bannerBody, state.bannerPhotoPath) }
     }
 }
 
@@ -168,7 +169,8 @@ private fun ScreenTimeCard(state: HomeUiState) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatPill(state.remainingLabel, "Remaining", Modifier.weight(1f))
             StatPill(state.streakDays.toString(), "Streak", Modifier.weight(1f), highlighted = true)
-            StatPill(state.catCount.toString(), "Cats", Modifier.weight(1f))
+            // The pill splits the figure from its noun, so the noun has to agree on its own.
+            StatPill(state.catCount.toString(), pluralOf(state.catCount, "Cat"), Modifier.weight(1f))
         }
     }
 }
@@ -384,7 +386,7 @@ private fun RecentActivityCard(activities: List<ActivityItem>) {
 }
 
 @Composable
-private fun PromoBanner(title: String, body: String) {
+private fun PromoBanner(title: String, body: String, photoPath: String?) {
     PawCard(
         modifier = Modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -406,8 +408,12 @@ private fun PromoBanner(title: String, body: String) {
                 )
             }
             Spacer(Modifier.width(16.dp))
-            CatPhotoPlaceholder(
+            // Decorative: this borrows a photo from the library rather than reporting one, so a
+            // file that has gone missing falls back to the stand-in instead of naming the loss.
+            CapturePhoto(
+                imagePath = photoPath,
                 seed = 0,
+                decorative = true,
                 modifier = Modifier
                     .size(96.dp)
                     .clip(RoundedCornerShape(16.dp)),

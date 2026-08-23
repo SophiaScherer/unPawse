@@ -7,6 +7,7 @@ import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import com.example.unpawse.ui.format.NO_DATA
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -36,9 +37,10 @@ class HomeMapperTest {
         hour: Int = 10,
         confidence: Float = 0.9f,
         earnedMinutes: Int = 0,
+        filePath: String = "/tmp/x.jpg",
     ) = Capture(
         id = "id-$daysAgo-$hour",
-        filePath = "/tmp/x.jpg",
+        filePath = filePath,
         capturedAt = ZonedDateTime.of(today.minusDays(daysAgo).atTime(hour, 0), zone)
             .toInstant().toEpochMilli(),
         confidence = confidence,
@@ -503,5 +505,45 @@ class HomeMapperTest {
             budgetSeconds = 0,
         )
         assertEquals("Protection is off", banner.title)
+    }
+
+    /**
+     * The banner used to draw a generic gradient in a cat-themed app that was, at that moment,
+     * asking the user to go and photograph their cat.
+     */
+    @Test
+    fun `the banner shows the most recent capture`() {
+        val state = map(
+            apps = listOf(app("com.ig", "Instagram", 30)),
+            captures = listOf(
+                capture(daysAgo = 0, hour = 14, filePath = "/photos/newest.jpg"),
+                capture(daysAgo = 1, filePath = "/photos/older.jpg"),
+            ),
+        )
+
+        assertEquals("/photos/newest.jpg", state.bannerPhotoPath)
+    }
+
+    /** Asked of the timestamps, so a caller handing the list over in another order can't mislead it. */
+    @Test
+    fun `the most recent capture wins whatever order the list arrives in`() {
+        val state = map(
+            apps = listOf(app("com.ig", "Instagram", 30)),
+            captures = listOf(
+                capture(daysAgo = 3, filePath = "/photos/oldest.jpg"),
+                capture(daysAgo = 0, hour = 14, filePath = "/photos/newest.jpg"),
+                capture(daysAgo = 1, filePath = "/photos/older.jpg"),
+            ),
+        )
+
+        assertEquals("/photos/newest.jpg", state.bannerPhotoPath)
+    }
+
+    /** No photo yet is a real state, not a failure: the slot falls back to the stand-in. */
+    @Test
+    fun `an empty library leaves the banner photo null`() {
+        val state = map(apps = listOf(app("com.ig", "Instagram", 30)))
+
+        assertNull(state.bannerPhotoPath)
     }
 }

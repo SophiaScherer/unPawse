@@ -32,4 +32,25 @@ class CountFormatTest {
         assertEquals("1 Day", countLabel(1, "Day"))
         assertEquals("3 Days", countLabel(3, "Day"))
     }
+
+    /**
+     * Home's stat pill draws the figure above its noun, so it needs the noun alone. It had been
+     * hardcoded "Cats" and read "1 Cats" for a library of one — the same defect `countLabel` was
+     * introduced to stamp out, surviving in the one layout that couldn't use it.
+     */
+    @Test
+    fun `the noun alone agrees with its count`() {
+        assertEquals("Cat", pluralOf(1, "Cat"))
+        assertEquals("Cats", pluralOf(2, "Cat"))
+        assertEquals("Cats", pluralOf(0, "Cat"))
+        assertEquals("entries", pluralOf(3, "entry", "entries"))
+    }
+
+    /** One definition of the rule, so the split form and the inline form can't disagree. */
+    @Test
+    fun `countLabel is the noun rule plus the number`() {
+        listOf(0, 1, 2, 17).forEach { n ->
+            assertEquals("$n ${pluralOf(n, "cat")}", countLabel(n, "cat"))
+        }
+    }
 }

@@ -1,8 +1,11 @@
 package com.example.unpawse.ui.settings
 
 import com.example.unpawse.data.schedule.ScheduleWindow
+import com.example.unpawse.data.usage.DAILY_EARNED_CAP_MINUTES
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.data.usage.REWARD_COOLDOWN_MINUTES
 import com.example.unpawse.ml.sensitivityToMinConfidence
+import com.example.unpawse.service.BLOCK_REDEEM_WINDOW_MINUTES
 import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.ui.format.formatMinutes
@@ -63,6 +66,24 @@ internal fun warningLabel(minutes: Int): String = when {
 /** Subtitle for the reward-grant row, e.g. "15m back per verified cat". */
 internal fun earnedTimeSummary(minutesPerCat: Int): String =
     "${formatMinutes(minutesPerCat)} back per verified cat"
+
+/**
+ * The three bounds on earning, stated in one place: the per-app daily cap, the cooldown between
+ * grants, and how long an armed block stays redeemable.
+ *
+ * **Read from the policy constants, never written as literals** — that is the whole point of the
+ * row. Copy quoting a number the code no longer uses would be worse than the silence it replaces,
+ * since the user would have no way to tell which of the two was lying.
+ *
+ * Deliberately takes no arguments and no UI state: every figure here is a constant, so there is
+ * nothing for `toSettingsUiState` to shape. A tempting "four cats at your grant" phrasing was left
+ * out because the cap *trims* a grant rather than refusing it — at a 45m grant the honest answer is
+ * "one full cat and a partial one", which is not a number worth inventing a sentence for.
+ */
+internal fun rewardRulesSummary(): String =
+    "Up to ${formatMinutes(DAILY_EARNED_CAP_MINUTES)} per app each day, " +
+        "one cat every ${countLabel(REWARD_COOLDOWN_MINUTES, "minute")}, and only within " +
+        "${countLabel(BLOCK_REDEEM_WINDOW_MINUTES, "minute")} of a block."
 
 /**
  * The confidence gate the sensitivity slider currently produces, e.g. "70% match". Derived from

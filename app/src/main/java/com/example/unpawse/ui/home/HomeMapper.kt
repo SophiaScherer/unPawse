@@ -120,6 +120,11 @@ internal fun toHomeUiState(
         ),
         bannerTitle = banner.title,
         bannerBody = banner.body,
+        // The user's latest cat, null until there is one — which is what puts the stand-in back.
+        // Asked of the timestamps rather than taken as `first()`: the DAO does hand these over
+        // newest-first, but a mapper that silently depends on someone else's ordering is one re-sort
+        // away from showing the wrong photo, and this states what it actually wants.
+        bannerPhotoPath = captures.maxByOrNull { it.capturedAt }?.filePath,
         protection = protection,
     )
 }
