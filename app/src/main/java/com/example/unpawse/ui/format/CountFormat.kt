@@ -13,4 +13,15 @@ package com.example.unpawse.ui.format
  * the seam a localization pass would replace.
  */
 fun countLabel(count: Int, singular: String, plural: String = "${singular}s"): String =
-    "$count ${if (count == 1) singular else plural}"
+    "$count ${pluralOf(count, singular, plural)}"
+
+/**
+ * Just the noun, agreeing with [count]: "Cat" / "Cats".
+ *
+ * For layouts that render the number and its noun as separate elements, where [countLabel]'s single
+ * string doesn't fit — Home's stat pills draw the figure above its label, which is exactly how the
+ * "Cats" pill came to read **"1 Cats"** while every inline count in the app had been fixed. Same
+ * rule, one definition: [countLabel] is built on this, so neither can drift from the other.
+ */
+fun pluralOf(count: Int, singular: String, plural: String = "${singular}s"): String =
+    if (count == 1) singular else plural
