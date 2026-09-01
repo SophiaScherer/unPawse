@@ -18,8 +18,10 @@ import org.json.JSONObject
  *   readable: [parseExportJson] takes v1–v6 and lets each missing field fall back to its default.
  * v7 added `captures[].widthPx` / `heightPx`, the shape a Gallery tile is drawn at. Absent in older
  *   documents, which read as 0 — "unknown shape" — and fall back to a default ratio.
+ * v8 added `settings.usageScope`, which apps the Stats figures count. Absent in older documents and
+ *   falls back to `TRACKED`, which is what every build before this one showed.
  */
-const val EXPORT_FORMAT_VERSION = 7
+const val EXPORT_FORMAT_VERSION = 8
 
 /**
  * Everything unPawse holds about you, in one plain structure.
@@ -50,6 +52,8 @@ data class ExportSettings(
     val dailySummaryEnabled: Boolean,
     val warningMinutes: Int = SettingsRepository.DEFAULT_WARNING_MINUTES,
     val reminderMinutes: Int = SettingsRepository.DEFAULT_REMINDER_MINUTES,
+    /** Which apps the Stats figures count, as a `UsageScope` name. */
+    val usageScope: String = SettingsRepository.DEFAULT_USAGE_SCOPE.name,
 )
 
 data class ExportMonitoredApp(
@@ -197,6 +201,7 @@ private fun JSONObject.toExportSettings() = ExportSettings(
     dailySummaryEnabled = optBoolean("dailySummaryEnabled", SettingsRepository.DEFAULT_DAILY_SUMMARY),
     warningMinutes = optInt("warningMinutes", SettingsRepository.DEFAULT_WARNING_MINUTES),
     reminderMinutes = optInt("reminderMinutes", SettingsRepository.DEFAULT_REMINDER_MINUTES),
+    usageScope = optString("usageScope", SettingsRepository.DEFAULT_USAGE_SCOPE.name),
 )
 
 private fun JSONObject.toMonitoredApp(): ExportMonitoredApp? {
@@ -269,6 +274,7 @@ private fun ExportSettings.toJson() = JSONObject()
     .put("dailySummaryEnabled", dailySummaryEnabled)
     .put("warningMinutes", warningMinutes)
     .put("reminderMinutes", reminderMinutes)
+    .put("usageScope", usageScope)
 
 private fun ExportMonitoredApp.toJson() = JSONObject()
     .put("packageName", packageName)
