@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,8 +48,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.ui.components.DonutChart
 import com.example.unpawse.ui.components.DonutSegment
+import com.example.unpawse.ui.components.EmptyStateCard
+import com.example.unpawse.ui.components.FilterChip
 import com.example.unpawse.ui.components.LineChart
 import com.example.unpawse.ui.components.MiniBarChart
 import com.example.unpawse.ui.components.PawCard
@@ -63,6 +67,8 @@ fun StatsScreen(
     state: StatsUiState,
     modifier: Modifier = Modifier,
     onDetails: () -> Unit = {},
+    onScopeChange: (UsageScope) -> Unit = {},
+    onGrantUsageAccess: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -75,7 +81,7 @@ fun StatsScreen(
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
         item { ScreenHeader(title = "unPawse", avatarInitial = state.avatarInitial) }
-        item { DailyScreenTimeCard(state) }
+        item { DailyScreenTimeCard(state, onScopeChange, onGrantUsageAccess) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 PreventedCard(state.preventedCount, Modifier.weight(1f))
@@ -121,7 +127,11 @@ fun StatsScreen(
 }
 
 @Composable
-private fun DailyScreenTimeCard(state: StatsUiState) {
+private fun DailyScreenTimeCard(
+    state: StatsUiState,
+    onScopeChange: (UsageScope) -> Unit,
+    onGrantUsageAccess: () -> Unit,
+) {
     PawCard(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f)) {
@@ -171,12 +181,68 @@ private fun DailyScreenTimeCard(state: StatsUiState) {
             }
         }
         Spacer(Modifier.height(16.dp))
-        LineChart(
-            points = state.weeklyPoints,
-            labels = state.weekdayLabels,
-            highlightIndex = state.highlightDayIndex,
-        )
+        // Above the chart, because it governs this card, the trend beside it and the donut below —
+        // not just the graph it happens to sit over.
+        ScopeControls(state.usageScope, state.scopeCaption, onScopeChange)
+        Spacer(Modifier.height(16.dp))
+        if (state.scopeUnavailable) {
+            // The figures aren't merely empty, they're unmeasurable, and a card that reports a
+            // problem gets a way to act on it — same hand-off as the App Picker's notice.
+            UsageAccessNotice(onGrantUsageAccess)
+        } else {
+            LineChart(
+                points = state.weeklyPoints,
+                labels = state.weekdayLabels,
+                highlightIndex = state.highlightDayIndex,
+            )
+        }
     }
+}
+
+/**
+ * Which apps every screen-time figure on this screen counts.
+ *
+ * A chip row over [UsageScope] with the choice spelled out underneath, the same shape as the App
+ * Picker's sort controls. The caption is part of the claim, not decoration: the number above it
+ * changes meaning entirely with the selection, and "3h 24m" reads as a whole-device figure unless
+ * something says otherwise.
+ */
+@Composable
+private fun ScopeControls(
+    scope: UsageScope,
+    caption: String,
+    onScopeChange: (UsageScope) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            UsageScope.entries.forEach { option ->
+                FilterChip(
+                    label = option.label,
+                    selected = option == scope,
+                    onClick = { onScopeChange(option) },
+                )
+            }
+        }
+        if (caption.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(caption, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * Shown when all-apps is selected without usage access. The tracked scope needs no such notice: it
+ * reads what unPawse recorded itself, which is why it stays the default.
+ */
+@Composable
+private fun UsageAccessNotice(onClick: () -> Unit) {
+    EmptyStateCard(
+        title = "All-apps figures need usage access",
+        body = "Grant it to see time across every app on your phone. Tap here to open the setting, " +
+            "or switch back to tracked apps.",
+        modifier = Modifier.clickable(onClick = onClick),
+    )
 }
 
 @Composable
@@ -252,6 +318,10 @@ private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
                     Text(state.breakdownTotal, style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text("Screen time", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // The same scope the headline states. Two screen-time totals on one screen must
+                    // never leave the reader to guess they are counting the same apps.
+                    Text(state.scopeCaption, style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -454,5 +524,21 @@ private fun StatsScreenPreview() {
 private fun StatsScreenDarkPreview() {
     UnPawseTheme(darkTheme = true) {
         StatsScreen(state = StatsUiState.sample())
+    }
+}
+
+// All-apps without usage access: the one state where the card reports a problem rather than a
+// figure, and the only place the chips sit over a notice instead of a chart.
+@Preview(name = "Stats · all apps, no access", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1600)
+@Composable
+private fun StatsScreenScopeUnavailablePreview() {
+    UnPawseTheme {
+        StatsScreen(
+            state = StatsUiState.empty().copy(
+                usageScope = UsageScope.ALL,
+                scopeCaption = "ALL APPS ON THIS PHONE",
+                scopeUnavailable = true,
+            ),
+        )
     }
 }
