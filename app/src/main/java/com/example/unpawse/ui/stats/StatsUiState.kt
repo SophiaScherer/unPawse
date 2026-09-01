@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.stats
 
+import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
 import com.example.unpawse.ui.format.NO_DATA
 
@@ -63,6 +64,24 @@ data class StatsUiState(
      */
     val hasCapturedPhotos: Boolean,
     val achievements: List<Achievement>,
+    /**
+     * Which apps the screen-time figures count. Drives the chip row's selection; the figures
+     * themselves arrive already scoped, so nothing downstream re-reads this to decide a number.
+     */
+    val usageScope: UsageScope = UsageScope.TRACKED,
+    /**
+     * [usageScope] as the words on the card. A screen-time figure that doesn't state what it counts
+     * is the trap the trend's period and Budget Left's "ACROSS CAPPED APPS" captions already close;
+     * this one closes it for a scope the user can change underneath the same number.
+     */
+    val scopeCaption: String = "",
+    /**
+     * Whether the chosen scope has no figures at all — all-apps without usage access, the only way
+     * this happens. The scoped metrics are blanked when it is set, and the tracked-only tiles
+     * (Prevented, Budget Left, streak, unlocks, photos, badges) keep reporting: they are facts about
+     * limits and captures, and neither depends on the platform's figures.
+     */
+    val scopeUnavailable: Boolean = false,
 ) {
     companion object {
         /**
@@ -95,6 +114,11 @@ data class StatsUiState(
             capturedPhotos = NO_DATA,
             hasCapturedPhotos = false,
             achievements = emptyList(),
+            usageScope = UsageScope.TRACKED,
+            // Blank rather than a scope name: nothing has been measured yet, so there is no figure
+            // for a caption to qualify.
+            scopeCaption = "",
+            scopeUnavailable = false,
         )
 
         fun sample() = StatsUiState(
@@ -132,6 +156,9 @@ data class StatsUiState(
                 Achievement("7-Day Streak", "A cat every day for a week", AchievementColor.SAGE,
                     AchievementIcon.LOCKED, unlocked = false),
             ),
+            usageScope = UsageScope.TRACKED,
+            scopeCaption = "TRACKED APPS",
+            scopeUnavailable = false,
         )
     }
 }
