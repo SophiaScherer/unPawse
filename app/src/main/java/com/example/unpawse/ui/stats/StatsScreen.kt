@@ -52,13 +52,13 @@ import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.ui.components.DonutChart
 import com.example.unpawse.ui.components.DonutSegment
 import com.example.unpawse.ui.components.EmptyStateCard
-import com.example.unpawse.ui.components.FilterChip
 import com.example.unpawse.ui.components.LineChart
 import com.example.unpawse.ui.components.MiniBarChart
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.theme.unPawseColors
 import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.components.SectionLabel
+import com.example.unpawse.ui.components.SegmentedToggle
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 
@@ -81,7 +81,11 @@ fun StatsScreen(
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
         item { ScreenHeader(title = "unPawse", avatarInitial = state.avatarInitial) }
-        item { DailyScreenTimeCard(state, onScopeChange, onGrantUsageAccess) }
+        // Above every card, because it governs all of them — the chart, the trend and the donut all
+        // change meaning with it. It sat inside the first card and read as though it belonged to
+        // that card's figure alone.
+        item { ScopeToggle(state.usageScope, onScopeChange) }
+        item { DailyScreenTimeCard(state, onGrantUsageAccess) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 PreventedCard(state.preventedCount, Modifier.weight(1f))
@@ -126,10 +130,27 @@ fun StatsScreen(
     }
 }
 
+/**
+ * Which apps every figure on this screen counts.
+ *
+ * A sliding two-position control rather than a chip row: it is the page's setting, not one card's
+ * filter, and the position of the thumb is what makes the alternative visible without hunting for
+ * it. Its own labels carry the scope, so the cards beneath it need no caption of their own — except
+ * the breakdown, which scrolls far enough away to need repeating.
+ */
+@Composable
+private fun ScopeToggle(scope: UsageScope, onScopeChange: (UsageScope) -> Unit) {
+    val options = UsageScope.entries
+    SegmentedToggle(
+        labels = options.map { it.label },
+        selectedIndex = options.indexOf(scope),
+        onSelect = { onScopeChange(options[it]) },
+    )
+}
+
 @Composable
 private fun DailyScreenTimeCard(
     state: StatsUiState,
-    onScopeChange: (UsageScope) -> Unit,
     onGrantUsageAccess: () -> Unit,
 ) {
     PawCard(modifier = Modifier.fillMaxWidth()) {
@@ -181,10 +202,6 @@ private fun DailyScreenTimeCard(
             }
         }
         Spacer(Modifier.height(16.dp))
-        // Above the chart, because it governs this card, the trend beside it and the donut below —
-        // not just the graph it happens to sit over.
-        ScopeControls(state.usageScope, state.scopeCaption, onScopeChange)
-        Spacer(Modifier.height(16.dp))
         if (state.scopeUnavailable) {
             // The figures aren't merely empty, they're unmeasurable, and a card that reports a
             // problem gets a way to act on it — same hand-off as the App Picker's notice.
@@ -195,38 +212,6 @@ private fun DailyScreenTimeCard(
                 labels = state.weekdayLabels,
                 highlightIndex = state.highlightDayIndex,
             )
-        }
-    }
-}
-
-/**
- * Which apps every screen-time figure on this screen counts.
- *
- * A chip row over [UsageScope] with the choice spelled out underneath, the same shape as the App
- * Picker's sort controls. The caption is part of the claim, not decoration: the number above it
- * changes meaning entirely with the selection, and "3h 24m" reads as a whole-device figure unless
- * something says otherwise.
- */
-@Composable
-private fun ScopeControls(
-    scope: UsageScope,
-    caption: String,
-    onScopeChange: (UsageScope) -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            UsageScope.entries.forEach { option ->
-                FilterChip(
-                    label = option.label,
-                    selected = option == scope,
-                    onClick = { onScopeChange(option) },
-                )
-            }
-        }
-        if (caption.isNotEmpty()) {
-            Spacer(Modifier.height(6.dp))
-            Text(caption, style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -300,8 +285,17 @@ private fun TrendCard(state: StatsUiState, modifier: Modifier = Modifier) {
 private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
     PawCard(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Usage Breakdown", style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Usage Breakdown", style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold)
+                // Under the title, not in the donut's hole: the ring's centre is 124dp across and
+                // this caption is wider than that, so it used to overlap the arcs it describes.
+                // Repeated here at all because the toggle has scrolled off by this point.
+                if (state.scopeCaption.isNotEmpty()) {
+                    Text(state.scopeCaption, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             TextButton(onClick = onDetails) { Text("Details") }
         }
         Spacer(Modifier.height(8.dp))
@@ -318,10 +312,6 @@ private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
                     Text(state.breakdownTotal, style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text("Screen time", style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    // The same scope the headline states. Two screen-time totals on one screen must
-                    // never leave the reader to guess they are counting the same apps.
-                    Text(state.scopeCaption, style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
