@@ -6,6 +6,9 @@ import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UNLIMITED_MINUTES
+import com.example.unpawse.data.usage.UsageScope
+import com.example.unpawse.data.usage.deviceUsageSeries
+import com.example.unpawse.ui.format.NO_DATA
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -703,5 +706,129 @@ class StatsMapperTest {
         )
 
         assertEquals("2 Days", state.longestStreak)
+    }
+
+    // --- Usage scope -------------------------------------------------------------------------
+
+    /** All-apps figures come from the platform, keyed by ISO date, exactly as the provider returns. */
+    private fun deviceUsage(vararg days: Pair<Long, Map<String, Long>>) =
+        days.associate { (daysAgo, byPackage) -> today.minusDays(daysAgo).toString() to byPackage }
+
+    private fun mapAll(
+        device: Map<String, Map<String, Long>>,
+        apps: List<MonitoredApp> = emptyList(),
+        recentUsage: List<DailyUsage> = emptyList(),
+        platformCategories: Map<String, AppCategory?> = emptyMap(),
+    ) = toStatsUiState(
+        monitoredApps = apps,
+        recentUsage = recentUsage,
+        captures = emptyList(),
+        today = today,
+        zone = zone,
+        scope = UsageScope.ALL,
+        series = deviceUsageSeries(device, platformCategories, apps, today),
+    )
+
+    @Test
+    fun `the default scope is tracked and says so on the card`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 60)))
+
+        assertEquals(UsageScope.TRACKED, state.usageScope)
+        assertEquals("TRACKED APPS", state.scopeCaption)
+        assertFalse(state.scopeUnavailable)
+    }
+
+    @Test
+    fun `all-apps totals come from the platform, not from daily_usage`() {
+        // The whole point of the feature: an untracked app's time is invisible to `recentUsage` and
+        // has to reach the total anyway.
+        val state = mapAll(
+            device = deviceUsage(0L to mapOf("tracked" to 3600L, "untracked" to 1800L)),
+            apps = listOf(app("tracked", "Tracked", 60)),
+            recentUsage = listOf(usage("tracked", 0, 60)),
+        )
+
+        assertEquals("1h 30m", state.dailyTotal)
+        assertEquals("ALL APPS ON THIS PHONE", state.scopeCaption)
+    }
+
+    @Test
+    fun `the all-apps donut classifies apps the user never tracked`() {
+        val state = mapAll(
+            device = deviceUsage(0L to mapOf("com.ig" to 3600L, "com.mystery" to 1800L)),
+            platformCategories = mapOf("com.ig" to AppCategory.SOCIAL, "com.mystery" to null),
+        )
+
+        assertEquals(listOf("Social", "Other"), state.breakdown.map { it.label })
+        // The centre is summed from the slices, so nothing may be dropped on the way in.
+        assertEquals("1h 30m", state.breakdownTotal)
+    }
+
+    @Test
+    fun `blocks and budget stay tracked facts in all-apps scope`() {
+        val state = mapAll(
+            device = deviceUsage(0L to mapOf("untracked" to 3600L)),
+            apps = listOf(app("a", "A", 60)),
+            recentUsage = listOf(usage("a", 0, 30, blockedCount = 4)),
+        )
+
+        // Neither is a claim about which apps were used, so neither rescopes.
+        assertEquals(4, state.preventedCount)
+        assertEquals("50%", state.budgetLeftLabel)
+    }
+
+    @Test
+    fun `a scope with no figures blanks rather than reporting zeroes`() {
+        // All-apps without usage access. A null series is "nothing can be measured", which is not
+        // the same as a device nobody touched.
+        val state = toStatsUiState(
+            monitoredApps = listOf(app("a", "A", 60)),
+            recentUsage = listOf(usage("a", 0, 30, blockedCount = 2)),
+            captures = emptyList(),
+            today = today,
+            zone = zone,
+            scope = UsageScope.ALL,
+            series = null,
+        )
+
+        assertTrue(state.scopeUnavailable)
+        assertEquals(NO_DATA, state.dailyTotal)
+        assertEquals("", state.deltaText)
+        assertFalse(state.deltaHasBaseline)
+        assertEquals(emptyList<Float?>(), state.weeklyPoints)
+        assertEquals(NO_DATA, state.trendLabel)
+        assertFalse(state.trendHasBaseline)
+        assertEquals("", state.trendCaption)
+        assertEquals(emptyList<Float?>(), state.trendBars)
+        assertEquals(NO_DATA, state.breakdownTotal)
+        assertEquals(emptyList<UsageCategory>(), state.breakdown)
+    }
+
+    @Test
+    fun `the tracked tiles keep reporting when the scope cannot be measured`() {
+        val state = toStatsUiState(
+            monitoredApps = listOf(app("a", "A", 60)),
+            recentUsage = listOf(usage("a", 0, 30, blockedCount = 2)),
+            captures = emptyList(),
+            today = today,
+            zone = zone,
+            scope = UsageScope.ALL,
+            series = null,
+        )
+
+        // These are facts about limits and blocks; the platform's figures have no bearing on them.
+        assertEquals(2, state.preventedCount)
+        assertEquals("50%", state.budgetLeftLabel)
+    }
+
+    @Test
+    fun `an unmeasurable last week leaves the trend without a baseline`() {
+        // The everyday case in all-apps scope: the platform keeps daily buckets for about a week, so
+        // last week is absent rather than zero, and the card must not read it as an improvement.
+        val state = mapAll(device = deviceUsage(0L to mapOf("a" to 7200L)))
+
+        assertFalse(state.trendHasBaseline)
+        assertEquals(NO_DATA, state.trendLabel)
+        assertEquals("NO DATA FOR LAST WEEK", state.trendCaption)
     }
 }

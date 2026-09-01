@@ -62,6 +62,7 @@ class ExportRepository(
                 dailySummaryEnabled = settings.dailySummaryEnabled.first(),
                 warningMinutes = settings.warningMinutes.first(),
                 reminderMinutes = settings.reminderMinutes.first(),
+                usageScope = settings.usageScope.first().name,
             ),
             monitoredApps = usage.monitoredApps().map(MonitoredApp::toExport),
             schedules = schedules.allWindows().map(ScheduleWindow::toExport),

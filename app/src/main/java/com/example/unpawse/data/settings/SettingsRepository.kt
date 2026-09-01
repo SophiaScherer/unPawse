@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.unpawse.data.capture.CaptureRetention
 import com.example.unpawse.data.export.ExportSettings
+import com.example.unpawse.data.usage.UsageScope
+import com.example.unpawse.data.usage.usageScopeNamed
 import com.example.unpawse.service.BONUS_MINUTES_PER_CAT
 import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
@@ -72,6 +74,13 @@ class SettingsRepository(context: Context) {
     val userName: Flow<String> = dataStore.data.map { it[Keys.USER_NAME] ?: DEFAULT_USER_NAME }
 
     /**
+     * Which apps the Stats screen's screen-time figures count. Persisted rather than held per visit
+     * so the answer to "how much have I been on my phone?" doesn't silently change scope between
+     * one opening of the tab and the next.
+     */
+    val usageScope: Flow<UsageScope> = dataStore.data.map { usageScopeNamed(it[Keys.USAGE_SCOPE]) }
+
+    /**
      * Epoch-millis end time of the active focus session, or null when none is running. Persisted so
      * a focus session survives process death (the enforcement service is restored from it on start).
      */
@@ -98,6 +107,8 @@ class SettingsRepository(context: Context) {
     suspend fun setReminderMinutes(value: Int) = edit { it[Keys.REMINDER_MINUTES] = value }
 
     suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
+
+    suspend fun setUsageScope(value: UsageScope) = edit { it[Keys.USAGE_SCOPE] = value.name }
 
     /** Persists (or, with null, clears) the active focus session's end time. */
     suspend fun setFocusEndMillis(value: Long?) = edit {
@@ -128,6 +139,7 @@ class SettingsRepository(context: Context) {
         setDailySummary(settings.dailySummaryEnabled)
         setWarningMinutes(settings.warningMinutes)
         setReminderMinutes(settings.reminderMinutes)
+        setUsageScope(usageScopeNamed(settings.usageScope))
     }
 
     private object Keys {
@@ -140,6 +152,7 @@ class SettingsRepository(context: Context) {
         val REMINDER_MINUTES = intPreferencesKey("reminder_minutes")
         val USER_NAME = stringPreferencesKey("user_name")
         val FOCUS_END_MILLIS = longPreferencesKey("focus_end_millis")
+        val USAGE_SCOPE = stringPreferencesKey("usage_scope")
     }
 
     companion object {
@@ -171,5 +184,11 @@ class SettingsRepository(context: Context) {
 
         /** Blank means "no name set yet"; the UI substitutes a friendly fallback. */
         const val DEFAULT_USER_NAME = ""
+
+        /**
+         * Stats opens on what unPawse measured itself. All-apps needs usage access, which a user may
+         * never have granted, so defaulting to it would open the screen on an error state.
+         */
+        val DEFAULT_USAGE_SCOPE = UsageScope.TRACKED
     }
 }

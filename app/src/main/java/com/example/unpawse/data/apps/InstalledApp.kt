@@ -15,3 +15,13 @@ data class InstalledApp(
     val label: String,
     val category: AppCategory? = null,
 )
+
+/**
+ * The platform's declarations alone, keyed by package, as
+ * [com.example.unpawse.data.usage.resolveCategories] wants them.
+ *
+ * Lives here rather than in `data/usage` so the dependency keeps pointing one way: apps knows about
+ * categories, categories know nothing about apps.
+ */
+fun List<InstalledApp>.platformCategories(): Map<String, AppCategory?> =
+    associate { it.packageName to it.category }

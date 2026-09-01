@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,14 +48,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.ui.components.DonutChart
 import com.example.unpawse.ui.components.DonutSegment
+import com.example.unpawse.ui.components.EmptyStateCard
 import com.example.unpawse.ui.components.LineChart
 import com.example.unpawse.ui.components.MiniBarChart
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.theme.unPawseColors
 import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.components.SectionLabel
+import com.example.unpawse.ui.components.SegmentedToggle
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.UnPawseTheme
 
@@ -63,6 +67,8 @@ fun StatsScreen(
     state: StatsUiState,
     modifier: Modifier = Modifier,
     onDetails: () -> Unit = {},
+    onScopeChange: (UsageScope) -> Unit = {},
+    onGrantUsageAccess: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -75,7 +81,11 @@ fun StatsScreen(
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
         item { ScreenHeader(title = "unPawse", avatarInitial = state.avatarInitial) }
-        item { DailyScreenTimeCard(state) }
+        // Above every card, because it governs all of them — the chart, the trend and the donut all
+        // change meaning with it. It sat inside the first card and read as though it belonged to
+        // that card's figure alone.
+        item { ScopeToggle(state.usageScope, onScopeChange) }
+        item { DailyScreenTimeCard(state, onGrantUsageAccess) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
                 PreventedCard(state.preventedCount, Modifier.weight(1f))
@@ -120,8 +130,29 @@ fun StatsScreen(
     }
 }
 
+/**
+ * Which apps every figure on this screen counts.
+ *
+ * A sliding two-position control rather than a chip row: it is the page's setting, not one card's
+ * filter, and the position of the thumb is what makes the alternative visible without hunting for
+ * it. Its own labels carry the scope, so the cards beneath it need no caption of their own — except
+ * the breakdown, which scrolls far enough away to need repeating.
+ */
 @Composable
-private fun DailyScreenTimeCard(state: StatsUiState) {
+private fun ScopeToggle(scope: UsageScope, onScopeChange: (UsageScope) -> Unit) {
+    val options = UsageScope.entries
+    SegmentedToggle(
+        labels = options.map { it.label },
+        selectedIndex = options.indexOf(scope),
+        onSelect = { onScopeChange(options[it]) },
+    )
+}
+
+@Composable
+private fun DailyScreenTimeCard(
+    state: StatsUiState,
+    onGrantUsageAccess: () -> Unit,
+) {
     PawCard(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f)) {
@@ -171,12 +202,32 @@ private fun DailyScreenTimeCard(state: StatsUiState) {
             }
         }
         Spacer(Modifier.height(16.dp))
-        LineChart(
-            points = state.weeklyPoints,
-            labels = state.weekdayLabels,
-            highlightIndex = state.highlightDayIndex,
-        )
+        if (state.scopeUnavailable) {
+            // The figures aren't merely empty, they're unmeasurable, and a card that reports a
+            // problem gets a way to act on it — same hand-off as the App Picker's notice.
+            UsageAccessNotice(onGrantUsageAccess)
+        } else {
+            LineChart(
+                points = state.weeklyPoints,
+                labels = state.weekdayLabels,
+                highlightIndex = state.highlightDayIndex,
+            )
+        }
     }
+}
+
+/**
+ * Shown when all-apps is selected without usage access. The tracked scope needs no such notice: it
+ * reads what unPawse recorded itself, which is why it stays the default.
+ */
+@Composable
+private fun UsageAccessNotice(onClick: () -> Unit) {
+    EmptyStateCard(
+        title = "All-apps figures need usage access",
+        body = "Grant it to see time across every app on your phone. Tap here to open the setting, " +
+            "or switch back to tracked apps.",
+        modifier = Modifier.clickable(onClick = onClick),
+    )
 }
 
 @Composable
@@ -234,8 +285,17 @@ private fun TrendCard(state: StatsUiState, modifier: Modifier = Modifier) {
 private fun UsageBreakdownCard(state: StatsUiState, onDetails: () -> Unit) {
     PawCard(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Usage Breakdown", style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Usage Breakdown", style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold)
+                // Under the title, not in the donut's hole: the ring's centre is 124dp across and
+                // this caption is wider than that, so it used to overlap the arcs it describes.
+                // Repeated here at all because the toggle has scrolled off by this point.
+                if (state.scopeCaption.isNotEmpty()) {
+                    Text(state.scopeCaption, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             TextButton(onClick = onDetails) { Text("Details") }
         }
         Spacer(Modifier.height(8.dp))
@@ -454,5 +514,21 @@ private fun StatsScreenPreview() {
 private fun StatsScreenDarkPreview() {
     UnPawseTheme(darkTheme = true) {
         StatsScreen(state = StatsUiState.sample())
+    }
+}
+
+// All-apps without usage access: the one state where the card reports a problem rather than a
+// figure, and the only place the chips sit over a notice instead of a chart.
+@Preview(name = "Stats · all apps, no access", showBackground = true, backgroundColor = 0xFFFFF8F8, heightDp = 1600)
+@Composable
+private fun StatsScreenScopeUnavailablePreview() {
+    UnPawseTheme {
+        StatsScreen(
+            state = StatsUiState.empty().copy(
+                usageScope = UsageScope.ALL,
+                scopeCaption = "ALL APPS ON THIS PHONE",
+                scopeUnavailable = true,
+            ),
+        )
     }
 }

@@ -5,7 +5,10 @@ import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.data.usage.UsageScope
+import com.example.unpawse.data.usage.UsageSeries
 import com.example.unpawse.data.usage.dailyBudget
+import com.example.unpawse.data.usage.trackedUsageSeries
 import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.format.NO_DATA
 import com.example.unpawse.ui.format.formatSeconds
@@ -35,6 +38,16 @@ private const val TREND_NO_BASELINE_CAPTION = "NO DATA FOR LAST WEEK"
 private const val NO_PHOTOS_LABEL = "No photos yet"
 
 /**
+ * Which apps the figures count, on the cards' faces. Same rule as the trend's period and Budget
+ * Left's "ACROSS CAPPED APPS": a screen-time number whose scope isn't stated invites being read as
+ * the other one.
+ */
+private val SCOPE_CAPTIONS = mapOf(
+    UsageScope.TRACKED to "TRACKED APPS",
+    UsageScope.ALL to "ALL APPS ON THIS PHONE",
+)
+
+/**
  * Builds [StatsUiState] from usage history + captures. Pure and parameterised on [today]/[zone] so
  * it's unit-testable without a clock.
  *
@@ -56,9 +69,13 @@ internal fun toStatsUiState(
     userName: String = "",
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
+    scope: UsageScope = UsageScope.TRACKED,
+    series: UsageSeries? = trackedUsageSeries(recentUsage, monitoredApps, today),
 ): StatsUiState {
-    val usedByDate = recentUsage.groupBy({ it.date }, { it.usedSeconds })
-        .mapValues { (_, seconds) -> seconds.sum() }
+    // Null is the scope having no figures at all, not a quiet phone: all-apps without usage access.
+    // Every scoped metric blanks, and the tracked-only tiles below carry on reporting.
+    val measured = series != null
+    val usedByDate = series?.secondsByDate.orEmpty()
 
     fun usedOn(date: LocalDate): Long = usedByDate[date.toString()] ?: 0L
 
@@ -81,8 +98,10 @@ internal fun toStatsUiState(
     val lastWeekSeconds = elapsedThisWeek.sumOf { usedOn(it.minusDays(DAYS_IN_WEEK.toLong())) }
     val trendDeltaSeconds = thisWeekSeconds - lastWeekSeconds
     // No last week means nothing to compare against, so neither a figure nor an arrow is drawn —
-    // the same rule deltaHasBaseline carries one card over.
-    val trendHasBaseline = lastWeekSeconds > 0L
+    // the same rule deltaHasBaseline carries one card over. In all-apps scope this is the usual
+    // case rather than the edge one: the platform keeps daily buckets for about a week, so last
+    // week is generally unmeasurable and the card says so instead of inventing an improvement.
+    val trendHasBaseline = measured && lastWeekSeconds > 0L
 
     // Blocks over the same Mon–Sun week the chart draws and the trend compares — the card says
     // "THIS WEEK" on its face, and all three must agree on which week that is.
@@ -90,7 +109,8 @@ internal fun toStatsUiState(
     val preventedThisWeek = recentUsage.filter { it.date in weekKeys }.sumOf { it.blockedCount }
 
     val enabled = monitoredApps.filter { it.enabled }
-    // Built once: the donut and the budget figure must agree on what today contained.
+    // Budget Left is a claim about limits, so it reads the tracked rows in either scope — an
+    // all-apps total has no allowance to be a percentage of.
     val todayByPackage = recentUsage.filter { it.date == today.toString() }.associateBy { it.packageName }
     // One entry per capture — the achievement rules count them as well as date them, so this is a
     // list; the streak helpers below take the de-duplicated set.
@@ -99,7 +119,7 @@ internal fun toStatsUiState(
 
     // The donut's centre is summed from its own slices, so the two cannot drift apart. Deliberately
     // not `todaySeconds`, which counts monitored-but-disabled apps the breakdown leaves out.
-    val breakdown = categoryBreakdown(enabled, todayByPackage)
+    val breakdown = if (measured) categoryBreakdown(series!!) else emptyList()
 
     // Constructed field by field, deliberately **not** `StatsUiState.sample().copy(...)`. Every
     // value on this screen is computed now, so the only things `sample()` was still supplying were
@@ -108,25 +128,39 @@ internal fun toStatsUiState(
     // `SettingsMapper`; `sample()` is now @Preview-only.
     return StatsUiState(
         avatarInitial = avatarInitialFor(userName),
-        dailyTotal = formatSeconds(todaySeconds),
-        deltaText = deltaText(todaySeconds, yesterdaySeconds),
+        // Every scoped figure below goes blank when the chosen scope has nothing to measure, rather
+        // than rendering the zeroes an empty series would otherwise produce. Same rule as
+        // `deltaHasBaseline` and `ProtectionStatus.OFF`: one numeric slot cannot also say "unknown".
+        dailyTotal = if (measured) formatSeconds(todaySeconds) else NO_DATA,
+        deltaText = if (measured) deltaText(todaySeconds, yesterdaySeconds) else "",
         // "Positive" means usage went *up* — the screen renders it as the unwelcome direction.
         deltaIsPositive = todaySeconds > yesterdaySeconds,
-        deltaHasBaseline = yesterdaySeconds > 0L,
+        deltaHasBaseline = measured && yesterdaySeconds > 0L,
         // Null after today: the chart draws no mark for a day that hasn't happened. Plotting it as
         // zero put Thu–Sun on the floor, and the smoothed curve dived off a cliff after today —
         // four days of abstinence, drawn from four days that don't exist yet.
-        weeklyPoints = week.map { if (it.isAfter(today)) null else usedOn(it) / SECONDS_PER_HOUR },
+        weeklyPoints = if (measured) {
+            week.map { if (it.isAfter(today)) null else usedOn(it) / SECONDS_PER_HOUR }
+        } else {
+            emptyList()
+        },
         weekdayLabels = WEEKDAY_LABELS,
         highlightDayIndex = today.dayOfWeek.value - 1,
         trendLabel = if (trendHasBaseline) trendLabel(trendDeltaSeconds) else NO_DATA,
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
         trendIsUp = trendDeltaSeconds > 0,
         trendHasBaseline = trendHasBaseline,
-        trendCaption = if (trendHasBaseline) TREND_CAPTION else TREND_NO_BASELINE_CAPTION,
-        trendBars = weekBars(week, today, ::usedOn),
-        breakdownTotal = formatSeconds(breakdown.sumOf { it.seconds }),
+        trendCaption = when {
+            !measured -> ""
+            trendHasBaseline -> TREND_CAPTION
+            else -> TREND_NO_BASELINE_CAPTION
+        },
+        trendBars = if (measured) weekBars(week, today, ::usedOn) else emptyList(),
+        breakdownTotal = if (measured) formatSeconds(breakdown.sumOf { it.seconds }) else NO_DATA,
         breakdown = breakdown,
+        usageScope = scope,
+        scopeCaption = SCOPE_CAPTIONS.getValue(scope),
+        scopeUnavailable = !measured,
         budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
         longestStreak = countLabel(longestStreakDays(captureDates), "Day"),
         // "0 Photos" under a party popper celebrates nothing; the card goes neutral and asks
@@ -230,14 +264,16 @@ private fun weekBars(
  * plum whether it is the biggest slice or the smallest — so sorting would make the same category
  * change colour from one day to the next. Buckets with no time today are dropped entirely rather
  * than drawn as a zero-width arc with a "0m" legend row.
+ *
+ * Scope-agnostic: it reads whatever [UsageSeries] it is handed, so the arcs always sum to the figure
+ * in the middle of the donut whichever store the seconds came from.
  */
-private fun categoryBreakdown(
-    enabledApps: List<MonitoredApp>,
-    todayByPackage: Map<String, DailyUsage>,
-): List<UsageCategory> {
-    val secondsByCategory = enabledApps
-        .groupBy { it.category }
-        .mapValues { (_, apps) -> apps.sumOf { todayByPackage[it.packageName]?.usedSeconds ?: 0L } }
+private fun categoryBreakdown(series: UsageSeries): List<UsageCategory> {
+    // A package with no category is left out entirely — that is how each scope's membership rule
+    // reaches here, rather than as two different filters this function would have to choose between.
+    val secondsByCategory = series.todaySecondsByPackage.entries
+        .groupBy { series.categories[it.key] }
+        .mapValues { (_, entries) -> entries.sumOf { it.value } }
 
     return AppCategory.entries.mapNotNull { category ->
         val seconds = secondsByCategory[category] ?: 0L

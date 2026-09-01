@@ -21,6 +21,7 @@ class ExportParseTest {
             dailySummaryEnabled = true,
             warningMinutes = 10,
             reminderMinutes = 15,
+            usageScope = "ALL",
         ),
         monitoredApps = listOf(
             ExportMonitoredApp("com.ig", "Instagram", 45, enabled = true, weekendLimitMinutes = 90, category = "SOCIAL"),
@@ -106,6 +107,18 @@ class ExportParseTest {
         assertEquals(5, parsed.settings.warningMinutes)
         assertEquals(30, parsed.settings.retentionDays)
         assertEquals(15, parsed.settings.earnedMinutesPerCat)
+    }
+
+    /**
+     * A document written before v8 has no scope, and it has to read as the scope every build before
+     * v8 actually showed — tracked apps — rather than as a blank the settings writer would then
+     * store.
+     */
+    @Test
+    fun `a document with no usage scope reads as tracked`() {
+        val parsed = parseExportJson("""{"formatVersion":7,"settings":{"userName":"Sophia"}}""")!!
+
+        assertEquals("TRACKED", parsed.settings.usageScope)
     }
 
     @Test
