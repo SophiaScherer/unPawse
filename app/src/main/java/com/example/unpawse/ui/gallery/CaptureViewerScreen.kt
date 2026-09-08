@@ -59,6 +59,7 @@ import com.example.unpawse.ui.components.EarnedChip
 import com.example.unpawse.ui.theme.UnPawseTheme
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.hypot
 
 /** How far a fitted page has to be dragged before letting go closes the viewer. */
 private val DISMISS_THRESHOLD = 120.dp
@@ -111,7 +112,10 @@ fun CaptureViewerScreen(
     // False only in the frame before the repository has answered — a process death restored straight
     // into the viewer composes it against an empty Gallery. Latched, so that frame doesn't read as
     // "the library is empty, close" and so the opening page is resolved against the real list.
-    var opened by rememberSaveable { mutableStateOf(captures.isNotEmpty()) }
+    // `remember`, not `rememberSaveable`: a saved `true` would restore ahead of the repository on a
+    // process-death recreation and defeat the very latch this exists for. Rotation doesn't need the
+    // save — the ViewModel survives it, so `captures` is already populated on the first frame.
+    var opened by remember { mutableStateOf(captures.isNotEmpty()) }
     var trackedIds by remember { mutableStateOf(ids) }
 
     LaunchedEffect(ids) {
@@ -199,23 +203,30 @@ fun CaptureViewerScreen(
                     )
                 }
             }
-        }
 
-        // Hidden mid-drag: the chrome doesn't travel with the photo, so leaving it up would look
-        // like the page had come unstuck from its own controls.
-        if (current != null && chromeVisible && dismissY == 0f) {
-            ViewerTopBar(
-                capture = current,
-                onBack = onBack,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
-            ViewerActionBar(
-                capture = current,
-                onToggleFavorite = onToggleFavorite,
-                onShare = onShare,
-                onDeleteRequest = { confirmDelete = true },
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
+            // Hidden mid-drag: the chrome doesn't travel with the photo, so leaving it up would look
+            // like the page had come unstuck from its own controls.
+            if (current != null && chromeVisible && dismissY == 0f) {
+                ViewerTopBar(
+                    capture = current,
+                    onBack = onBack,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+                ViewerActionBar(
+                    capture = current,
+                    onToggleFavorite = onToggleFavorite,
+                    onShare = onShare,
+                    onDeleteRequest = { confirmDelete = true },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
+        } else {
+            // Reachable outside the process-death frame the latch above guards against: the
+            // repository can legitimately answer empty while the viewer is open (the retention purge
+            // aged everything out, or the list was emptied from another screen), and an empty→empty
+            // emission doesn't re-fire the LaunchedEffect that would otherwise close the viewer. Draw
+            // a back affordance regardless, so this is never a black screen with no way out.
+            ViewerEmptyState(onBack = onBack)
         }
     }
 
@@ -249,6 +260,17 @@ private fun ViewerPage(
     // pinch step would compound onto 1x and the zoom would never accumulate.
     val currentTransform by rememberUpdatedState(transform)
 
+    // `viewerTransform` only clamps the offset against the limits live during a gesture. A rotation
+    // changes `containerSize` with no gesture in progress, so nothing else re-clamps an offset that
+    // was valid in the old box — without this, a photo panned to the landscape edge sits displaced
+    // past its own edge in portrait until the next drag.
+    LaunchedEffect(containerSize, transform.scale) {
+        if (transformed && containerSize != IntSize.Zero) {
+            val reclamped = transform.reclamped(width, height, capture.aspectRatio)
+            if (reclamped != transform) onTransform(reclamped)
+        }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -272,63 +294,72 @@ private fun ViewerPage(
             }
             .pointerInput(capture.id, containerSize) {
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    // Declared outside the try so the finally below can still read it: this page's
+                    // `pointerInput` is keyed on `capture.id`, and a mid-drag id change (a retention
+                    // purge or an external delete landing on this slot) cancels this coroutine at
+                    // `awaitPointerEvent` without ever reaching the loop's own exit. Without the
+                    // finally, `dismissY` would stay stuck non-zero and the chrome (gated on it being
+                    // zero) would stay hidden until the next drag happened to reset it.
                     var mode = ViewerDrag.UNDECIDED
-                    var slop = 0f
-                    var event: PointerEvent
+                    try {
+                        awaitFirstDown(requireUnconsumed = false)
+                        // Accumulated since the down, not the latest frame's delta: a per-frame read
+                        // of `pan` is just finger noise, and axis-ing off one jittery frame can pick
+                        // DISMISS for what is actually a horizontal swipe.
+                        var accumX = 0f
+                        var accumY = 0f
+                        var event: PointerEvent
 
-                    do {
-                        event = awaitPointerEvent()
-                        val pressed = event.changes.count { it.pressed }
-                        if (pressed == 0) break
-                        val pan = event.calculatePan()
+                        do {
+                            event = awaitPointerEvent()
+                            val pressed = event.changes.count { it.pressed }
+                            if (pressed == 0) break
+                            val pan = event.calculatePan()
 
-                        if (mode == ViewerDrag.UNDECIDED) {
-                            mode = when {
-                                // Two fingers is always a pinch, and a zoomed page always owns its
-                                // own drags — the pager is switched off underneath it either way.
-                                pressed > 1 || isViewerZoomed(currentTransform.scale) -> ViewerDrag.TRANSFORM
-                                else -> {
-                                    slop += pan.getDistance()
-                                    when {
-                                        slop <= viewConfiguration.touchSlop -> ViewerDrag.UNDECIDED
-                                        abs(pan.y) > abs(pan.x) -> ViewerDrag.DISMISS
-                                        // Left unconsumed on purpose: this is the pager's swipe.
-                                        else -> ViewerDrag.PAGER
-                                    }
+                            if (mode == ViewerDrag.UNDECIDED) {
+                                accumX += pan.x
+                                accumY += pan.y
+                                mode = when {
+                                    // Two fingers is always a pinch, and a zoomed page always owns its
+                                    // own drags — the pager is switched off underneath it either way.
+                                    pressed > 1 || isViewerZoomed(currentTransform.scale) -> ViewerDrag.TRANSFORM
+                                    hypot(accumX, accumY) <= viewConfiguration.touchSlop -> ViewerDrag.UNDECIDED
+                                    abs(accumY) > abs(accumX) -> ViewerDrag.DISMISS
+                                    // Left unconsumed on purpose: this is the pager's swipe.
+                                    else -> ViewerDrag.PAGER
                                 }
                             }
-                        }
 
-                        when (mode) {
-                            ViewerDrag.TRANSFORM -> {
-                                val centroid = event.calculateCentroid(useCurrent = true)
-                                onTransform(
-                                    viewerTransform(
-                                        current = currentTransform,
-                                        zoomChange = event.calculateZoom(),
-                                        panX = pan.x,
-                                        panY = pan.y,
-                                        centroidX = centroid.x,
-                                        centroidY = centroid.y,
-                                        containerWidth = width,
-                                        containerHeight = height,
-                                        aspectRatio = capture.aspectRatio,
-                                    ),
-                                )
-                                event.changes.forEach { if (it.positionChanged()) it.consume() }
+                            when (mode) {
+                                ViewerDrag.TRANSFORM -> {
+                                    val centroid = event.calculateCentroid(useCurrent = true)
+                                    onTransform(
+                                        viewerTransform(
+                                            current = currentTransform,
+                                            zoomChange = event.calculateZoom(),
+                                            panX = pan.x,
+                                            panY = pan.y,
+                                            centroidX = centroid.x,
+                                            centroidY = centroid.y,
+                                            containerWidth = width,
+                                            containerHeight = height,
+                                            aspectRatio = capture.aspectRatio,
+                                        ),
+                                    )
+                                    event.changes.forEach { if (it.positionChanged()) it.consume() }
+                                }
+
+                                ViewerDrag.DISMISS -> {
+                                    onDismissDrag(pan.y)
+                                    event.changes.forEach { if (it.positionChanged()) it.consume() }
+                                }
+
+                                else -> Unit
                             }
-
-                            ViewerDrag.DISMISS -> {
-                                onDismissDrag(pan.y)
-                                event.changes.forEach { if (it.positionChanged()) it.consume() }
-                            }
-
-                            else -> Unit
-                        }
-                    } while (mode != ViewerDrag.PAGER && event.changes.any { it.pressed })
-
-                    if (mode == ViewerDrag.DISMISS) onDismissRelease()
+                        } while (mode != ViewerDrag.PAGER && event.changes.any { it.pressed })
+                    } finally {
+                        if (mode == ViewerDrag.DISMISS) onDismissRelease()
+                    }
                 }
             },
         contentAlignment = Alignment.Center,
@@ -350,6 +381,27 @@ private fun ViewerPage(
                         translationY = transform.offsetY
                     }
                 },
+        )
+    }
+}
+
+/** What the viewer draws instead of a pager when there is nothing left to page over. */
+@Composable
+private fun ViewerEmptyState(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize()) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 4.dp, top = 8.dp),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+        }
+        Text(
+            text = "No photos to show",
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier.align(Alignment.Center),
         )
     }
 }

@@ -140,6 +140,27 @@ internal data class ViewerTransform(
     val offsetY: Float = 0f,
 )
 
+/**
+ * Re-clamps [ViewerTransform.offsetX]/[ViewerTransform.offsetY] against the pan limits for a
+ * [containerWidth] x [containerHeight] box at the transform's own scale, leaving scale untouched.
+ *
+ * [viewerTransform] only clamps against the limits live *during* a gesture; nothing else keeps a
+ * stored offset honest once the box it was clamped against stops existing. A container resize
+ * (rotating the device while zoomed and panned to an edge) is exactly that: the offset was valid
+ * against the old size and can sit past the photo's own edge in the new one until this runs.
+ */
+internal fun ViewerTransform.reclamped(
+    containerWidth: Float,
+    containerHeight: Float,
+    aspectRatio: Float,
+): ViewerTransform {
+    val limits = viewerPanLimits(containerWidth, containerHeight, aspectRatio, scale)
+    return copy(
+        offsetX = offsetX.coerceIn(-limits.x, limits.x),
+        offsetY = offsetY.coerceIn(-limits.y, limits.y),
+    )
+}
+
 /** Fitted pages are the ones the pager is allowed to swipe; see [CaptureViewerScreen]. */
 internal fun isViewerZoomed(scale: Float): Boolean = scale > MIN_VIEWER_SCALE + SCALE_EPSILON
 
