@@ -69,8 +69,8 @@ fun UnPawseApp(initialRoute: String? = null) {
             if (tab != null) navController.navigateToTab(tab) else navController.navigate(initialRoute)
         }
 
-        // The Block Overlay is a full-screen takeover — no bottom bar.
-        val showBottomBar = currentRoute != Routes.BLOCK
+        // The Block Overlay and the photo viewer are full-screen takeovers — no bottom bar.
+        val showBottomBar = currentRoute != Routes.BLOCK && currentRoute != Routes.CAPTURE_VIEWER
 
         Scaffold(
             bottomBar = {
