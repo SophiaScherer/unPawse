@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -10,6 +11,7 @@ import com.example.unpawse.ui.about.PrivacyPolicyScreen
 import com.example.unpawse.ui.apppicker.AppPickerRoute
 import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
+import com.example.unpawse.ui.gallery.CaptureViewerRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeRoute
 import com.example.unpawse.ui.photos.PhotoStorageRoute
@@ -65,7 +67,22 @@ fun UnPawseNavHost(
         }
 
         composable(Routes.GALLERY) {
-            GalleryRoute()
+            GalleryRoute(
+                onOpenViewer = { id -> navController.navigate(Routes.captureViewer(id)) },
+            )
+        }
+
+        composable(Routes.CAPTURE_VIEWER) { entry ->
+            // The viewer shares the Gallery's ViewModel so it pages over the same filtered list;
+            // null once Gallery has left the stack, which CaptureViewerRoute falls back from.
+            val galleryOwner = remember(entry) {
+                runCatching { navController.getBackStackEntry(Routes.GALLERY) }.getOrNull()
+            }
+            CaptureViewerRoute(
+                captureId = entry.arguments?.getString(Routes.ARG_CAPTURE_ID).orEmpty(),
+                onBack = { navController.popBackStack() },
+                galleryOwner = galleryOwner,
+            )
         }
 
         composable(Routes.SETTINGS) {

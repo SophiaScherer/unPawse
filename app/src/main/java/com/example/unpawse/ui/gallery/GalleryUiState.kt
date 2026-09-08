@@ -40,18 +40,18 @@ data class GalleryUiState(
                 GallerySection(
                     title = "Today",
                     items = listOf(
-                        CaptureItem("1", "14:32 PM", 98.4f, "Verified", "+45m earned", "Verification successful", 1.1f),
-                        CaptureItem("2", "11:05 AM", 92.1f, "Verified", "+30m earned", "Verification successful", 0.85f),
-                        CaptureItem("3", "09:12 AM", 95.0f, "Bonus", "+2h earned", "Daily streak bonus!", 0.8f, isBonus = true),
+                        CaptureItem("1", "14:32 PM", 98.4f, "Verified", "+45m earned", "Verification successful", 1.1f, dateLabel = "Today"),
+                        CaptureItem("2", "11:05 AM", 92.1f, "Verified", "+30m earned", "Verification successful", 0.85f, dateLabel = "Today"),
+                        CaptureItem("3", "09:12 AM", 95.0f, "Bonus", "+2h earned", "Daily streak bonus!", 0.8f, isBonus = true, dateLabel = "Today"),
                         // Earned nothing: the preview needs the absent time row too.
-                        CaptureItem("4", "08:45 AM", 99.9f, "Verified", null, "Verification successful", 1.25f),
+                        CaptureItem("4", "08:45 AM", 99.9f, "Verified", null, "Verification successful", 1.25f, dateLabel = "Today"),
                     ),
                 ),
                 GallerySection(
                     title = "Yesterday",
                     items = listOf(
-                        CaptureItem("5", "19:20 PM", null, "Verified", "+45m earned", "Verification successful", 1.0f),
-                        CaptureItem("6", "17:15 PM", null, "Verified", null, "Verification successful", 1.15f),
+                        CaptureItem("5", "19:20 PM", null, "Verified", "+45m earned", "Verification successful", 1.0f, dateLabel = "Yesterday"),
+                        CaptureItem("6", "17:15 PM", null, "Verified", null, "Verification successful", 1.15f, dateLabel = "Yesterday"),
                     ),
                 ),
             ),
@@ -93,6 +93,11 @@ data class GalleryEmpty(val title: String, val body: String)
  * staggers by what the shots really are rather than by anything invented. [imagePath] is the
  * absolute path to a real captured JPEG; when null (sample/preview data) the card falls back to
  * [CatPhotoPlaceholder].
+ *
+ * [dateLabel] repeats the [GallerySection] heading the item sits under ("Today"/"Yesterday"/"Jul
+ * 12"). The grid gets the day from that heading and doesn't need it, but the full-screen viewer
+ * pages across sections and so has no heading to read — without this its caption would say a time
+ * of day and never which day.
  */
 data class CaptureItem(
     val id: String,
@@ -105,4 +110,5 @@ data class CaptureItem(
     val isBonus: Boolean = false,
     val imagePath: String? = null,
     val isFavorite: Boolean = false,
+    val dateLabel: String = "",
 )

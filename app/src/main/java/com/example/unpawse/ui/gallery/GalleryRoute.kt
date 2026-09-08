@@ -12,7 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  * This is what the NavHost renders; [GalleryUiState.sample] survives for `@Preview` only.
  */
 @Composable
-fun GalleryRoute(modifier: Modifier = Modifier) {
+fun GalleryRoute(modifier: Modifier = Modifier, onOpenViewer: (String) -> Unit = {}) {
     val context = LocalContext.current
     val viewModel: GalleryViewModel = viewModel(factory = GalleryViewModel.factory(context))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -21,6 +21,7 @@ fun GalleryRoute(modifier: Modifier = Modifier) {
         modifier = modifier,
         onFilterSelected = viewModel::onFilterSelected,
         onSearchQueryChange = viewModel::onSearchQueryChange,
+        onOpenViewer = { item -> onOpenViewer(item.id) },
         onToggleFavorite = { item -> viewModel.toggleFavorite(item.id, !item.isFavorite) },
         onShare = { item -> item.imagePath?.let { shareCapture(context, it) } },
         onDelete = { item -> viewModel.delete(item.id) },

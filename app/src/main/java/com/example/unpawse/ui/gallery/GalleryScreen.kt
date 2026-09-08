@@ -52,12 +52,16 @@ fun GalleryScreen(
     modifier: Modifier = Modifier,
     onFilterSelected: (GalleryFilter) -> Unit = {},
     onSearchQueryChange: (String) -> Unit = {},
+    onOpenViewer: (CaptureItem) -> Unit = {},
     onToggleFavorite: (CaptureItem) -> Unit = {},
     onShare: (CaptureItem) -> Unit = {},
     onDelete: (CaptureItem) -> Unit = {},
 ) {
     // Which card's action sheet is open. Re-derived from state each recomposition so the sheet
     // reflects live favorite state and auto-dismisses if the item leaves the current filter/grid.
+    // A tap now opens the full-screen viewer, so the sheet moved to a long press rather than being
+    // lost: everything it does is also on the viewer's chrome, but reaching it shouldn't require
+    // opening a photo first.
     var selectedId by remember { mutableStateOf<String?>(null) }
     val selected = selectedId?.let { id ->
         state.sections.firstNotNullOfOrNull { section -> section.items.firstOrNull { it.id == id } }
@@ -105,7 +109,11 @@ fun GalleryScreen(
                 )
             }
             items(section.items, key = { it.id }) { capture ->
-                CaptureCard(capture, onClick = { selectedId = capture.id })
+                CaptureCard(
+                    capture = capture,
+                    onClick = { onOpenViewer(capture) },
+                    onLongClick = { selectedId = capture.id },
+                )
             }
         }
     }
@@ -142,11 +150,12 @@ private fun FilterRow(selectedFilter: GalleryFilter, onFilterSelected: (GalleryF
 }
 
 @Composable
-private fun CaptureCard(capture: CaptureItem, onClick: () -> Unit) {
+private fun CaptureCard(capture: CaptureItem, onClick: () -> Unit, onLongClick: () -> Unit) {
     val footerColor = if (capture.isBonus) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.unPawseColors.cardSurface
     PawCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
+        onLongClick = onLongClick,
         containerColor = footerColor,
         contentPadding = 0.dp,
     ) {
