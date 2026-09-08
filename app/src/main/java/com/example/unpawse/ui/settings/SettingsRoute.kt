@@ -102,6 +102,7 @@ fun SettingsRoute(
                 SettingsRowIds.APP_LIMITS -> onNavigate(Routes.APP_PICKER)
                 SettingsRowIds.SCHEDULES -> onNavigate(Routes.SCHEDULES)
                 SettingsRowIds.PRIVACY_POLICY -> onNavigate(Routes.PRIVACY_POLICY)
+                SettingsRowIds.REPLAY_ONBOARDING -> onNavigate(Routes.ONBOARDING)
                 SettingsRowIds.MANAGE_PHOTOS -> onNavigate(Routes.PHOTO_STORAGE)
                 SettingsRowIds.EXPORT -> exportLauncher.launch(viewModel.exportFileName())
                 // The screen confirms before this fires, so the warning is read before a file is

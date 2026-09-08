@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,20 +41,24 @@ class CameraPermissionState(
 fun rememberCameraPermissionState(): CameraPermissionState {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(CameraAccess.isGranted(context)) }
-    // Deliberately not persisted: a fresh process inheriting a permanent denial wastes one tap, then
-    // self-corrects. Not worth a stored flag.
-    var askedOnce by remember { mutableStateOf(false) }
+    // A counter, not a plain flag: Compose's snapshot state only invalidates readers when a write
+    // changes the value, so a second denial writing `askedOnce = true` over an already-`true` value
+    // would be silently dropped — exactly the moment `shouldShowRationale` flips to permanent and
+    // `canAskSystem` needs to be re-read. Deliberately not persisted across process death: a fresh
+    // process inheriting a permanent denial wastes one tap, then self-corrects.
+    var requestCount by remember { mutableIntStateOf(0) }
 
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { isGranted ->
         granted = isGranted
-        askedOnce = true
+        requestCount++
     }
 
-    val canAskSystem = canAskSystemForCamera(askedOnce, CameraAccess.shouldShowRationale(context))
+    val canAskSystem =
+        canAskSystemForCamera(requestCount > 0, CameraAccess.shouldShowRationale(context))
 
-    return remember(granted, canAskSystem) {
+    return remember(granted, canAskSystem, requestCount) {
         CameraPermissionState(
             granted = granted,
             request = {

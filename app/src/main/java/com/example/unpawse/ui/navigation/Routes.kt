@@ -25,6 +25,12 @@ object Routes {
     const val SETTINGS = "settings"
     const val BLOCK = "block"
 
+    /**
+     * The first-run tour. Like [BLOCK] it is full-screen with no bottom bar, and on a fresh install
+     * it is the graph's start destination rather than something Home navigates to.
+     */
+    const val ONBOARDING = "onboarding"
+
     /** Settings sub-screen: choose monitored apps and their daily limits. */
     const val APP_PICKER = "app_picker"
 
@@ -65,6 +71,9 @@ object SettingsRowIds {
 
     /** Opens the in-app policy at [Routes.PRIVACY_POLICY]. */
     const val PRIVACY_POLICY = "privacy_policy_row"
+
+    /** Replays the first-run tour at [Routes.ONBOARDING]; finishing returns here. */
+    const val REPLAY_ONBOARDING = "replay_onboarding"
 }
 
 /**

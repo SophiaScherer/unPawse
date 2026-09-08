@@ -74,6 +74,19 @@ class SettingsRepository(context: Context) {
     val userName: Flow<String> = dataStore.data.map { it[Keys.USER_NAME] ?: DEFAULT_USER_NAME }
 
     /**
+     * The chosen profile picture, as an avatar id rather than a bitmap — see [AVATAR_NONE] for how
+     * the id space is carved up. [AVATAR_NONE] until the user picks one.
+     */
+    val avatarId: Flow<Int> = dataStore.data.map { it[Keys.AVATAR_ID] ?: AVATAR_NONE }
+
+    /**
+     * Whether the first-run tour has been finished. This is what decides the app's start
+     * destination, so it must be read before the nav graph is built — never after.
+     */
+    val onboardingComplete: Flow<Boolean> =
+        dataStore.data.map { it[Keys.ONBOARDING_COMPLETE] ?: DEFAULT_ONBOARDING_COMPLETE }
+
+    /**
      * Which apps the Stats screen's screen-time figures count. Persisted rather than held per visit
      * so the answer to "how much have I been on my phone?" doesn't silently change scope between
      * one opening of the tab and the next.
@@ -107,6 +120,11 @@ class SettingsRepository(context: Context) {
     suspend fun setReminderMinutes(value: Int) = edit { it[Keys.REMINDER_MINUTES] = value }
 
     suspend fun setUserName(value: String) = edit { it[Keys.USER_NAME] = value }
+
+    suspend fun setAvatarId(value: Int) = edit { it[Keys.AVATAR_ID] = value }
+
+    suspend fun setOnboardingComplete(value: Boolean) =
+        edit { it[Keys.ONBOARDING_COMPLETE] = value }
 
     suspend fun setUsageScope(value: UsageScope) = edit { it[Keys.USAGE_SCOPE] = value.name }
 
@@ -153,6 +171,8 @@ class SettingsRepository(context: Context) {
         val USER_NAME = stringPreferencesKey("user_name")
         val FOCUS_END_MILLIS = longPreferencesKey("focus_end_millis")
         val USAGE_SCOPE = stringPreferencesKey("usage_scope")
+        val AVATAR_ID = intPreferencesKey("avatar_id")
+        val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
     }
 
     companion object {
@@ -184,6 +204,12 @@ class SettingsRepository(context: Context) {
 
         /** Blank means "no name set yet"; the UI substitutes a friendly fallback. */
         const val DEFAULT_USER_NAME = ""
+
+        /**
+         * A fresh install has not seen the tour. `clearAll` therefore also resets this, which is
+         * exactly what "unPawse goes back to how it was on the day you installed it" promises.
+         */
+        const val DEFAULT_ONBOARDING_COMPLETE = false
 
         /**
          * Stats opens on what unPawse measured itself. All-apps needs usage access, which a user may

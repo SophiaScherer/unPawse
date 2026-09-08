@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material.icons.filled.Timer
@@ -397,6 +398,17 @@ fun SettingsScreen(
                 SettingsRow(
                     title = "Privacy Policy",
                     onClick = { onRowClick(SettingsRowIds.PRIVACY_POLICY) },
+                    trailing = { Chevron() },
+                )
+                // The tour is where the two special permissions get explained before they're asked
+                // for, so it stays reachable — it is the only place that pitch exists.
+                SettingsRow(
+                    title = "Replay the intro",
+                    subtitle = "The welcome tour, the three-step loop and the permission walkthrough",
+                    leadingIcon = Icons.Filled.Replay,
+                    iconTint = MaterialTheme.colorScheme.tertiary,
+                    iconBackground = MaterialTheme.colorScheme.tertiaryContainer,
+                    onClick = { onRowClick(SettingsRowIds.REPLAY_ONBOARDING) },
                     trailing = { Chevron() },
                 )
             }
