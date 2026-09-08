@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Flat cat-head silhouette (ears + head), single fill so themed icon tinting stays clean. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M30,20 L38,46 L50,38 Z M78,20 L70,46 L58,38 Z M29,60 A25,25 0 1,0 79,60 A25,25 0 1,0 29,60 Z" />
+</vector>
