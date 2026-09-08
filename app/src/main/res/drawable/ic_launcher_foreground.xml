@@ -9,10 +9,10 @@
          circle with a small margin. -->
     <path
         android:fillColor="#815060"
-        android:pathData="M38,27 L46,40 L28,47 Z" />
+        android:pathData="M30,27 L46,40 L32,49 Z" />
     <path
         android:fillColor="#815060"
-        android:pathData="M70,27 L62,40 L80,47 Z" />
+        android:pathData="M78,27 L62,40 L76,49 Z" />
     <!-- Head, plum. -->
     <path
         android:fillColor="#815060"
@@ -20,10 +20,10 @@
     <!-- Inner ears, blush, echoing the background colour. Sized up so they stay visible at 48dp. -->
     <path
         android:fillColor="#F5B6C8"
-        android:pathData="M38,31 L43,39 L32,43 Z" />
+        android:pathData="M32,31 L41,39 L34,44 Z" />
     <path
         android:fillColor="#F5B6C8"
-        android:pathData="M70,31 L65,39 L76,43 Z" />
+        android:pathData="M76,31 L67,39 L74,44 Z" />
     <!-- Eyes, warm white. -->
     <path
         android:fillColor="#FFF8F8"
