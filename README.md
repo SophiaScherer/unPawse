@@ -85,10 +85,13 @@ re-checks when you come back.
 | **Camera** (`CAMERA`) | Runtime dialog | To photograph the cat. Requested from inside the camera screen and used only while it is open. There is no Settings row for it on purpose. |
 | **Notifications** (`POST_NOTIFICATIONS`) | Runtime dialog | Android requires a visible ongoing notification for the monitoring service. The optional reminders, pre-lock warning and daily recap ride on the same permission. |
 
-`RECEIVE_BOOT_COMPLETED` is also declared. It is a normal install-time permission with no user
-prompt, and exists so monitoring resumes after a restart rather than silently stopping — a
-screen-time blocker that quietly stopped enforcing would be worse than none, because you'd still
-believe you were covered.
+Three more are declared but never prompt for anything — they are normal install-time permissions:
+
+- `RECEIVE_BOOT_COMPLETED`, so monitoring resumes after a restart rather than silently stopping. A
+  screen-time blocker that quietly stopped enforcing would be worse than none, because you'd still
+  believe you were covered.
+- `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE`, which Android requires in order to run
+  the usage-tracking service in the foreground at all.
 
 Package visibility is requested narrowly: the manifest declares a `LAUNCHER` intent query so the app
 picker can list launchable apps, rather than asking for `QUERY_ALL_PACKAGES`.
