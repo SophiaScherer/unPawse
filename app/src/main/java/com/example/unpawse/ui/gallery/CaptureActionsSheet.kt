@@ -79,21 +79,34 @@ fun CaptureActionsSheet(
     }
 
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete photo?") },
-            text = { Text("This permanently removes the photo. This can't be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDelete = false
-                    onDelete(capture)
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+        DeleteCaptureDialog(
+            onConfirm = {
+                confirmDelete = false
+                onDelete(capture)
             },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
-            },
+            onDismiss = { confirmDelete = false },
         )
     }
+}
+
+/**
+ * The one confirm dialog guarding a capture delete, shared by the actions sheet and the full-screen
+ * viewer. Deleting a photo is irreversible and the wording is the promise being made about it, so
+ * the two entry points must not be able to drift into saying different things.
+ */
+@Composable
+internal fun DeleteCaptureDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete photo?") },
+        text = { Text("This permanently removes the photo. This can't be undone.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable
