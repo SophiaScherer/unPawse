@@ -218,17 +218,17 @@ fun CaptureViewerScreen(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
-        } else if (opened) {
+        } else {
             // Reachable outside the process-death frame the latch guards against: the repository can
             // legitimately answer empty while the viewer is open (the retention purge aged everything
             // out, or the list was emptied from another screen), and an empty→empty emission doesn't
-            // re-fire the LaunchedEffect that would otherwise close the viewer. Draw a back affordance
-            // regardless, so this is never a black screen with no way out.
+            // re-fire the LaunchedEffect that would otherwise close the viewer.
             //
-            // Gated on `opened`, not just `captures.isEmpty()`: on a cold process-death restore the
-            // first frame composes against an empty repository before it has answered, and without
-            // this gate that frame would flash "No photos to show" ahead of the real list landing.
-            ViewerEmptyState(onBack = onBack)
+            // The back affordance is unconditional — `opened` can never flip once the list arrives
+            // empty and stays empty, so gating the whole state on it strands the user on a black
+            // screen with no way out. Only the message waits for `opened`, so it can't claim the
+            // library is empty in the frame before the repository has answered.
+            ViewerEmptyState(onBack = onBack, showMessage = opened)
         }
     }
 
@@ -410,7 +410,7 @@ private fun ViewerPage(
 
 /** What the viewer draws instead of a pager when there is nothing left to page over. */
 @Composable
-private fun ViewerEmptyState(onBack: () -> Unit) {
+private fun ViewerEmptyState(onBack: () -> Unit, showMessage: Boolean) {
     Box(Modifier.fillMaxSize()) {
         IconButton(
             onClick = onBack,
@@ -420,12 +420,14 @@ private fun ViewerEmptyState(onBack: () -> Unit) {
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
         }
-        Text(
-            text = "No photos to show",
-            style = MaterialTheme.typography.bodyLarge,
-            color = Color.White.copy(alpha = 0.8f),
-            modifier = Modifier.align(Alignment.Center),
-        )
+        if (showMessage) {
+            Text(
+                text = "No photos to show",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
     }
 }
 
