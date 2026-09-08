@@ -310,4 +310,55 @@ class CaptureViewerStateTest {
         assertFalse(isViewerZoomed(1.001f))
         assertTrue(isViewerZoomed(1.2f))
     }
+
+    // ---- classifying a drag as transform, dismiss, pager, or still undecided (finding 4) ------
+
+    @Test
+    fun `a drag inside touch slop stays undecided`() {
+        val mode = viewerDragMode(pressed = 1, zoomed = false, accumX = 2f, accumY = 2f, touchSlop = 8f)
+
+        assertEquals(ViewerDrag.UNDECIDED, mode)
+    }
+
+    @Test
+    fun `a second finger is always a pinch`() {
+        val mode = viewerDragMode(pressed = 2, zoomed = false, accumX = 1f, accumY = 1f, touchSlop = 8f)
+
+        assertEquals(ViewerDrag.TRANSFORM, mode)
+    }
+
+    @Test
+    fun `a single finger on an already-zoomed page is still a pinch-pan`() {
+        val mode = viewerDragMode(pressed = 1, zoomed = true, accumX = 50f, accumY = 0f, touchSlop = 8f)
+
+        assertEquals(ViewerDrag.TRANSFORM, mode)
+    }
+
+    @Test
+    fun `a mostly-vertical drag past slop dismisses`() {
+        val mode = viewerDragMode(pressed = 1, zoomed = false, accumX = 4f, accumY = 40f, touchSlop = 8f)
+
+        assertEquals(ViewerDrag.DISMISS, mode)
+    }
+
+    @Test
+    fun `a mostly-horizontal drag past slop pages`() {
+        val mode = viewerDragMode(pressed = 1, zoomed = false, accumX = 40f, accumY = 4f, touchSlop = 8f)
+
+        assertEquals(ViewerDrag.PAGER, mode)
+    }
+
+    /**
+     * The bug finding 4 fixed: an axis decided off one frame's delta instead of the accumulated
+     * vector could be tipped into DISMISS by jitter alone. A caller that summed each frame's own
+     * `hypot` (path length) rather than the net displacement would pass a large "distance" here even
+     * though the finger is nearly back where it started — this pins that the net vector, not path
+     * length, is what crosses (or doesn't cross) touch slop.
+     */
+    @Test
+    fun `a jittery drag with real path length but little net displacement stays undecided`() {
+        val mode = viewerDragMode(pressed = 1, zoomed = false, accumX = 1f, accumY = -1f, touchSlop = 8f)
+
+        assertEquals(ViewerDrag.UNDECIDED, mode)
+    }
 }

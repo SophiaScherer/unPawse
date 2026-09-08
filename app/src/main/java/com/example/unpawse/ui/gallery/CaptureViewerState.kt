@@ -1,5 +1,7 @@
 package com.example.unpawse.ui.gallery
 
+import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.max
 
 /**
@@ -131,6 +133,36 @@ internal fun viewerPanLimits(
         x = max(0f, (fitWidth * bounded - containerWidth) / 2f),
         y = max(0f, (fitHeight * bounded - containerHeight) / 2f),
     )
+}
+
+/** Which of the three things a single drag can mean, decided once per gesture. */
+internal enum class ViewerDrag { UNDECIDED, TRANSFORM, DISMISS, PAGER }
+
+/**
+ * Which of [ViewerDrag] a single drag means, decided once per gesture in [CaptureViewerScreen]'s
+ * pointer loop and pulled out here so the decision is unit-tested rather than eyeballed on a device.
+ *
+ * [accumX]/[accumY] must be the pan accumulated since the finger went down, not a single frame's
+ * delta: a per-frame read is finger noise, and axis-ing off one jittery frame can pick DISMISS for
+ * what is actually a horizontal swipe. Measuring by [hypot] of that accumulated *vector* (rather than
+ * summing each frame's own distance) is also what keeps a drag that wanders and drifts back near its
+ * start — real path length, near-zero net displacement — UNDECIDED instead of committing to an axis
+ * on jitter alone.
+ */
+internal fun viewerDragMode(
+    pressed: Int,
+    zoomed: Boolean,
+    accumX: Float,
+    accumY: Float,
+    touchSlop: Float,
+): ViewerDrag = when {
+    // Two fingers is always a pinch, and a zoomed page always owns its own drags — the pager is
+    // switched off underneath it either way.
+    pressed > 1 || zoomed -> ViewerDrag.TRANSFORM
+    hypot(accumX, accumY) <= touchSlop -> ViewerDrag.UNDECIDED
+    abs(accumY) > abs(accumX) -> ViewerDrag.DISMISS
+    // Left unconsumed on purpose: this is the pager's swipe.
+    else -> ViewerDrag.PAGER
 }
 
 /** The zoom/pan a page is currently drawn with. Offsets are pixels from centre. */

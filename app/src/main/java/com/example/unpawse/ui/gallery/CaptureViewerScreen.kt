@@ -59,16 +59,12 @@ import com.example.unpawse.ui.components.EarnedChip
 import com.example.unpawse.ui.theme.UnPawseTheme
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.hypot
 
 /** How far a fitted page has to be dragged before letting go closes the viewer. */
 private val DISMISS_THRESHOLD = 120.dp
 
 /** How much the page shrinks at the moment it would be released, as a fraction of the drag. */
 private const val DISMISS_SHRINK = 0.25f
-
-/** Which of the three things a single drag can mean, decided once per gesture. */
-private enum class ViewerDrag { UNDECIDED, TRANSFORM, DISMISS, PAGER }
 
 private val ViewerTransformSaver = listSaver<ViewerTransform, Float>(
     save = { listOf(it.scale, it.offsetX, it.offsetY) },
@@ -163,6 +159,11 @@ fun CaptureViewerScreen(
     var dismissY by remember { mutableFloatStateOf(0f) }
     val dismissThresholdPx = with(LocalDensity.current) { DISMISS_THRESHOLD.toPx() }
     val scope = rememberCoroutineScope()
+    // Shared by a released-but-under-threshold drag and a cancelled one — both just want the page
+    // back at rest, and neither should carry the finger's-still-down case anywhere near `onBack()`.
+    val resetDismiss: () -> Unit = {
+        scope.launch { animate(dismissY, 0f) { value, _ -> dismissY = value } }
+    }
 
     val zoomed = isViewerZoomed(transform.scale)
     val current = captures.getOrNull(clampViewerPage(pagerState.currentPage, captures.size))
@@ -194,12 +195,9 @@ fun CaptureViewerScreen(
                         onToggleChrome = { chromeVisible = !chromeVisible },
                         onDismissDrag = { dismissY += it },
                         onDismissRelease = {
-                            if (abs(dismissY) > dismissThresholdPx) {
-                                onBack()
-                            } else {
-                                scope.launch { animate(dismissY, 0f) { value, _ -> dismissY = value } }
-                            }
+                            if (abs(dismissY) > dismissThresholdPx) onBack() else resetDismiss()
                         },
+                        onDismissCancel = resetDismiss,
                     )
                 }
             }
@@ -220,12 +218,16 @@ fun CaptureViewerScreen(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
-        } else {
-            // Reachable outside the process-death frame the latch above guards against: the
-            // repository can legitimately answer empty while the viewer is open (the retention purge
-            // aged everything out, or the list was emptied from another screen), and an empty→empty
-            // emission doesn't re-fire the LaunchedEffect that would otherwise close the viewer. Draw
-            // a back affordance regardless, so this is never a black screen with no way out.
+        } else if (opened) {
+            // Reachable outside the process-death frame the latch guards against: the repository can
+            // legitimately answer empty while the viewer is open (the retention purge aged everything
+            // out, or the list was emptied from another screen), and an empty→empty emission doesn't
+            // re-fire the LaunchedEffect that would otherwise close the viewer. Draw a back affordance
+            // regardless, so this is never a black screen with no way out.
+            //
+            // Gated on `opened`, not just `captures.isEmpty()`: on a cold process-death restore the
+            // first frame composes against an empty repository before it has answered, and without
+            // this gate that frame would flash "No photos to show" ahead of the real list landing.
             ViewerEmptyState(onBack = onBack)
         }
     }
@@ -250,6 +252,7 @@ private fun ViewerPage(
     onToggleChrome: () -> Unit,
     onDismissDrag: (Float) -> Unit,
     onDismissRelease: () -> Unit,
+    onDismissCancel: () -> Unit,
 ) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     val width = containerSize.width.toFloat()
@@ -264,7 +267,15 @@ private fun ViewerPage(
     // changes `containerSize` with no gesture in progress, so nothing else re-clamps an offset that
     // was valid in the old box — without this, a photo panned to the landscape edge sits displaced
     // past its own edge in portrait until the next drag.
-    LaunchedEffect(containerSize, transform.scale) {
+    //
+    // Keyed on `containerSize` alone, not `transform.scale`: every other writer of `transform`
+    // (the gesture loop, the double-tap toggle, the settled-page reset) already clamps before calling
+    // `onTransform`, so a scale change alone never needs a re-clamp here. The only writer of an
+    // *unclamped* transform is the `rememberSaveable` restore, and that always lands in the same
+    // frame `containerSize` goes from `Zero` to the real size, so `containerSize` alone still catches
+    // it. Keying on scale too meant this relaunched on every pinch step — tens of times a second per
+    // page — for no behavior difference.
+    LaunchedEffect(containerSize) {
         if (transformed && containerSize != IntSize.Zero) {
             val reclamped = transform.reclamped(width, height, capture.aspectRatio)
             if (reclamped != transform) onTransform(reclamped)
@@ -301,6 +312,15 @@ private fun ViewerPage(
                     // finally, `dismissY` would stay stuck non-zero and the chrome (gated on it being
                     // zero) would stay hidden until the next drag happened to reset it.
                     var mode = ViewerDrag.UNDECIDED
+                    // Set right before the one call that may pop the back stack, so the finally below
+                    // can tell "the loop exited normally into a release" from "this coroutine was
+                    // cancelled". Cancellation reaches the finally with the finger still down — a list
+                    // that emptied under a past-threshold drag, or a rotation mid-gesture — and must
+                    // only ever reset `dismissY`, never call `onBack()` a second time (or on a
+                    // `NavController` that's already being torn down). A plain flag, not
+                    // `currentCoroutineContext().isActive`: that would suspend inside a `finally` during
+                    // unwinding, which is its own hazard.
+                    var released = false
                     try {
                         awaitFirstDown(requireUnconsumed = false)
                         // Accumulated since the down, not the latest frame's delta: a per-frame read
@@ -319,15 +339,13 @@ private fun ViewerPage(
                             if (mode == ViewerDrag.UNDECIDED) {
                                 accumX += pan.x
                                 accumY += pan.y
-                                mode = when {
-                                    // Two fingers is always a pinch, and a zoomed page always owns its
-                                    // own drags — the pager is switched off underneath it either way.
-                                    pressed > 1 || isViewerZoomed(currentTransform.scale) -> ViewerDrag.TRANSFORM
-                                    hypot(accumX, accumY) <= viewConfiguration.touchSlop -> ViewerDrag.UNDECIDED
-                                    abs(accumY) > abs(accumX) -> ViewerDrag.DISMISS
-                                    // Left unconsumed on purpose: this is the pager's swipe.
-                                    else -> ViewerDrag.PAGER
-                                }
+                                mode = viewerDragMode(
+                                    pressed = pressed,
+                                    zoomed = isViewerZoomed(currentTransform.scale),
+                                    accumX = accumX,
+                                    accumY = accumY,
+                                    touchSlop = viewConfiguration.touchSlop,
+                                )
                             }
 
                             when (mode) {
@@ -357,8 +375,13 @@ private fun ViewerPage(
                                 else -> Unit
                             }
                         } while (mode != ViewerDrag.PAGER && event.changes.any { it.pressed })
+
+                        if (mode == ViewerDrag.DISMISS) {
+                            released = true
+                            onDismissRelease()
+                        }
                     } finally {
-                        if (mode == ViewerDrag.DISMISS) onDismissRelease()
+                        if (mode == ViewerDrag.DISMISS && !released) onDismissCancel()
                     }
                 }
             },
@@ -387,8 +410,8 @@ private fun ViewerPage(
 
 /** What the viewer draws instead of a pager when there is nothing left to page over. */
 @Composable
-private fun ViewerEmptyState(onBack: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize()) {
+private fun ViewerEmptyState(onBack: () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
         IconButton(
             onClick = onBack,
             modifier = Modifier
