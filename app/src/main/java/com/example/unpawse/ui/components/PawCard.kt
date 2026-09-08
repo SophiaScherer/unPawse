@@ -1,5 +1,7 @@
 package com.example.unpawse.ui.components
 
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.ColumnScope
@@ -24,6 +26,8 @@ import com.example.unpawse.ui.theme.unPawseColors
 /**
  * The primary content container from DESIGN.md: 24dp corners, white surface, soft ambient shadow.
  * When [onClick] is supplied the whole card becomes clickable with the squishy press animation.
+ * [onLongClick] adds a second, longer press to the same card — the Gallery uses it to keep the
+ * actions sheet reachable now that a tap opens the full-screen viewer.
  *
  * [contentPadding] defaults to the 24dp "premium" card padding; pass `0.dp` when the card needs to
  * bleed content to its edges (e.g. an image or a chart that draws its own insets).
@@ -32,6 +36,7 @@ import com.example.unpawse.ui.theme.unPawseColors
 fun PawCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     shape: RoundedCornerShape = CardShape,
     // Not surfaceContainerLowest: Material puts that *below* surface in dark, so the card used to
     // sit lower than the page it floats on and the shadow had nothing to lift.
@@ -51,7 +56,23 @@ fun PawCard(
         }
         .shadow(elevation = shadowElevation, shape = shape, clip = false)
 
-    if (onClick != null) {
+    if (onClick != null && onLongClick != null) {
+        // Material3's clickable Card takes no long press, so the gesture goes on the modifier. The
+        // shared interactionSource keeps the squish animation above working either way.
+        Card(
+            modifier = baseModifier.combinedClickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
+            shape = shape,
+            colors = CardDefaults.cardColors(containerColor = containerColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        ) {
+            androidx.compose.foundation.layout.Column(Modifier.padding(contentPadding), content = content)
+        }
+    } else if (onClick != null) {
         Card(
             onClick = onClick,
             modifier = baseModifier,
