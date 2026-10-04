@@ -362,7 +362,8 @@ private fun Modifier.fadingEdges(scroll: ScrollState): Modifier = this
     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
     .drawWithContent {
         drawContent()
-        val fade = FADE_HEIGHT.toPx()
+        // A quarter of the viewport at most, so the two fades never meet and erase what they cue.
+        val fade = minOf(FADE_HEIGHT.toPx(), size.height / 4)
         if (scroll.canScrollBackward) {
             drawRect(
                 brush = Brush.verticalGradient(listOf(Color.Black, Color.Transparent), endY = fade),
