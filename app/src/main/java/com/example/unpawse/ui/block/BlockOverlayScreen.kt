@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -154,87 +158,188 @@ fun BlockOverlayScreen(
             .padding(20.dp),
         contentAlignment = Alignment.Center,
     ) {
+        // Wider than tall (landscape, over a fullscreen video) leaves too little height to stack the
+        // copy above the buttons, so they go side by side instead.
+        val twoPane = maxWidth > maxHeight
+        val compact = maxHeight < COMPACT_HEIGHT
         val heroSize = blockHeroSize(maxHeight, LocalDensity.current.fontScale)
+        val scroll = rememberScrollState()
         Box(contentAlignment = Alignment.TopCenter) {
             CatEars()
             Surface(
                 shape = RoundedCornerShape(32.dp),
                 color = MaterialTheme.unPawseColors.cardSurface,
                 shadowElevation = 4.dp,
-                modifier = Modifier.padding(top = 24.dp),
+                modifier = Modifier
+                    .padding(top = 24.dp)
+                    .widthIn(max = MAX_CARD_WIDTH),
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    // Only the copy scrolls: the buttons are measured first and can never be pushed
-                    // off, because back is swallowed and they are the only way out of this window.
-                    val scroll = rememberScrollState()
-                    Column(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .fadingEdges(scroll)
-                            .verticalScroll(scroll),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        MeowChipRow()
-                        CatIllustration(state.photoPath, heroSize)
-                        Spacer(Modifier.height(20.dp))
-                        Text(
-                            state.headline,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            state.subtitle,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            state.body,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
-                        state.reward?.let { RewardTermsPanel(it) }
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    if (state.showCamera) {
-                        Button(
-                            onClick = onOpenCamera,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        ) {
-                            Icon(Icons.Filled.PhotoCamera, contentDescription = null)
-                            Spacer(Modifier.size(8.dp))
-                            Text("Open Camera", style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                    TextButton(onClick = onExit, modifier = Modifier.padding(top = 4.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.size(8.dp))
-                        Text("Exit App", color = MaterialTheme.colorScheme.primary)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        state.footer,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        textAlign = TextAlign.Center,
-                    )
+                if (twoPane) {
+                    TwoPaneCard(state, scroll, onOpenCamera, onExit)
+                } else {
+                    StackedCard(state, scroll, heroSize, compact, onOpenCamera, onExit)
                 }
             }
         }
     }
 }
+
+/**
+ * Portrait: only the copy scrolls, and the buttons are measured first so they can never be pushed
+ * off, because back is swallowed and they are the only way out. On a short screen the footer joins
+ * the scrolling copy so the viewport keeps its height.
+ */
+@Composable
+private fun StackedCard(
+    state: BlockUiState,
+    scroll: ScrollState,
+    heroSize: Dp,
+    compact: Boolean,
+    onOpenCamera: () -> Unit,
+    onExit: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .testTag(BLOCK_COPY_TAG)
+                .fadingEdges(scroll)
+                .verticalScroll(scroll),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            MeowChipRow()
+            CatIllustration(state.photoPath, Modifier.size(heroSize))
+            Spacer(Modifier.height(20.dp))
+            BlockCopy(state)
+            if (compact) {
+                Spacer(Modifier.height(16.dp))
+                Footer(state.footer)
+            }
+        }
+        Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
+        BlockActions(state.showCamera, onOpenCamera, onExit)
+        if (!compact) {
+            Spacer(Modifier.height(16.dp))
+            Footer(state.footer)
+        }
+    }
+}
+
+/**
+ * Landscape: the copy scrolls on the left starting at the headline, so why the app is blocked reads
+ * without scrolling; the photo shrinks to whatever the buttons leave on the right.
+ */
+@Composable
+private fun TwoPaneCard(
+    state: BlockUiState,
+    scroll: ScrollState,
+    onOpenCamera: () -> Unit,
+    onExit: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.padding(24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1.4f)
+                .testTag(BLOCK_COPY_TAG)
+                .fadingEdges(scroll)
+                .verticalScroll(scroll),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            BlockCopy(state)
+            Spacer(Modifier.height(16.dp))
+            Footer(state.footer)
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            CatIllustration(
+                state.photoPath,
+                Modifier
+                    .weight(1f, fill = false)
+                    .sizeIn(maxWidth = MAX_HERO_SIZE, maxHeight = MAX_HERO_SIZE)
+                    .aspectRatio(1f),
+            )
+            Spacer(Modifier.height(12.dp))
+            BlockActions(state.showCamera, onOpenCamera, onExit)
+        }
+    }
+}
+
+@Composable
+private fun BlockCopy(state: BlockUiState) {
+    Text(
+        state.headline,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = TextAlign.Center,
+    )
+    Spacer(Modifier.height(12.dp))
+    Text(
+        state.subtitle,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = TextAlign.Center,
+    )
+    Spacer(Modifier.height(8.dp))
+    Text(
+        state.body,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
+    state.reward?.let { RewardTermsPanel(it) }
+}
+
+@Composable
+private fun BlockActions(showCamera: Boolean, onOpenCamera: () -> Unit, onExit: () -> Unit) {
+    if (showCamera) {
+        Button(
+            onClick = onOpenCamera,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+        ) {
+            Icon(Icons.Filled.PhotoCamera, contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text("Open Camera", style = MaterialTheme.typography.labelLarge)
+        }
+    }
+    TextButton(onClick = onExit, modifier = Modifier.padding(top = 4.dp)) {
+        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.size(8.dp))
+        Text("Exit App", color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+@Composable
+private fun Footer(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.outline,
+        textAlign = TextAlign.Center,
+    )
+}
+
+/** Tags the scrolling copy so tests can measure the viewport it is left with. */
+internal const val BLOCK_COPY_TAG = "blockOverlayCopy"
+
+/** Below this the footer scrolls with the copy rather than taking height from it. */
+private val COMPACT_HEIGHT = 640.dp
+
+/** Keeps landscape lines on a wide phone or tablet to a readable length. */
+private val MAX_CARD_WIDTH = 720.dp
 
 /**
  * The hero gets whatever height the rest of the card leaves, so a short screen or a large font
@@ -341,10 +446,9 @@ private fun MeowChipRow() {
 }
 
 @Composable
-private fun CatIllustration(photoPath: String?, size: Dp) {
+private fun CatIllustration(photoPath: String?, modifier: Modifier) {
     Box(
-        modifier = Modifier
-            .size(size)
+        modifier = modifier
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.primaryContainer)
             .padding(12.dp),
@@ -395,6 +499,26 @@ private fun BlockOverlayRewardPreview() {
 @Preview(name = "Block · 360x640, 200% font", showBackground = true, widthDp = 360, heightDp = 640, fontScale = 2f)
 @Composable
 private fun BlockOverlaySmallLargeFontPreview() {
+    UnPawseTheme {
+        BlockOverlayScreen(
+            state = BlockUiState.forApp(
+                appName = "Chrome",
+                reward = RewardTerms(
+                    grantValue = "+15m",
+                    grantLabel = "Per cat",
+                    allowanceValue = "45m",
+                    allowanceLabel = "Bonus left today",
+                    cooldownNote = null,
+                ),
+            ),
+        )
+    }
+}
+
+/** Landscape on a small phone at 200% font: the copy starts at the headline beside the buttons. */
+@Preview(name = "Block · 640x320, 200% font", showBackground = true, widthDp = 640, heightDp = 320, fontScale = 2f)
+@Composable
+private fun BlockOverlayLandscapePreview() {
     UnPawseTheme {
         BlockOverlayScreen(
             state = BlockUiState.forApp(
