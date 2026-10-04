@@ -94,8 +94,16 @@ fun SettingsRoute(
         onWarningMinutesChange = viewModel::setWarningMinutes,
         onReminderMinutesChange = viewModel::setReminderMinutes,
         // Leave Settings once the wipe lands: staying would show a screen still rendering the data
-        // that was just deleted.
-        onEraseEverything = { viewModel.eraseEverything(onFinished = onBack) },
+        // that was just deleted. The wipe also cleared the tour flag, so show it now rather than on
+        // some later cold start; it is pushed over Home, so finishing it lands there.
+        onEraseEverything = {
+            viewModel.eraseEverything(
+                onFinished = {
+                    onBack()
+                    onNavigate(Routes.ONBOARDING)
+                },
+            )
+        },
         onNameChange = viewModel::setUserName,
         onRowClick = { rowId ->
             when (rowId) {

@@ -216,7 +216,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
         /**
          * A fresh install has not seen the tour. `clearAll` therefore also resets this, which is
-         * exactly what "unPawse goes back to how it was on the day you installed it" promises.
+         * exactly what "Delete all data" promises; an import puts it back (see `ImportRepository`).
          */
         const val DEFAULT_ONBOARDING_COMPLETE = false
 

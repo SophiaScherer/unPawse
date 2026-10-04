@@ -53,6 +53,11 @@ class ImportRepository(
      */
     private val applySettings: suspend (ExportSettings) -> Unit,
     /**
+     * Re-marks the first-run tour as done after the wipe clears it. Whoever imports a backup has
+     * already been through the app, and replaying the intro would read as the import having failed.
+     */
+    private val markOnboarded: suspend () -> Unit,
+    /**
      * Opens the picked document. A lambda rather than a `ContentResolver` for the same reason
      * `applySettings` is one: it keeps the whole class constructible in a JVM unit test.
      */
@@ -100,7 +105,7 @@ class ImportRepository(
                     when (val outcome = readManifest(json)) {
                         is ManifestOutcome.Ok -> {
                             manifest = outcome.snapshot
-                            reset.eraseEverything()
+                            eraseForRestore()
                         }
                         is ManifestOutcome.Rejected -> rejected = outcome.result
                     }
@@ -129,9 +134,15 @@ class ImportRepository(
             is ManifestOutcome.Rejected -> return outcome.result
         }
 
-        reset.eraseEverything()
+        eraseForRestore()
         return runCatching { restore(snapshot, restoredPaths = emptyMap()) }
             .getOrElse { ImportResult.Failed }
+    }
+
+    /** Straight after the wipe, so even a restore that fails part-way doesn't replay the tour. */
+    private suspend fun eraseForRestore() {
+        reset.eraseEverything()
+        markOnboarded()
     }
 
     private sealed interface ManifestOutcome {
