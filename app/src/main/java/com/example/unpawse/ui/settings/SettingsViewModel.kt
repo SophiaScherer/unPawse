@@ -52,6 +52,7 @@ class SettingsViewModel(
     private val notificationsGranted: () -> Boolean,
     versionName: String,
     versionCode: Int,
+    private val today: () -> LocalDate,
 ) : ViewModel() {
 
     /** Compile-time constants, so this never changes and is safe to seed the initial state with. */
@@ -186,7 +187,7 @@ class SettingsViewModel(
     }
 
     /** Default filename offered by the picker. */
-    fun exportFileName(): String = ExportRepository.defaultFileName(LocalDate.now())
+    fun exportFileName(): String = ExportRepository.defaultFileName(today())
 
     /**
      * Restores a picked export, replacing everything. [onFinished] runs only on success: leaving
@@ -239,6 +240,7 @@ class SettingsViewModel(
                     notificationsGranted = { Notifications.canPost(appContext) },
                     versionName = BuildConfig.VERSION_NAME,
                     versionCode = BuildConfig.VERSION_CODE,
+                    today = container.dayClock::today,
                 )
             }
         }

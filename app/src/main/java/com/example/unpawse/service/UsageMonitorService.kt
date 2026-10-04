@@ -274,7 +274,7 @@ class UsageMonitorService : Service() {
                     withContext(Dispatchers.Main) { container.blockOverlayController.hide() }
                 }
             } else {
-                val remaining = end - System.currentTimeMillis()
+                val remaining = end - container.dayClock.nowMillis()
                 if (remaining > 0) delay(remaining)
                 // Timer elapsed: clearing the session re-emits null above, which takes the overlay down.
                 container.focusSession.stop()

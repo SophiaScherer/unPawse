@@ -64,8 +64,8 @@ class DailySummaryWorker(
          * [ExistingPeriodicWorkPolicy.KEEP], so the container calling this on every process start
          * neither duplicates the work nor pushes its schedule back a day each time.
          */
-        fun schedule(context: Context, nowMillis: Long = System.currentTimeMillis()) {
-            val delay = millisUntilNextHour(nowMillis, SUMMARY_HOUR, ZoneId.systemDefault())
+        fun schedule(context: Context, nowMillis: Long, zone: ZoneId) {
+            val delay = millisUntilNextHour(nowMillis, SUMMARY_HOUR, zone)
             val request = PeriodicWorkRequestBuilder<DailySummaryWorker>(1, TimeUnit.DAYS)
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS)
                 .build()

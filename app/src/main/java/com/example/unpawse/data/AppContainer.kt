@@ -171,7 +171,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val captureRepository: CaptureRepository by lazy {
-        CaptureRepository(database.captureDao(), PhotoStorage(appContext))
+        CaptureRepository(database.captureDao(), PhotoStorage(appContext), now = dayClock::nowMillis)
     }
 
     override val settingsRepository: SettingsRepository by lazy {
@@ -200,7 +200,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     // Lazy like its neighbour, and deliberately not one of the eager exceptions below: its first
     // read is a UI read, never a blocking decision taken in the expression that creates it.
     override val deviceUsageProvider: DeviceUsageProvider by lazy {
-        UsageStatsDeviceUsageProvider(appContext)
+        UsageStatsDeviceUsageProvider(appContext, now = dayClock::nowMillis, zone = dayClock::zone)
     }
 
     override val exportRepository: ExportRepository by lazy {
@@ -212,6 +212,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             captures = captureRepository,
             contentResolver = appContext.contentResolver,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            now = dayClock::nowMillis,
         )
     }
 
@@ -242,13 +243,14 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val foregroundAppMonitor: ForegroundAppMonitor by lazy {
-        UsageStatsForegroundAppMonitor(appContext)
+        UsageStatsForegroundAppMonitor(appContext, now = dayClock::nowMillis)
     }
 
     override val usageTracker: UsageTracker by lazy {
         UsageTracker(
             usageRepository,
             foregroundAppMonitor,
+            now = dayClock::nowMillis,
             focusSession = focusSession,
             warningMinutes = { warningMinutes.value },
             scheduleBlock = scheduleGate::activeWindowFor,
@@ -256,16 +258,16 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val scheduleGate: ScheduleGate by lazy {
-        ScheduleGate(windows = { scheduleWindows.value })
+        ScheduleGate(windows = { scheduleWindows.value }, now = dayClock::now)
     }
 
     override val blockOverlayController: BlockOverlayController by lazy {
         BlockOverlayController(appContext)
     }
 
-    override val blockSession: BlockSession by lazy { BlockSession() }
+    override val blockSession: BlockSession by lazy { BlockSession(now = dayClock::nowMillis) }
 
-    override val focusSession: FocusSession by lazy { FocusSession() }
+    override val focusSession: FocusSession by lazy { FocusSession(now = dayClock::nowMillis) }
 
     init {
         // Restore a focus session that was mid-run when the process died, then keep DataStore in sync
@@ -286,7 +288,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
         appScope.launch {
             settingsRepository.dailySummaryEnabled.collect { enabled ->
                 if (enabled) {
-                    DailySummaryWorker.schedule(appContext)
+                    DailySummaryWorker.schedule(appContext, dayClock.nowMillis(), dayClock.zone())
                 } else {
                     DailySummaryWorker.cancel(appContext)
                 }
