@@ -33,9 +33,10 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
  * Dark mode is stored as a nullable override: absent means "follow the system", matching the
  * previous session-only behaviour — the UI resolves `null` against `isSystemInDarkTheme()`.
  */
-class SettingsRepository(context: Context) {
+class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
-    private val dataStore = context.applicationContext.settingsDataStore
+    /** The store is a constructor seam so ViewModel tests can run against an in-memory one. */
+    constructor(context: Context) : this(context.applicationContext.settingsDataStore)
 
     val darkModeOverride: Flow<Boolean?> = dataStore.data.map { it[Keys.DARK_MODE_OVERRIDE] }
 
