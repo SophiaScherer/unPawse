@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,12 +51,19 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -76,6 +85,8 @@ import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.FieldShape
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.unPawseColors
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * The first-run tour: one full-screen destination that walks [OnboardingStep], with no bottom bar
@@ -269,21 +280,10 @@ private fun StepDetail(
     when (state.step) {
         OnboardingStep.HOW_IT_WORKS -> LoopBeats()
 
-        OnboardingStep.NAME -> OutlinedTextField(
+        OnboardingStep.NAME -> NameField(
             value = state.answers.userName,
             onValueChange = { onNameChange(capDisplayName(it)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = FieldShape,
-            label = { Text("Your name") },
-            placeholder = { Text("Leave it blank and we'll say \"friend\"") },
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Words,
-                imeAction = ImeAction.Done,
-            ),
-            // Done is the same answer as the Continue button, so it moves on rather than just
-            // dropping the keyboard and leaving the user to find the button.
-            keyboardActions = KeyboardActions(onDone = { onNext() }),
+            onDone = onNext,
         )
 
         OnboardingStep.AVATAR -> AvatarPicker(
@@ -291,6 +291,7 @@ private fun StepDetail(
             initial = avatarInitialFor(state.answers.userName),
             onAvatarSelected = onAvatarSelected,
         )
+
 
         OnboardingStep.CAMERA ->
             // The handle has stopped being able to raise the dialog, so say why the button now
@@ -308,6 +309,52 @@ private fun StepDetail(
         else -> Unit
     }
 }
+
+/**
+ * The name field. On a short screen it sits below the fold, and the scroll the text field does on
+ * focus happens before the keyboard has finished shrinking the viewport — so it is brought into view
+ * again each time the keyboard's height settles, or the user types without seeing the field.
+ */
+@Composable
+private fun NameField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onDone: () -> Unit,
+) {
+    val requester = remember { BringIntoViewRequester() }
+    var focused by remember { mutableStateOf(false) }
+    val imeInsets = WindowInsets.ime
+    val density = LocalDensity.current
+    LaunchedEffect(focused) {
+        if (!focused) return@LaunchedEffect
+        snapshotFlow { imeInsets.getBottom(density) }.collectLatest {
+            // Latest-only: mid-animation heights are superseded before this fires.
+            delay(IME_SETTLE_MILLIS)
+            requester.bringIntoView()
+        }
+    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(requester)
+            .onFocusChanged { focused = it.isFocused },
+        singleLine = true,
+        shape = FieldShape,
+        label = { Text("Your name") },
+        placeholder = { Text("Leave it blank and we'll say \"friend\"") },
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Words,
+            imeAction = ImeAction.Done,
+        ),
+        // Done is the same answer as the Continue button, so it moves on rather than just
+        // dropping the keyboard and leaving the user to find the button.
+        keyboardActions = KeyboardActions(onDone = { onDone() }),
+    )
+}
+
+private const val IME_SETTLE_MILLIS = 60L
 
 /** The loop in three beats — the tutorial proper. */
 @Composable
