@@ -337,7 +337,10 @@ private fun Footer(text: String) {
 /** Tags the scrolling copy so tests can measure the viewport it is left with. */
 internal const val BLOCK_COPY_TAG = "blockOverlayCopy"
 
-/** Below this the footer scrolls with the copy rather than taking height from it. */
+/**
+ * Below this the footer scrolls with the copy rather than taking height from it. Measured inside the
+ * safe area and the card padding, so a typical 740dp phone with a navigation bar already counts.
+ */
 private val COMPACT_HEIGHT = 640.dp
 
 private val HERO_GAP = 12.dp
