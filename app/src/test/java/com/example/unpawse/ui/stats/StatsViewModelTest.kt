@@ -6,6 +6,7 @@ import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.capture.FakeCaptureDao
 import com.example.unpawse.data.capture.PhotoStorage
+import com.example.unpawse.data.time.LocalDay
 import com.example.unpawse.data.unlocks.FakeUnlockDao
 import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.FakeUsageDao
@@ -44,7 +45,7 @@ class StatsViewModelTest {
     private val sunday = LocalDate.of(2026, 7, 19)
     private var repoToday = sunday
     private val usage = UsageRepository(FakeUsageDao(), today = { repoToday })
-    private val today = MutableStateFlow(sunday)
+    private val today = MutableStateFlow(LocalDay(sunday, zone))
     private val scope = MutableStateFlow(UsageScope.TRACKED)
     private val device = RecordingDeviceUsage()
     private var nowMillis = 0L
@@ -78,7 +79,6 @@ class StatsViewModelTest {
         },
         deviceUsageProvider = device,
         today = today,
-        zone = { zone },
         nowMillis = { nowMillis },
     )
 
@@ -93,7 +93,7 @@ class StatsViewModelTest {
         assertEquals(6, vm.uiState.value.highlightDayIndex)
 
         repoToday = sunday.plusDays(1)
-        today.value = sunday.plusDays(1)
+        today.value = LocalDay(sunday.plusDays(1), zone)
 
         val monday = vm.uiState.value
         assertEquals("0m", monday.dailyTotal)
@@ -111,7 +111,7 @@ class StatsViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         assertEquals("2h", vm.uiState.value.dailyTotal)
 
-        today.value = sunday.plusDays(1)
+        today.value = LocalDay(sunday.plusDays(1), zone)
 
         assertEquals(listOf(sunday, sunday.plusDays(1)), device.requested)
         assertEquals("2h", vm.uiState.value.dailyTotal)
@@ -177,7 +177,7 @@ class StatsViewModelTest {
         usage.addUsage("a", 60.minutes)
 
         repoToday = sunday.plusDays(1)
-        today.value = sunday.plusDays(1)
+        today.value = LocalDay(sunday.plusDays(1), zone)
 
         val underBudget = vm.uiState.value.achievements.single { it.title == "Under Budget" }
         assertEquals(false, underBudget.unlocked)

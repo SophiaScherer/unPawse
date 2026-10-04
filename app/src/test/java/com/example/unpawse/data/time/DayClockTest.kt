@@ -88,7 +88,7 @@ class DayClockTest {
     fun `ticks re-read the wall clock at least once a minute`() = runTest {
         val wall = FakeWallClock(this, LocalDateTime.of(2026, 7, 16, 10, 0), zone)
         val clock = DayClock(currentMillis = wall.millis, currentZone = { zone })
-        val ticks = mutableListOf<LocalDateTime>()
+        val ticks = mutableListOf<ZonedDateTime>()
         backgroundScope.launch { clock.ticks().collect { ticks += it } }
 
         runCurrent()
@@ -97,7 +97,7 @@ class DayClockTest {
         advanceTimeBy(DayClock.MAX_WAIT_MILLIS)
         runCurrent()
 
-        assertEquals(LocalDateTime.of(2026, 7, 16, 13, 1), ticks.last())
+        assertEquals(LocalDateTime.of(2026, 7, 16, 13, 1), ticks.last().toLocalDateTime())
     }
 
     @Test
@@ -133,5 +133,26 @@ class DayClockTest {
 
         assertEquals(LocalDate.of(2026, 7, 17), dates.last())
         assertEquals(LocalDate.of(2026, 7, 17), clock.today())
+    }
+
+    @Test
+    fun `a zone change on the same date is a new day for grouping, not for date queries`() = runTest {
+        var currentZone = zone
+        val wall = FakeWallClock(this, LocalDateTime.of(2026, 7, 16, 10, 0), zone)
+        val changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val clock = DayClock(currentMillis = wall.millis, currentZone = { currentZone }, changes = changes)
+        val days = mutableListOf<LocalDay>()
+        val dates = mutableListOf<LocalDate>()
+        backgroundScope.launch { clock.ticks().days().collect { days += it } }
+        backgroundScope.launch { clock.ticks().dates().collect { dates += it } }
+        runCurrent()
+
+        // 10:00 in New York is 07:00 in Los Angeles: same date, different zone.
+        currentZone = ZoneId.of("America/Los_Angeles")
+        changes.tryEmit(Unit)
+        runCurrent()
+
+        assertEquals(listOf(LocalDay(LocalDate.of(2026, 7, 16), zone), LocalDay(LocalDate.of(2026, 7, 16), currentZone)), days)
+        assertEquals(listOf(LocalDate.of(2026, 7, 16)), dates)
     }
 }

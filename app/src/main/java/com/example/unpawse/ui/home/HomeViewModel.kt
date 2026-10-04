@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
-import java.time.LocalDateTime
+import java.time.ZonedDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 
@@ -41,13 +41,12 @@ class HomeViewModel(
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
     /** The container's shared clock; its date keys the usage query and its time the greeting. */
-    clockTicks: Flow<LocalDateTime>,
-    zone: () -> ZoneId,
+    clockTicks: Flow<ZonedDateTime>,
     private val nowMillis: () -> Long,
 ) : ViewModel() {
 
     /** One day's usage, carried with the date it was queried for so the mapper can't use another. */
-    private data class HomeDay(val time: LocalTime, val date: LocalDate, val usage: List<DailyUsage>)
+    private data class HomeDay(val time: LocalTime, val zone: ZoneId, val date: LocalDate, val usage: List<DailyUsage>)
 
     // Switches the query at each local midnight. Binding it once, as this used to, left Home on
     // yesterday's figures for the life of the ViewModel while enforcement had already rolled over.
@@ -56,7 +55,7 @@ class HomeViewModel(
         clockTicks.dates().flatMapLatest { date ->
             usageRepository.observeUsageForDate(date).map { date to it }
         },
-    ) { now, (date, usage) -> HomeDay(now.toLocalTime(), date, usage) }
+    ) { now, (date, usage) -> HomeDay(now.toLocalTime(), now.zone, date, usage) }
 
     /**
      * Neither special permission is observable — both are system-Settings toggles with no runtime
@@ -81,7 +80,7 @@ class HomeViewModel(
             userName = userName,
             protection = protection,
             today = day.date,
-            zone = zone(),
+            zone = day.zone,
             time = day.time,
         )
     }.stateIn(
@@ -148,7 +147,6 @@ class HomeViewModel(
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
                     clockTicks = container.clockTicks,
-                    zone = container.dayClock::zone,
                     nowMillis = container.dayClock::nowMillis,
                 )
             }

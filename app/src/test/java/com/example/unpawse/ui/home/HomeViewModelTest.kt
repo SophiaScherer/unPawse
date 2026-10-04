@@ -36,7 +36,7 @@ class HomeViewModelTest {
     private val day = LocalDate.of(2026, 7, 16)
     private var repoToday = day
     private val usage = UsageRepository(FakeUsageDao(), today = { repoToday })
-    private val ticks = MutableStateFlow(day.atTime(23, 59, 30))
+    private val ticks = MutableStateFlow(day.atTime(23, 59, 30).atZone(zone))
 
     @Before
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -52,7 +52,6 @@ class HomeViewModelTest {
         usageAccessGranted = { true },
         overlayAccessGranted = { true },
         clockTicks = ticks,
-        zone = { zone },
         nowMillis = { 0L },
     )
 
@@ -72,7 +71,7 @@ class HomeViewModelTest {
         assertEquals("30m", vm.uiState.value.screenTimeUsedLabel)
         assertEquals("30m", vm.uiState.value.remainingLabel)
 
-        ticks.value = day.plusDays(1).atStartOfDay()
+        ticks.value = day.plusDays(1).atStartOfDay(zone)
 
         assertEquals("5m", vm.uiState.value.screenTimeUsedLabel)
         assertEquals("55m", vm.uiState.value.remainingLabel)
@@ -85,7 +84,7 @@ class HomeViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         assertEquals("Good evening,", vm.uiState.value.greeting)
 
-        ticks.value = day.plusDays(1).atTime(7, 0)
+        ticks.value = day.plusDays(1).atTime(7, 0).atZone(zone)
 
         assertEquals("Good morning,", vm.uiState.value.greeting)
         assertEquals("5m", vm.uiState.value.screenTimeUsedLabel)

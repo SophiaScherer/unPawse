@@ -12,7 +12,8 @@ import com.example.unpawse.data.apps.InstalledApp
 import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.apps.platformCategories
 import com.example.unpawse.data.capture.CaptureRepository
-import com.example.unpawse.data.time.dates
+import com.example.unpawse.data.time.LocalDay
+import com.example.unpawse.data.time.days
 import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.DailyUsage
@@ -63,8 +64,7 @@ class StatsViewModel(
      * The container's day source. The windows below are re-queried whenever it changes, so a Stats
      * screen left open across midnight moves on to the new day rather than charting the old one.
      */
-    private val today: Flow<LocalDate>,
-    private val zone: () -> ZoneId,
+    private val today: Flow<LocalDay>,
     private val nowMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
@@ -72,6 +72,8 @@ class StatsViewModel(
     private data class StatsHistory(
         /** The day the windows were queried for; the mapper's `today`, so the two can't disagree. */
         val day: LocalDate,
+        /** The zone [day] is local to; captures are grouped into days by it. */
+        val zone: ZoneId,
         val recentUsage: List<DailyUsage>,
         val unlocks: List<DailyUnlocks>,
         val allUsage: List<DailyUsage>,
@@ -123,13 +125,14 @@ class StatsViewModel(
         viewModelScope.launch { allUsage.value = usageRepository.allUsage() }
     }
 
-    private val history = today.flatMapLatest { day ->
+    private val history = today.flatMapLatest { localDay ->
+        val day = localDay.date
         combine(
             usageRepository.observeRecentUsage(STATS_HISTORY_DAYS, endingOn = day),
             unlockRepository.observeRecentUnlocks(STATS_HISTORY_DAYS, endingOn = day),
             allUsage,
             deviceUsage,
-        ) { recent, unlocks, all, device -> StatsHistory(day, recent, unlocks, all, device) }
+        ) { recent, unlocks, all, device -> StatsHistory(day, localDay.zone, recent, unlocks, all, device) }
             // Triggered by the stored scope, not by the user touching the toggle: a cold open with ALL
             // already saved has to fetch its own figures, and so does a new day.
             .onStart { requestDeviceUsage(day) }
@@ -156,7 +159,7 @@ class StatsViewModel(
             userName = name,
             allUsage = allUsage,
             today = day,
-            zone = zone(),
+            zone = history.zone,
             scope = scope,
             series = seriesFor(scope, monitoredApps, history, allUsage, day),
         )
@@ -277,8 +280,7 @@ class StatsViewModel(
                     container.settingsRepository::setUsageScope,
                     container.installedAppsProvider,
                     container.deviceUsageProvider,
-                    today = container.clockTicks.dates(),
-                    zone = container.dayClock::zone,
+                    today = container.clockTicks.days(),
                     nowMillis = container.dayClock::nowMillis,
                 )
             }

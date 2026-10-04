@@ -8,7 +8,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
-import com.example.unpawse.data.time.dates
+import com.example.unpawse.data.time.LocalDay
+import com.example.unpawse.data.time.days
 import com.example.unpawse.ui.format.avatarInitialFor
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,8 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.ZoneId
 
 /**
  * Observes stored captures and shapes them into [GalleryUiState] for the (stateless) GalleryScreen,
@@ -29,9 +28,11 @@ class GalleryViewModel(
     private val repository: CaptureRepository,
     retentionDays: Flow<Int>,
     userName: Flow<String>,
-    /** The container's day source, so "Today" and "Yesterday" move on at midnight. */
-    today: Flow<LocalDate>,
-    private val zone: () -> ZoneId,
+    /**
+     * The container's day source, so "Today" and "Yesterday" move on at midnight — and regroup when
+     * the zone changes, even on the same date.
+     */
+    today: Flow<LocalDay>,
     private val nowMillis: () -> Long,
 ) : ViewModel() {
 
@@ -46,8 +47,9 @@ class GalleryViewModel(
             searchQuery,
             retentionDays,
             userName,
-        ) { (captures, today), filter, query, retention, name ->
-            val zone = zone()
+        ) { (captures, day), filter, query, retention, name ->
+            val today = day.date
+            val zone = day.zone
             val sections = captures
                 .matchingFilter(filter, nowMillis(), retention)
                 .matchingSearch(query, today, zone)
@@ -102,8 +104,7 @@ class GalleryViewModel(
                     repository = container.captureRepository,
                     retentionDays = container.settingsRepository.retentionDays,
                     userName = container.settingsRepository.userName,
-                    today = container.clockTicks.dates(),
-                    zone = container.dayClock::zone,
+                    today = container.clockTicks.days(),
                     nowMillis = container.dayClock::nowMillis,
                 )
             }

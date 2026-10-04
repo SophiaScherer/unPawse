@@ -40,7 +40,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
+import java.time.ZonedDateTime
 
 /**
  * Application-scoped dependency graph. Owns the single instances of the database, repositories, and
@@ -57,7 +57,7 @@ interface AppContainer {
      * [DayClock.ticks], shared app-wide so several screens observing the day register one set of
      * time-change receivers between them.
      */
-    val clockTicks: Flow<LocalDateTime>
+    val clockTicks: Flow<ZonedDateTime>
 
     val captureRepository: CaptureRepository
     val settingsRepository: SettingsRepository
@@ -162,7 +162,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     // The cache expires with the last subscriber, so a screen returning after midnight waits for a
     // fresh tick rather than replaying yesterday's.
-    override val clockTicks: Flow<LocalDateTime> by lazy {
+    override val clockTicks: Flow<ZonedDateTime> by lazy {
         dayClock.ticks().shareIn(
             appScope,
             SharingStarted.WhileSubscribed(replayExpirationMillis = 0),

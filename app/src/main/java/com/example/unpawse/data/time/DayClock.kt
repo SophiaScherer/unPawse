@@ -13,6 +13,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 /**
  * The app's single answer to "what time is it, and which day is today?". Every date-keyed screen and
@@ -36,19 +37,19 @@ class DayClock(
     fun today(): LocalDate = now().toLocalDate()
 
     /**
-     * Emits the local time now, then again at each local midnight and at least every [maxWaitMillis].
+     * Emits the zoned time now, then again at each local midnight and at least every [maxWaitMillis].
      *
      * The cap is not just for the greeting: coroutine delays run on a monotonic clock that stops while
      * the device sleeps, so a single delay aimed at midnight would land hours late after a night in a
      * drawer. Re-reading the wall clock each minute bounds that error to one tick.
      */
-    fun ticks(): Flow<LocalDateTime> = channelFlow {
+    fun ticks(): Flow<ZonedDateTime> = channelFlow {
         val wake = Channel<Unit>(Channel.CONFLATED)
         launch { changes.collect { wake.trySend(Unit) } }
         while (true) {
             val millis = nowMillis()
             val zone = zone()
-            send(LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), zone))
+            send(Instant.ofEpochMilli(millis).atZone(zone))
             val wait = minOf(millisUntilNextMidnight(millis, zone), maxWaitMillis)
             withTimeoutOrNull(wait) { wake.receive() }
         }
@@ -59,8 +60,18 @@ class DayClock(
     }
 }
 
-/** The local date of each tick, emitted only when it changes. */
-fun Flow<LocalDateTime>.dates(): Flow<LocalDate> = map { it.toLocalDate() }.distinctUntilChanged()
+/** A local date together with the zone it is local to. */
+data class LocalDay(val date: LocalDate, val zone: ZoneId)
+
+/** The local date of each tick, emitted only when it changes — for queries keyed by date alone. */
+fun Flow<ZonedDateTime>.dates(): Flow<LocalDate> = map { it.toLocalDate() }.distinctUntilChanged()
+
+/**
+ * The local day of each tick, emitted when the date *or the zone* changes. Anything that groups
+ * timestamps into days needs the zone too: crossing zones on the same date regroups the evening.
+ */
+fun Flow<ZonedDateTime>.days(): Flow<LocalDay> =
+    map { LocalDay(it.toLocalDate(), it.zone) }.distinctUntilChanged()
 
 /**
  * Milliseconds from [nowMillis] to the start of the next local day in [zone]. Always at least 1.
