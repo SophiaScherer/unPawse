@@ -128,6 +128,35 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun `skipping a typed name leaves the stored one, and both exits drop the draft`() = runTest {
+        settings.setUserName("Sophia")
+        val vm = viewModel()
+        val state = observe(vm)
+        vm.walkTo(OnboardingStep.NAME)
+
+        vm.setNameDraft("Mia")
+        vm.skip()
+        vm.back()
+
+        assertEquals("Sophia", settings.userName.first())
+        assertEquals("Sophia", state().answers.userName)
+    }
+
+    /** Continue's draft is gone once written, so returning shows the trimmed, stored name. */
+    @Test
+    fun `continuing then coming back shows the stored name, not the raw draft`() = runTest {
+        val vm = viewModel()
+        val state = observe(vm)
+        vm.walkTo(OnboardingStep.NAME)
+
+        vm.setNameDraft("  Mia ")
+        vm.next()
+        vm.back()
+
+        assertEquals("Mia", state().answers.userName)
+    }
+
+    @Test
     fun `complete stores the draft and the flag before handing off`() = runTest {
         val vm = viewModel()
         vm.walkTo(OnboardingStep.DONE)

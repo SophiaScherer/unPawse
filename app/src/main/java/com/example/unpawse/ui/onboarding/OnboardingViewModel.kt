@@ -106,8 +106,8 @@ class OnboardingViewModel(
     }
 
     /**
-     * Moves on without keeping what the step collected — a typed-then-skipped name is discarded
-     * rather than quietly saved. Every step can take this, permissions included.
+     * Moves on leaving what is stored untouched — a typed-then-skipped name is discarded rather than
+     * quietly saved. Every step can take this, permissions included.
      */
     fun skip() {
         if (currentStep == OnboardingStep.NAME) savedState[KEY_NAME_DRAFT] = null
@@ -157,11 +157,19 @@ class OnboardingViewModel(
         onFinished()
     }
 
+    /**
+     * Continue's half of the name step. Like [skip] it leaves no draft behind — the difference is
+     * only whether the draft was written first — so coming back to the step shows what is stored.
+     */
     private fun commitDraftFor(current: OnboardingStep) {
         if (current != OnboardingStep.NAME) return
         val draft = nameDraft.value ?: return
-        // Trimmed like the Settings dialog, so trailing spaces can't make a blank name "set".
-        viewModelScope.launch { settings.setUserName(draft.trim()) }
+        viewModelScope.launch {
+            // Trimmed like the Settings dialog, so trailing spaces can't make a blank name "set".
+            settings.setUserName(draft.trim())
+            // Cleared only after the write lands, so the field never flashes the old stored name.
+            savedState[KEY_NAME_DRAFT] = null
+        }
     }
 
     private fun readPermissions() = PermissionGrants(

@@ -4,8 +4,9 @@ package com.example.unpawse.ui.onboarding
  * Everything a step says, as data. Pure so the wording is unit-testable and so
  * [OnboardingScreen] stays a layout with no `when (step)` branches buried in it.
  *
- * [secondaryLabel] is the skip affordance. It is null only where there is nothing to skip — the
- * two explanatory steps and the closing one — never because a step is required. Nothing here is.
+ * [secondaryLabel] is the skip affordance. It is null where there is nothing to skip — the two
+ * explanatory steps, the closing one, and any step already answered — never because a step is
+ * required. Nothing here is.
  */
 data class OnboardingCopy(
     val title: String,
@@ -68,8 +69,10 @@ fun onboardingCopyFor(
         title = "What should we call you?",
         body = "Only used to say hello on your Home screen. It stays on this device, and you can " +
             "change or clear it in Settings whenever you like.",
-        primaryLabel = if (satisfied) "Continue" else "Save",
-        secondaryLabel = "Skip for now",
+        primaryLabel = "Continue",
+        // Skip means "leave my name as it was", which only differs from Continue while the field
+        // is empty; once something is typed, offering both would make the user guess which keeps it.
+        secondaryLabel = if (satisfied) null else "Skip for now",
     )
 
     OnboardingStep.AVATAR -> OnboardingCopy(
@@ -77,7 +80,8 @@ fun onboardingCopyFor(
         body = "Your profile picture. These are drawn right here in the app — nothing is " +
             "downloaded, and no photo of you is involved.",
         primaryLabel = "Continue",
-        secondaryLabel = "Skip for now",
+        // A cat is stored on the tap, so once one is picked there is nothing left to skip.
+        secondaryLabel = if (satisfied) null else "Skip for now",
     )
 
     OnboardingStep.USAGE_ACCESS -> OnboardingCopy(
