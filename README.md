@@ -11,13 +11,20 @@ bonus minutes and lets you back in.
 
 ## Getting it running on a phone
 
-Two of the permissions unPawse needs can only be granted from system Settings, not from a dialog:
+Build and install the debug APK on a phone or emulator with USB debugging on
+(`./gradlew :app:installDebug`, or `adb install` the APK below).
 
-- **Usage access**, so it can tell which app is in front.
-- **Display over other apps**, so it can draw the block.
+Two of the permissions unPawse needs can only be granted from system Settings, not from a dialog.
+The app's Settings tab links to both:
 
-Settings in the app links to both pages. Then add limits under Settings → Individual app limits.
-Without those two permissions the app tracks and blocks nothing, and Home says so.
+- **Screen time access** (usage access), so it can tell which app is in front. Without it nothing
+  is tracked.
+- **Display over other apps**, so it can draw the block. Without it limits are tracked but can't
+  block anything.
+
+Home tells you which one is missing. Then add limits under Settings → **Individual app limits**.
+Camera access is an ordinary dialog the first time you open the camera; notifications are turned on
+from Settings → **Notification access**.
 
 ---
 
