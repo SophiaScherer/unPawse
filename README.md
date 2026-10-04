@@ -4,71 +4,61 @@ A cat-themed screen-time manager for Android. You give the apps that eat your da
 when one runs out, unPawse draws a block over it and asks you to go photograph a cat.
 
 **The loop:** pick apps and limits → a foreground service counts the time you actually spend in them
-→ hitting a limit blocks the app → photographing a real cat (verified on-device) credits bonus
-minutes and lets you back in.
+→ hitting a limit blocks the app → photographing a real cat (verified on-device by ML Kit) credits
+bonus minutes and lets you back in.
+
+---
+
+## Getting it running on a phone
+
+Two of the permissions unPawse needs can only be granted from system Settings, not from a dialog:
+
+- **Usage access**, so it can tell which app is in front.
+- **Display over other apps**, so it can draw the block.
+
+Settings in the app links to both pages. Then add limits under Settings → Individual app limits.
+Without those two permissions the app tracks and blocks nothing, and Home says so.
 
 ---
 
 ## Requirements
 
-- **minSdk 26** (Android 8.0 Oreo)
-- **targetSdk / compileSdk 36**
-- **JDK 21** to build (see below)
-- Android SDK, with `sdk.dir` set in `local.properties`
+- **minSdk 26** (Android 8.0), **targetSdk / compileSdk 36**
+- **JDK 21** to build
+- The Android SDK, with `sdk.dir` set in `local.properties` (Android Studio writes this for you)
 
 ---
 
 ## Building
 
-### Java
-
-This is the part most likely to bite you. Gradle 9 will not start on Java 8 — a machine whose `java`
-on `PATH` is an old JRE fails before any Gradle task is even configured, with an error about the
-class file version rather than anything about this project. The build also declares a **Java 21**
-daemon toolchain (`gradle/gradle-daemon-jvm.properties`), and CI builds on Temurin 21.
-
-So: install a JDK 21 and point `JAVA_HOME` at it.
+Gradle 9 won't start on an old `java` from `PATH`, and the build pins a Java 21 daemon toolchain
+(`gradle/gradle-daemon-jvm.properties`). For command-line builds, point `JAVA_HOME` at a JDK 21:
 
 ```bash
-# macOS / Linux
-export JAVA_HOME=/path/to/jdk-21
+export JAVA_HOME=/path/to/jdk-21          # macOS / Linux
 ```
 
 ```powershell
-# Windows (PowerShell)
-$env:JAVA_HOME = "C:\path\to\jdk-21"
+$env:JAVA_HOME = "C:\path\to\jdk-21"      # Windows (PowerShell)
 ```
 
-Android Studio ships a bundled JDK — on a recent version it is new enough, and the IDE uses it
-regardless of what is on your `PATH`. Command-line builds are the ones that need `JAVA_HOME` set.
-
-### local.properties
-
-Gradle needs to know where the Android SDK is:
-
-```properties
-sdk.dir=/path/to/Android/Sdk
-```
-
-Android Studio generates this file the first time it opens the project. It is not checked in.
-
-### Commands
-
-Use the Gradle wrapper — it pins the Gradle version this project expects.
+Android Studio's bundled JDK works as-is.
 
 ```bash
-./gradlew :app:assembleDebug      # build the debug APK
+./gradlew :app:assembleDebug      # debug APK → app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:lintDebug          # Android Lint
 ./gradlew :app:testDebugUnitTest  # JVM unit tests
 ```
 
-On Windows, use `gradlew.bat` in place of `./gradlew`.
+On Windows, use `gradlew.bat`. Those three tasks are the build gate. The service, the overlay and
+the permission flows are verified on a device or emulator as well, since JVM tests can't reach them.
 
-The debug APK lands at:
+---
 
-```
-app/build/outputs/apk/debug/app-debug.apk
-```
+## Contributing
+
+[`AGENTS.md`](AGENTS.md) is the design doc. It covers the architecture and conventions, the reasoning
+behind the non-obvious decisions, and the app's current state.
 
 ---
 
