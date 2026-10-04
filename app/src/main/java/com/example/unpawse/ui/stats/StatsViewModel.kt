@@ -90,7 +90,7 @@ class StatsViewModel(
      */
     private data class DeviceUsageSnapshot(
         /** The last day of the window read; a snapshot for another day is treated as not read yet. */
-        val endingOn: LocalDate,
+        val day: LocalDay,
         val readAtMillis: Long,
         val secondsByDateAndPackage: Map<String, Map<String, Long>>?,
         val installed: List<InstalledApp>,
@@ -115,11 +115,11 @@ class StatsViewModel(
     private val deviceUsage = MutableStateFlow<DeviceUsageSnapshot?>(null)
 
     /** The day the screen is showing, once known; what a resume or a scope change reloads for. */
-    private val currentDay = MutableStateFlow<LocalDate?>(null)
+    private val currentDay = MutableStateFlow<LocalDay?>(null)
 
     /** The read in flight and the day it is for, so overlapping triggers don't each start one. */
     private var deviceLoad: Job? = null
-    private var deviceLoadDay: LocalDate? = null
+    private var deviceLoadDay: LocalDay? = null
 
     init {
         viewModelScope.launch { allUsage.value = usageRepository.allUsage() }
@@ -135,7 +135,7 @@ class StatsViewModel(
         ) { recent, unlocks, all, device -> StatsHistory(day, localDay.zone, recent, unlocks, all, device) }
             // Triggered by the stored scope, not by the user touching the toggle: a cold open with ALL
             // already saved has to fetch its own figures, and so does a new day.
-            .onStart { requestDeviceUsage(day) }
+            .onStart { requestDeviceUsage(localDay) }
     }
 
     val uiState: StateFlow<StatsUiState> = combine(
@@ -162,6 +162,9 @@ class StatsViewModel(
             zone = history.zone,
             scope = scope,
             series = seriesFor(scope, monitoredApps, history, allUsage, day),
+            // A snapshot for this day hasn't landed yet. Distinct from "no access", which is a read
+            // that came back null: until the read finishes nothing is known either way.
+            scopeLoading = scope == UsageScope.ALL && history.device?.day != LocalDay(day, history.zone),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -173,10 +176,10 @@ class StatsViewModel(
     /**
      * Which store the scoped figures come from.
      *
-     * Null — reachable only in [UsageScope.ALL] — means the scope has nothing to measure, and the
-     * mapper blanks every scoped figure for it. A snapshot still in flight reports the same way on
-     * purpose: a chart drawn from an empty map for one frame would be zeroes posing as measurements,
-     * which is the failure the whole null-versus-empty distinction exists to prevent.
+     * Null — reachable only in [UsageScope.ALL] — means the scope has nothing to measure yet, and
+     * the mapper blanks every scoped figure for it: a chart drawn from an empty map for one frame
+     * would be zeroes posing as measurements. Whether that is "still loading" or "no usage access"
+     * travels separately, as `scopeLoading`.
      */
     private fun seriesFor(
         scope: UsageScope,
@@ -191,7 +194,8 @@ class StatsViewModel(
             day,
             measuredSince = firstMeasuredDay(allUsage, day),
         )
-        UsageScope.ALL -> history.device?.takeIf { it.endingOn == day }?.secondsByDateAndPackage?.let { byDate ->
+        UsageScope.ALL -> history.device?.takeIf { it.day == LocalDay(day, history.zone) }
+            ?.secondsByDateAndPackage?.let { byDate ->
             deviceUsageSeries(
                 secondsByDateAndPackage = byDate,
                 platformCategories = history.device.installed.platformCategories(),
@@ -227,7 +231,7 @@ class StatsViewModel(
      * Opening the screen fires both the flow's start and the Route's resume, which used to mean two
      * `PackageManager` sweeps and two usage reads for one visit (audit PERF-06).
      */
-    private fun requestDeviceUsage(day: LocalDate) {
+    private fun requestDeviceUsage(day: LocalDay) {
         currentDay.value = day
         if (deviceLoad?.isActive == true) {
             if (deviceLoadDay == day) return
@@ -245,18 +249,18 @@ class StatsViewModel(
      * A recent read of [day] that found figures. One that found no usage access is never fresh: the
      * resume after granting it is exactly the read that must not be skipped.
      */
-    private fun DeviceUsageSnapshot.isFreshFor(day: LocalDate): Boolean =
-        endingOn == day &&
+    private fun DeviceUsageSnapshot.isFreshFor(day: LocalDay): Boolean =
+        this.day == day &&
             secondsByDateAndPackage != null &&
             nowMillis() - readAtMillis in 0 until DEVICE_USAGE_FRESH_MILLIS
 
-    private suspend fun loadDeviceUsage(day: LocalDate) {
+    private suspend fun loadDeviceUsage(day: LocalDay) {
         deviceUsage.value = DeviceUsageSnapshot(
-            endingOn = day,
+            day = day,
             readAtMillis = nowMillis(),
             secondsByDateAndPackage = deviceUsageProvider.dailySecondsByDate(
                 STATS_HISTORY_DAYS.toInt(),
-                endingOn = day,
+                endingOn = day.date,
             ),
             // Only ever the donut's categories, so it rides along with the figures rather than
             // living in its own flow — the installed list can't usefully change while Stats is open.

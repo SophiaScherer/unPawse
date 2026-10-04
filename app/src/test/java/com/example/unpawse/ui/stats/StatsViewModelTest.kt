@@ -12,6 +12,7 @@ import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.FakeUsageDao
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.data.usage.UsageScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,9 +54,12 @@ class StatsViewModelTest {
     private class RecordingDeviceUsage : DeviceUsageProvider {
         val requested = mutableListOf<LocalDate>()
         var granted = true
+        /** When set, a read waits for it, so a test can look at the screen mid-read. */
+        var gate: CompletableDeferred<Unit>? = null
         override suspend fun dailyAverageSeconds(days: Int): Map<String, Long>? = emptyMap()
         override suspend fun dailySecondsByDate(days: Int, endingOn: LocalDate): Map<String, Map<String, Long>>? {
             requested += endingOn
+            gate?.await()
             if (!granted) return null
             return mapOf(endingOn.toString() to mapOf("x" to 120L * 60))
         }
@@ -181,5 +185,31 @@ class StatsViewModelTest {
 
         val underBudget = vm.uiState.value.achievements.single { it.title == "Under Budget" }
         assertEquals(false, underBudget.unlocked)
+    }
+
+    /** It used to say usage access was missing for a moment at every midnight, and on every first open. */
+    @Test
+    fun `an all-apps read in flight is loading, not missing access`() = runTest {
+        scope.value = UsageScope.ALL
+        val gate = CompletableDeferred<Unit>()
+        device.gate = gate
+        val vm = viewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+
+        assertEquals(true, vm.uiState.value.scopeLoading)
+        assertEquals(false, vm.uiState.value.scopeUnavailable)
+
+        gate.complete(Unit)
+        assertEquals(false, vm.uiState.value.scopeLoading)
+        assertEquals("2h", vm.uiState.value.dailyTotal)
+
+        val nextGate = CompletableDeferred<Unit>()
+        device.gate = nextGate
+        today.value = LocalDay(sunday.plusDays(1), zone)
+
+        assertEquals(true, vm.uiState.value.scopeLoading)
+        assertEquals(false, vm.uiState.value.scopeUnavailable)
+        nextGate.complete(Unit)
+        assertEquals(false, vm.uiState.value.scopeLoading)
     }
 }

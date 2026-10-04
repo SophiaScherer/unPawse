@@ -89,6 +89,12 @@ data class StatsUiState(
      * limits and captures, and neither depends on the platform's figures.
      */
     val scopeUnavailable: Boolean = false,
+    /**
+     * Whether the scope's figures are still being read — the first open of all-apps, a scope switch,
+     * or a new day. Blank like [scopeUnavailable], but never claims usage access is missing, which
+     * it used to for a moment every midnight.
+     */
+    val scopeLoading: Boolean = false,
 ) {
     companion object {
         /**

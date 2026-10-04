@@ -893,6 +893,25 @@ class StatsMapperTest {
     }
 
     @Test
+    fun `a scope still loading blanks without claiming access is missing`() {
+        val state = toStatsUiState(
+            monitoredApps = emptyList(),
+            recentUsage = emptyList(),
+            captures = emptyList(),
+            today = today,
+            zone = zone,
+            scope = UsageScope.ALL,
+            series = null,
+            scopeLoading = true,
+        )
+
+        assertTrue(state.scopeLoading)
+        assertFalse(state.scopeUnavailable)
+        assertEquals(NO_DATA, state.dailyTotal)
+        assertEquals(emptyList<Float?>(), state.weeklyPoints)
+    }
+
+    @Test
     fun `a scope with no figures blanks rather than reporting zeroes`() {
         // All-apps without usage access. A null series is "nothing can be measured", which is not
         // the same as a device nobody touched.
@@ -907,6 +926,7 @@ class StatsMapperTest {
         )
 
         assertTrue(state.scopeUnavailable)
+        assertFalse(state.scopeLoading)
         assertEquals(NO_DATA, state.dailyTotal)
         assertEquals("", state.deltaText)
         assertFalse(state.deltaHasBaseline)

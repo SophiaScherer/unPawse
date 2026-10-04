@@ -80,6 +80,8 @@ internal fun toStatsUiState(
         today,
         measuredSince = firstMeasuredDay(allUsage + recentUsage, today),
     ),
+    /** The scope's figures are still being read; blank, but not "unavailable". */
+    scopeLoading: Boolean = false,
 ): StatsUiState {
     // Null is the scope having no figures at all, not a quiet phone: all-apps without usage access.
     // Every scoped metric blanks, and the tracked-only tiles below carry on reporting.
@@ -177,7 +179,8 @@ internal fun toStatsUiState(
         breakdown = breakdown,
         usageScope = scope,
         scopeCaption = SCOPE_CAPTIONS.getValue(scope),
-        scopeUnavailable = !measured,
+        scopeUnavailable = !measured && !scopeLoading,
+        scopeLoading = !measured && scopeLoading,
         budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
         longestStreak = countLabel(longestStreakDays(captureDates), "Day"),
         // "0 Photos" under a party popper celebrates nothing; the card goes neutral and asks
