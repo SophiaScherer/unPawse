@@ -31,9 +31,12 @@ private const val SECONDS_PER_HOUR = 3600f
 /** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
 internal val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
-/** The trend's caption when the week has no complete day in it yet, which is every Monday. */
+/**
+ * The trend's captions when there is nothing to compare: no complete day yet (every Monday), or no
+ * measured last week. Short enough to stay on one line in the half-width card.
+ */
 private const val TREND_NO_FULL_DAY_CAPTION = "NO FULL DAY YET"
-private const val TREND_NO_BASELINE_CAPTION = "NO DATA FOR LAST WEEK"
+private const val TREND_NO_BASELINE_CAPTION = "NO LAST WEEK DATA"
 
 /** Not [NO_DATA]: a library with nothing in it is a known fact, not a missing measurement. */
 private const val NO_PHOTOS_LABEL = "No photos yet"
@@ -240,12 +243,15 @@ private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String {
 private fun percentChange(todaySeconds: Long, yesterdaySeconds: Long): Int =
     ((todaySeconds - yesterdaySeconds) * 100f / yesterdaySeconds).roundToInt()
 
-/** Names the compared days ("MON–WED VS LAST WEEK"), since week-to-date isn't guessable. */
+/**
+ * Names the compared days ("VS LAST MON–WED"), since week-to-date isn't guessable. Short enough to
+ * stay on one line in the half-width card, where "MON–SAT VS LAST WEEK" broke after "LAST".
+ */
 private fun trendCaption(days: List<LocalDate>): String {
     val first = WEEKDAY_LABELS[days.first().dayOfWeek.value - 1]
     val last = WEEKDAY_LABELS[days.last().dayOfWeek.value - 1]
     val span = if (days.size == 1) first else "$first–$last"
-    return "$span VS LAST WEEK"
+    return "VS LAST $span"
 }
 
 /**

@@ -655,7 +655,7 @@ class StatsMapperTest {
 
         assertFalse(state.trendHasBaseline)
         assertEquals("—", state.trendLabel)
-        assertEquals("NO DATA FOR LAST WEEK", state.trendCaption)
+        assertEquals("NO LAST WEEK DATA", state.trendCaption)
     }
 
     @Test
@@ -674,7 +674,7 @@ class StatsMapperTest {
 
         assertTrue(state.trendHasBaseline)
         assertEquals("an equal Wednesday is no change", "0.0h", state.trendLabel)
-        assertEquals("MON–WED VS LAST WEEK", state.trendCaption)
+        assertEquals("VS LAST MON–WED", state.trendCaption)
     }
 
     /**
@@ -710,7 +710,7 @@ class StatsMapperTest {
         )
 
         assertEquals("+0.5h", state.trendLabel)
-        assertEquals("MON VS LAST WEEK", state.trendCaption)
+        assertEquals("VS LAST MON", state.trendCaption)
     }
 
     @Test
@@ -723,7 +723,7 @@ class StatsMapperTest {
         )
 
         assertEquals("-1.0h", state.trendLabel)
-        assertEquals("MON–SAT VS LAST WEEK", state.trendCaption)
+        assertEquals("VS LAST MON–SAT", state.trendCaption)
     }
 
     /**
@@ -739,7 +739,7 @@ class StatsMapperTest {
 
         assertFalse(state.trendHasBaseline)
         assertEquals(NO_DATA, state.trendLabel)
-        assertEquals("NO DATA FOR LAST WEEK", state.trendCaption)
+        assertEquals("NO LAST WEEK DATA", state.trendCaption)
     }
 
     @Test
@@ -962,6 +962,6 @@ class StatsMapperTest {
 
         assertFalse(state.trendHasBaseline)
         assertEquals(NO_DATA, state.trendLabel)
-        assertEquals("NO DATA FOR LAST WEEK", state.trendCaption)
+        assertEquals("NO LAST WEEK DATA", state.trendCaption)
     }
 }

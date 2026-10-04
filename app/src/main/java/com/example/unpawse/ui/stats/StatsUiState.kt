@@ -141,7 +141,7 @@ data class StatsUiState(
             trendLabel = "-5.2h",
             trendIsUp = false,
             trendHasBaseline = true,
-            trendCaption = "MON–THU VS LAST WEEK",
+            trendCaption = "VS LAST MON–THU",
             // highlightDayIndex is Friday, so the weekend has not happened yet.
             trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f, null, null),
             breakdownTotal = "2h 37m",

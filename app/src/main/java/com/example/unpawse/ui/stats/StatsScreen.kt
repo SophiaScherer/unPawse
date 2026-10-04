@@ -6,8 +6,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -85,10 +87,15 @@ fun StatsScreen(
         // that card's figure alone.
         item { ScopeToggle(state.usageScope, onScopeChange) }
         item { DailyScreenTimeCard(state, onGrantUsageAccess) }
+        // Paired cards share a height, so neither row ends in a ragged edge however their captions
+        // wrap (audit VIS-03).
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
-                PreventedCard(state.preventedCount, Modifier.weight(1f))
-                TrendCard(state, Modifier.weight(1f))
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+            ) {
+                PreventedCard(state.preventedCount, Modifier.weight(1f).fillMaxHeight())
+                TrendCard(state, Modifier.weight(1f).fillMaxHeight())
             }
         }
         item { UsageBreakdownCard(state, onDetails) }
@@ -100,13 +107,16 @@ fun StatsScreen(
                 caption = "TODAY, ACROSS CAPPED APPS")
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+            ) {
                 MiniStatCard("Longest Streak", state.longestStreak, Icons.Filled.LocalFireDepartment,
-                    MaterialTheme.colorScheme.surfaceContainerHigh, Modifier.weight(1f))
+                    MaterialTheme.colorScheme.surfaceContainerHigh, Modifier.weight(1f).fillMaxHeight())
                 // The caption is part of the claim: unlocks are only seen while the monitor service
                 // is alive, so an uncaptioned number would imply a complete tally it isn't.
                 MiniStatCard("Unlocks", state.unlocks, Icons.Filled.PhoneAndroid,
-                    MaterialTheme.unPawseColors.cardSurface, Modifier.weight(1f),
+                    MaterialTheme.unPawseColors.cardSurface, Modifier.weight(1f).fillMaxHeight(),
                     caption = "TODAY, WHILE MONITORING")
             }
         }
@@ -237,8 +247,13 @@ private fun UsageAccessNotice(onClick: () -> Unit) {
 @Composable
 private fun PreventedCard(count: Int, modifier: Modifier = Modifier) {
     PawCard(modifier = modifier) {
-        Text("Prevented", style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Mirrors the Trend card's header beside it, so the paired cards read as a set.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Prevented", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Icon(Icons.Filled.Shield, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        }
         Text(count.toString(), style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         // The period is part of the claim: the mockup's bare "42" said nothing about what it
