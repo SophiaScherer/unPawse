@@ -9,14 +9,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -247,7 +245,7 @@ private fun TwoPaneCard(
     ) {
         Column(
             modifier = Modifier
-                .weight(1.4f)
+                .weight(1f)
                 .testTag(BLOCK_COPY_TAG)
                 .fadingEdges(scroll)
                 .verticalScroll(scroll),
@@ -261,14 +259,16 @@ private fun TwoPaneCard(
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            CatIllustration(
-                state.photoPath,
-                Modifier
-                    .weight(1f, fill = false)
-                    .sizeIn(maxWidth = MAX_HERO_SIZE, maxHeight = MAX_HERO_SIZE)
-                    .aspectRatio(1f),
-            )
-            Spacer(Modifier.height(12.dp))
+            BoxWithConstraints(Modifier.weight(1f, fill = false)) {
+                val hero = minOf(maxWidth, maxHeight - HERO_GAP, MAX_HERO_SIZE)
+                // A photo squeezed below this reads as a stray dot, not the user's cat.
+                if (hero >= MIN_TWO_PANE_HERO_SIZE) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CatIllustration(state.photoPath, Modifier.size(hero))
+                        Spacer(Modifier.height(HERO_GAP))
+                    }
+                }
+            }
             BlockActions(state.showCamera, onOpenCamera, onExit)
         }
     }
@@ -338,6 +338,9 @@ internal const val BLOCK_COPY_TAG = "blockOverlayCopy"
 
 /** Below this the footer scrolls with the copy rather than taking height from it. */
 private val COMPACT_HEIGHT = 640.dp
+
+private val HERO_GAP = 12.dp
+private val MIN_TWO_PANE_HERO_SIZE = 64.dp
 
 /** Keeps landscape lines on a wide phone or tablet to a readable length. */
 private val MAX_CARD_WIDTH = 720.dp
