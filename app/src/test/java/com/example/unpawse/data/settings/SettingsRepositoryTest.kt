@@ -1,5 +1,6 @@
 package com.example.unpawse.data.settings
 
+import com.example.unpawse.data.export.ExportSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -30,5 +31,12 @@ class SettingsRepositoryTest {
         settings.setAvatarId(CatAvatar.SIAMESE.id)
 
         assertEquals(UserProfile("Mia", CatAvatar.SIAMESE.id), settings.profile.first())
+    }
+
+    @Test
+    fun `an imported settings block restores the avatar`() = runBlocking {
+        settings.applyImported(ExportSettings("Mia", "SYSTEM", 0.65f, 0.7f, 15, 30, false, avatarId = CatAvatar.TUXEDO.id))
+
+        assertEquals(UserProfile("Mia", CatAvatar.TUXEDO.id), settings.profile.first())
     }
 }

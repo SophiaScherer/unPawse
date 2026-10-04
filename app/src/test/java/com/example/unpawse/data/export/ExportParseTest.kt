@@ -22,6 +22,7 @@ class ExportParseTest {
             warningMinutes = 10,
             reminderMinutes = 15,
             usageScope = "ALL",
+            avatarId = 6,
         ),
         monitoredApps = listOf(
             ExportMonitoredApp("com.ig", "Instagram", 45, enabled = true, weekendLimitMinutes = 90, category = "SOCIAL"),
@@ -119,6 +120,14 @@ class ExportParseTest {
         val parsed = parseExportJson("""{"formatVersion":7,"settings":{"userName":"Sophia"}}""")!!
 
         assertEquals("TRACKED", parsed.settings.usageScope)
+    }
+
+    /** Before v9 nobody could pick a cat in an export, so an older document means "no picture". */
+    @Test
+    fun `a document with no avatar reads as none`() {
+        val parsed = parseExportJson("""{"formatVersion":8,"settings":{"userName":"Sophia"}}""")!!
+
+        assertEquals(com.example.unpawse.data.settings.AVATAR_NONE, parsed.settings.avatarId)
     }
 
     @Test

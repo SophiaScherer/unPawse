@@ -167,6 +167,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         setWarningMinutes(settings.warningMinutes)
         setReminderMinutes(settings.reminderMinutes)
         setUsageScope(usageScopeNamed(settings.usageScope))
+        setAvatarId(settings.avatarId)
     }
 
     private object Keys {
