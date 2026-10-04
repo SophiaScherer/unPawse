@@ -4,9 +4,9 @@ package com.example.unpawse.ui.onboarding
  * Everything a step says, as data. Pure so the wording is unit-testable and so
  * [OnboardingScreen] stays a layout with no `when (step)` branches buried in it.
  *
- * [secondaryLabel] is the skip affordance. It is null where there is nothing to skip — the two
- * explanatory steps, the closing one, and any step already answered — never because a step is
- * required. Nothing here is.
+ * [secondaryLabel] is the skip affordance. It is null where it would do the same as the primary —
+ * the explanatory steps, the closing one, the avatar picker, and any step already answered — never
+ * because a step is required. Nothing here is, and "Skip intro" leaves from any step.
  */
 data class OnboardingCopy(
     val title: String,
@@ -80,8 +80,9 @@ fun onboardingCopyFor(
         body = "Your profile picture. These are drawn right here in the app — nothing is " +
             "downloaded, and no photo of you is involved.",
         primaryLabel = "Continue",
-        // A cat is stored on the tap, so once one is picked there is nothing left to skip.
-        secondaryLabel = if (satisfied) null else "Skip for now",
+        // A pick is stored on the tap and "No picture" is one of the options, so Skip and Continue
+        // would always do the same thing here.
+        secondaryLabel = null,
     )
 
     OnboardingStep.USAGE_ACCESS -> OnboardingCopy(

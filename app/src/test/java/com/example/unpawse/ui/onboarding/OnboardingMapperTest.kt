@@ -27,12 +27,13 @@ class OnboardingMapperTest {
 
     /** With an answer in place Skip and Continue would differ only in a way the user can't see. */
     @Test
-    fun `an answered name or avatar step drops its skip`() {
+    fun `an answered name step and the avatar step offer no skip`() {
         assertNotNull(state(OnboardingStep.NAME).copy.secondaryLabel)
         assertNull(state(OnboardingStep.NAME, userName = "Mia").copy.secondaryLabel)
         assertEquals("Continue", state(OnboardingStep.NAME).copy.primaryLabel)
 
-        assertNotNull(state(OnboardingStep.AVATAR).copy.secondaryLabel)
+        // Including an explicit "No picture", which is indistinguishable from not choosing.
+        assertNull(state(OnboardingStep.AVATAR).copy.secondaryLabel)
         assertNull(state(OnboardingStep.AVATAR, avatarId = CatAvatar.SMOKE.id).copy.secondaryLabel)
     }
 
@@ -84,6 +85,7 @@ class OnboardingMapperTest {
             val skippable = step !in listOf(
                 OnboardingStep.WELCOME,
                 OnboardingStep.HOW_IT_WORKS,
+                OnboardingStep.AVATAR,
                 OnboardingStep.DONE,
             )
             assertEquals(step.name, skippable, result.copy.secondaryLabel != null)

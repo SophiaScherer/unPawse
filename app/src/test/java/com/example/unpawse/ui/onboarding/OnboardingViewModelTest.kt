@@ -168,6 +168,21 @@ class OnboardingViewModelTest {
         assertTrue(settings.onboardingComplete.first())
     }
 
+    /** Back is navigation, not an answer: the typed text waits, unsaved, for Continue or Skip. */
+    @Test
+    fun `back from the name step keeps the draft without storing it`() = runTest {
+        val vm = viewModel()
+        val state = observe(vm)
+        vm.walkTo(OnboardingStep.NAME)
+        vm.setNameDraft("Mia")
+
+        vm.back()
+        vm.next()
+
+        assertEquals("Mia", state().answers.userName)
+        assertEquals("", settings.userName.first())
+    }
+
     @Test
     fun `skip intro finishes the tour from any step without saving a typed name`() = runTest {
         val vm = viewModel()
