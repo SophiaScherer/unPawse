@@ -1,5 +1,6 @@
 package com.example.unpawse.data.apps
 
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import com.example.unpawse.service.UsageAccess
@@ -44,8 +45,8 @@ interface DeviceUsageProvider {
      * and a caller silently getting seven days when it drew fourteen would plot a week of invented
      * zeroes — the failure this whole distinction exists to prevent.
      *
-     * The platform keeps daily buckets for roughly a week, so days beyond that come back empty. That
-     * is why the caller must treat a missing day as "not measured" rather than as an idle day.
+     * A day the platform no longer holds events for is **absent** from the map, not an empty entry,
+     * so the caller can tell "not measured" from "not used".
      */
     suspend fun dailySecondsByDate(days: Int, endingOn: LocalDate): Map<String, Map<String, Long>>?
 }
@@ -54,9 +55,9 @@ interface DeviceUsageProvider {
 const val RECENT_DAYS = 7
 
 /**
- * [UsageStatsManager]-backed implementation. One `queryAndAggregateUsageStats` call per read — the
- * platform does the per-package folding, so this is a single binder round trip rather than a sweep
- * over daily buckets.
+ * [UsageStatsManager]-backed implementation. One `queryEvents` call per read, folded into foreground
+ * spans by [foregroundIntervals] — not `queryAndAggregateUsageStats`, whose whole-bucket expansion
+ * inflated every figure (see there).
  *
  * Needs the same `PACKAGE_USAGE_STATS` app-op the enforcement service already requires, so it costs
  * no new permission; without it there is nothing to report and this answers `null`.
@@ -80,9 +81,7 @@ class UsageStatsDeviceUsageProvider(
 
         val end = now()
         val begin = end - days.coerceAtLeast(1) * MILLIS_PER_DAY
-        // totalTimeInForeground, not totalTimeVisible — the latter is API 29 against minSdk 26.
-        val totals = manager.queryAndAggregateUsageStats(begin, end)
-            .mapValues { (_, stats) -> stats.totalTimeInForeground }
+        val totals = totalMillisByPackage(foregroundIntervals(manager.foregroundEvents(begin, end), begin, end))
 
         averageSecondsPerDay(totals, days)
     }
@@ -95,19 +94,40 @@ class UsageStatsDeviceUsageProvider(
             if (!UsageAccess.isGranted(appContext)) return@withContext null
             val manager = usageStatsManager ?: return@withContext null
 
-            val timeZone = zone()
-            // One query per day rather than queryUsageStats(INTERVAL_DAILY, …): the platform's daily
-            // buckets are not aligned to local midnight, and the chart's axis is. Off the main
-            // thread and read once per screen entry, so the extra binder calls are affordable.
-            dayWindows(endingOn, days, timeZone).associate { window ->
-                val totals = manager
-                    .queryAndAggregateUsageStats(window.beginMillis, window.endMillis)
-                    .mapValues { (_, stats) -> stats.totalTimeInForeground }
-                // A one-day window, so the "average" is the day's own total — and the clamp and the
-                // truncation stay one rule shared with the picker's figures.
-                window.date to averageSecondsPerDay(totals, days = 1)
-            }
+            val windows = dayWindows(endingOn, days, zone())
+            val begin = windows.first().beginMillis
+            // Today's window ends at midnight tonight; nothing after now has happened.
+            val end = minOf(windows.last().endMillis, now())
+            val events = manager.foregroundEvents(begin, end)
+            secondsByDay(foregroundIntervals(events, begin, end), events.map { it.timeMillis }, windows)
         }
+}
+
+/** The foreground arrivals and departures between [begin] and [end], oldest first. */
+@Suppress(
+    // MOVE_TO_FOREGROUND/BACKGROUND are ACTIVITY_RESUMED/PAUSED under their minSdk-26 names.
+    "DEPRECATION",
+    // ACTIVITY_STOPPED and the device events are API 29 compile-time constants, so they inline;
+    // older levels simply never emit them.
+    "InlinedApi",
+)
+private fun UsageStatsManager.foregroundEvents(begin: Long, end: Long): List<ForegroundEvent> {
+    val events = queryEvents(begin, end)
+    val event = UsageEvents.Event()
+    val result = mutableListOf<ForegroundEvent>()
+    while (events.hasNextEvent()) {
+        events.getNextEvent(event)
+        val kind = when (event.eventType) {
+            UsageEvents.Event.MOVE_TO_FOREGROUND -> ForegroundEvent.Kind.RESUMED
+            UsageEvents.Event.MOVE_TO_BACKGROUND,
+            UsageEvents.Event.ACTIVITY_STOPPED -> ForegroundEvent.Kind.LEFT
+            UsageEvents.Event.DEVICE_SHUTDOWN,
+            UsageEvents.Event.DEVICE_STARTUP -> ForegroundEvent.Kind.DEVICE_BOUNDARY
+            else -> continue
+        }
+        result += ForegroundEvent(event.packageName ?: continue, event.className, event.timeStamp, kind)
+    }
+    return result
 }
 
 /** One local day to query, as the platform wants it: half-open millis, plus the ISO key we file it under. */

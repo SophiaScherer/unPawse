@@ -108,7 +108,7 @@ class StatsViewModel(
 
     /**
      * Read on demand rather than at construction: a user who never leaves the tracked scope should
-     * pay neither the `PackageManager` sweep nor the fourteen per-day binder calls behind it.
+     * pay neither the `PackageManager` sweep nor the fortnight of usage events behind it.
      */
     private val deviceUsage = MutableStateFlow<DeviceUsageSnapshot?>(null)
 
@@ -222,7 +222,7 @@ class StatsViewModel(
     /**
      * Reads the platform's figures for [day] unless that is already happening or was just done.
      * Opening the screen fires both the flow's start and the Route's resume, which used to mean two
-     * `PackageManager` sweeps and twenty-eight binder calls for one visit (audit PERF-06).
+     * `PackageManager` sweeps and two usage reads for one visit (audit PERF-06).
      */
     private fun requestDeviceUsage(day: LocalDate) {
         currentDay.value = day

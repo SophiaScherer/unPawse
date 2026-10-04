@@ -151,7 +151,8 @@ class UsageSeriesTest {
     }
 
     @Test
-    fun `the platform is measured from its first non-empty day`() {
+    fun `the platform is measured from the first day it still holds`() {
+        // An empty day it holds is a measured zero; days it no longer holds are simply absent.
         val series = deviceUsageSeries(
             secondsByDateAndPackage = mapOf(
                 today.minusDays(9).toString() to emptyMap(),
@@ -163,7 +164,7 @@ class UsageSeriesTest {
             today = today,
         )
 
-        assertEquals(today.minusDays(8), series.measuredSince)
+        assertEquals(today.minusDays(9), series.measuredSince)
     }
 
     @Test

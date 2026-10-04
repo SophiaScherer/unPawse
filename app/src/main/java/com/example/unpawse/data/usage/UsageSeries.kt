@@ -74,9 +74,9 @@ fun trackedUsageSeries(
  * What the platform measured: every app on the phone, from
  * [com.example.unpawse.data.apps.DeviceUsageProvider.dailySecondsByDate].
  *
- * A date the platform could not report comes back empty — its daily buckets only go back about a
- * week — so [UsageSeries.measuredSince] starts after it: the chart draws no mark for it and the trend
- * finds no baseline, instead of claiming a day spent off the phone.
+ * A date the platform no longer holds events for is absent from the map, so
+ * [UsageSeries.measuredSince] starts after it: the chart draws no mark for it and the trend finds no
+ * baseline, instead of claiming a day spent off the phone. A present but empty day is a real zero.
  *
  * [platformCategories] is each package's own declaration, `null` where it made none; see
  * [categoryFromPlatform] for why that map is deliberately sparse.
@@ -95,9 +95,7 @@ fun deviceUsageSeries(
         // Everything the platform reported gets a bucket, so nothing silently vanishes from the
         // donut — an app we can't classify is exactly what OTHER means.
         categories = todayByPackage.keys.associateWith { resolved[it] ?: AppCategory.OTHER },
-        // A day with no app used at all is a day the platform no longer holds, not one spent off the
-        // phone — something is always in the foreground while the screen is on.
-        measuredSince = secondsByDateAndPackage.filterValues { it.isNotEmpty() }.keys
+        measuredSince = secondsByDateAndPackage.keys
             .minOrNull()?.let(LocalDate::parse)?.coerceAtMost(today) ?: today,
     )
 }

@@ -938,15 +938,13 @@ class StatsMapperTest {
 
     @Test
     fun `a platform that kept only part of last week gives no baseline`() {
-        // Retention reached back to last Wednesday only: Mon and Tue come back empty, not idle.
+        // Retention reached back to last Wednesday only: Mon and Tue are absent, not idle.
         val state = mapAll(
             device = deviceUsage(
                 1L to mapOf("a" to 7200L),
                 2L to mapOf("a" to 7200L),
                 3L to mapOf("a" to 7200L),
                 8L to mapOf("a" to 3600L),
-                9L to emptyMap(),
-                10L to emptyMap(),
             ),
         )
 
