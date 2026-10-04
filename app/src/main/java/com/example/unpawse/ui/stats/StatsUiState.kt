@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.stats
 
+import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
 import com.example.unpawse.ui.format.NO_DATA
@@ -11,6 +12,8 @@ import com.example.unpawse.ui.format.NO_DATA
 data class StatsUiState(
     /** Header avatar letter; see [com.example.unpawse.ui.format.avatarInitialFor]. */
     val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
+    /** The chosen cat; [AVATAR_NONE] shows [avatarInitial] instead. */
+    val avatarId: Int = AVATAR_NONE,
     val dailyTotal: String,
     val deltaText: String,
     val deltaIsPositive: Boolean,

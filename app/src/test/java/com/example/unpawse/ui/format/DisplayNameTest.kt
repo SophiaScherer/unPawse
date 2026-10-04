@@ -35,6 +35,14 @@ class DisplayNameTest {
     }
 
     @Test
+    fun `a name field keeps at most thirty characters`() {
+        assertEquals("Sophia", capDisplayName("Sophia"))
+        val long = "Maximiliana Theodora Wilhelmina Featherstonehaugh"
+        assertEquals(MAX_DISPLAY_NAME_LENGTH, capDisplayName(long).length)
+        assertEquals(long.take(30), capDisplayName(long))
+    }
+
+    @Test
     fun `a name that is already set is returned unchanged`() {
         assertEquals("Sophia", displayNameOf("Sophia"))
     }

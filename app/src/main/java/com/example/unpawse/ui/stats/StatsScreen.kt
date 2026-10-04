@@ -80,7 +80,11 @@ fun StatsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
-        item { ScreenHeader(title = "unPawse", avatarInitial = state.avatarInitial) }
+        item { ScreenHeader(
+                title = "unPawse",
+                avatarInitial = state.avatarInitial,
+                avatarId = state.avatarId,
+            ) }
         // Above every card, because it governs all of them — the chart, the trend and the donut all
         // change meaning with it. It sat inside the first card and read as though it belonged to
         // that card's figure alone.

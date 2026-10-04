@@ -52,14 +52,15 @@ import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.Chevron
 import com.example.unpawse.ui.components.ConfirmDialog
-import com.example.unpawse.ui.components.InitialsAvatar
 import com.example.unpawse.ui.components.OptionPickerDialog
+import com.example.unpawse.ui.components.ProfileAvatar
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
 import com.example.unpawse.ui.components.SettingsRow
 import com.example.unpawse.ui.theme.unPawseColors
 import com.example.unpawse.ui.components.ValueText
 import com.example.unpawse.ui.format.avatarInitialFor
+import com.example.unpawse.ui.format.capDisplayName
 import com.example.unpawse.ui.navigation.SettingsRowIds
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.ThemeMode
@@ -186,7 +187,7 @@ fun SettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
-        item { SettingsHeader(state.userName, onBack) }
+        item { SettingsHeader(state.userName, state.avatarId, onBack) }
 
         item {
             SectionLabel(text = "Profile", uppercase = true)
@@ -417,11 +418,13 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsHeader(userName: String, onBack: () -> Unit) {
+private fun SettingsHeader(userName: String, avatarId: Int, onBack: () -> Unit) {
     BackHeader(
         title = "Settings",
         onBack = onBack,
-        trailing = { InitialsAvatar(initial = avatarInitialFor(userName), size = 40.dp) },
+        trailing = {
+            ProfileAvatar(avatarId = avatarId, initial = avatarInitialFor(userName), size = 40.dp)
+        },
     )
 }
 
@@ -439,7 +442,7 @@ private fun NameEditDialog(
         text = {
             OutlinedTextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = { text = capDisplayName(it) },
                 singleLine = true,
                 label = { Text("Name") },
             )

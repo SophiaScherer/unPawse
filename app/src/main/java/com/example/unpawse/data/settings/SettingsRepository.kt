@@ -80,6 +80,14 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
      */
     val avatarId: Flow<Int> = dataStore.data.map { it[Keys.AVATAR_ID] ?: AVATAR_NONE }
 
+    /** Name and avatar together, for the headers that show both. */
+    val profile: Flow<UserProfile> = dataStore.data.map {
+        UserProfile(
+            name = it[Keys.USER_NAME] ?: DEFAULT_USER_NAME,
+            avatarId = it[Keys.AVATAR_ID] ?: AVATAR_NONE,
+        )
+    }
+
     /**
      * Whether the first-run tour has been finished. This is what decides the app's start
      * destination, so it must be read before the nav graph is built — never after.

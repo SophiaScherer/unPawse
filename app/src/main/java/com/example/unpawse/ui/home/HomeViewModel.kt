@@ -45,12 +45,15 @@ class HomeViewModel(
         usageRepository.observeMonitoredApps(),
         usageRepository.observeTodayUsage(),
         captureRepository.observeCaptures(),
-        settingsRepository.userName,
+        settingsRepository.profile,
         // The fifth and last top-level slot; a sixth flow goes into a holder rather than here, the
         // arity rule `SettingsViewModel` already lives under.
         permissions,
-    ) { monitoredApps, todayUsage, captures, userName, protection ->
-        toHomeUiState(monitoredApps, todayUsage, captures, userName, protection)
+    ) { monitoredApps, todayUsage, captures, profile, protection ->
+        toHomeUiState(
+            monitoredApps, todayUsage, captures, profile.name, protection,
+            avatarId = profile.avatarId,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),

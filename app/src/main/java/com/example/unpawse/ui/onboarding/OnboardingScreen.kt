@@ -56,6 +56,7 @@ import com.example.unpawse.ui.components.InitialsAvatar
 import com.example.unpawse.ui.components.PawCard
 import com.example.unpawse.ui.components.ProfileAvatar
 import com.example.unpawse.ui.format.avatarInitialFor
+import com.example.unpawse.ui.format.capDisplayName
 import com.example.unpawse.ui.format.displayNameOf
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.FieldShape
@@ -226,7 +227,7 @@ private fun StepDetail(
 
         OnboardingStep.NAME -> OutlinedTextField(
             value = state.answers.userName,
-            onValueChange = onNameChange,
+            onValueChange = { onNameChange(capDisplayName(it)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             shape = FieldShape,

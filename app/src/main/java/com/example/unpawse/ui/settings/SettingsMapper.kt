@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.settings
 
 import com.example.unpawse.data.schedule.ScheduleWindow
+import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.data.usage.DAILY_EARNED_CAP_MINUTES
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.REWARD_COOLDOWN_MINUTES
@@ -125,8 +126,10 @@ internal fun toSettingsUiState(
     overlayAccessGranted: Boolean,
     notificationsGranted: Boolean,
     versionLabel: String,
+    avatarId: Int = AVATAR_NONE,
 ): SettingsUiState = SettingsUiState(
     userName = userName,
+    avatarId = avatarId,
     dailyLimitLabel = dailyLimitSummary(monitoredApps),
     appLimitsSummary = monitoredAppsSummary(monitoredApps),
     schedulesSummary = schedulesSummary(scheduleWindows),
