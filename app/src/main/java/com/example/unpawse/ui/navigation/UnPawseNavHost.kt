@@ -123,14 +123,17 @@ fun UnPawseNavHost(
         composable(Routes.ONBOARDING) {
             OnboardingRoute(
                 onFinished = {
-                    if (startDestination == Routes.ONBOARDING) {
-                        // First run: Home replaces onboarding outright, so a back press from Home
-                        // leaves the app rather than replaying the tour.
+                    // Decided by the back stack, not by the start destination: that is latched once
+                    // per composition, so a replay finished in the same session as the first run
+                    // would otherwise push a second Home over Settings.
+                    if (navController.previousBackStackEntry == null) {
+                        // Nothing underneath (first run): Home replaces the tour outright, so a back
+                        // press from Home leaves the app rather than replaying it.
                         navController.navigate(Routes.HOME) {
                             popUpTo(Routes.ONBOARDING) { inclusive = true }
                         }
                     } else {
-                        // A replay from Settings was pushed on top of it; go back where it came from.
+                        // Pushed over Settings (replay) or Home (after a reset); return there.
                         navController.popBackStack()
                     }
                 },
