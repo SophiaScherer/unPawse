@@ -13,6 +13,10 @@ data class StatsUiState(
     val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
     val dailyTotal: String,
     val deltaText: String,
+    /**
+     * Whether today has already passed yesterday's total — the only direction that is settled while
+     * the day is still running, and so the only one the screen draws an arrow for.
+     */
     val deltaIsPositive: Boolean,
     /**
      * Whether [deltaText] is a real comparison. False on a first day, when there is no yesterday to
@@ -22,8 +26,8 @@ data class StatsUiState(
      */
     val deltaHasBaseline: Boolean,
     /**
-     * Hours per day across the Mon–Sun week, `null` for a day still to come. A past day with no
-     * usage is a real `0f`; one numeric slot cannot say both that and "this day hasn't happened",
+     * Hours per day across the Mon–Sun week, `null` for a day still to come or one from before the
+     * series began measuring. A measured day with no usage is a real `0f`; one numeric slot cannot say both that and "this day hasn't happened",
      * which is the same reason [deltaHasBaseline] exists.
      */
     val weeklyPoints: List<Float?>,
@@ -41,7 +45,10 @@ data class StatsUiState(
     val trendHasBaseline: Boolean,
     /** The trend's period, stated on the card's face because week-to-date isn't guessable. */
     val trendCaption: String,
-    /** One per day of the same week [trendLabel] compares; `null` for a day still to come. */
+    /**
+     * One per day of the same week [trendLabel] compares; `null` for a day still to come or one
+     * from before measuring began.
+     */
     val trendBars: List<Float?>,
     /**
      * The figure in the middle of the donut: the total of [breakdown], formatted.
@@ -124,7 +131,7 @@ data class StatsUiState(
         fun sample() = StatsUiState(
             avatarInitial = 'S',
             dailyTotal = "3h 24m",
-            deltaText = "12% from yesterday",
+            deltaText = "12% below yesterday so far",
             deltaIsPositive = false,
             deltaHasBaseline = true,
             weeklyPoints = listOf(2.1f, 2.6f, 2.9f, 3.4f, 3.8f, null, null),
@@ -134,7 +141,7 @@ data class StatsUiState(
             trendLabel = "-5.2h",
             trendIsUp = false,
             trendHasBaseline = true,
-            trendCaption = "VS LAST WEEK, SAME DAYS",
+            trendCaption = "MON–THU VS LAST WEEK",
             // highlightDayIndex is Friday, so the weekend has not happened yet.
             trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f, null, null),
             breakdownTotal = "2h 37m",

@@ -21,8 +21,11 @@ import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.data.usage.UsageSeries
 import com.example.unpawse.data.usage.deviceUsageSeries
+import com.example.unpawse.data.usage.firstMeasuredDay
+import com.example.unpawse.data.usage.mergeUsageHistory
 import com.example.unpawse.data.usage.trackedUsageSeries
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -62,6 +65,7 @@ class StatsViewModel(
      */
     private val today: Flow<LocalDate>,
     private val zone: () -> ZoneId,
+    private val nowMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
     /** The day-keyed series behind the charts and badges, gathered so the combine stays narrow. */
@@ -85,6 +89,7 @@ class StatsViewModel(
     private data class DeviceUsageSnapshot(
         /** The last day of the window read; a snapshot for another day is treated as not read yet. */
         val endingOn: LocalDate,
+        val readAtMillis: Long,
         val secondsByDateAndPackage: Map<String, Map<String, Long>>?,
         val installed: List<InstalledApp>,
     )
@@ -96,8 +101,8 @@ class StatsViewModel(
      * once a second while a monitored app is in front, so a live full-history flow would re-deliver
      * and re-fold every row on every tick — after a year that is thousands of rows at 1 Hz, to
      * recompute facts that are by definition historical. Same one-shot pattern `AppPickerViewModel`
-     * uses for the installed-app list. A badge earned during this visit therefore appears on the
-     * next one, which is the right trade for keeping the hot path clean.
+     * uses for the installed-app list. The live 14-day window is laid over it before the rules
+     * run ([mergeUsageHistory]), so recent days are current even though this read is not.
      */
     private val allUsage = MutableStateFlow<List<DailyUsage>>(emptyList())
 
@@ -109,6 +114,10 @@ class StatsViewModel(
 
     /** The day the screen is showing, once known; what a resume or a scope change reloads for. */
     private val currentDay = MutableStateFlow<LocalDate?>(null)
+
+    /** The read in flight and the day it is for, so overlapping triggers don't each start one. */
+    private var deviceLoad: Job? = null
+    private var deviceLoadDay: LocalDate? = null
 
     init {
         viewModelScope.launch { allUsage.value = usageRepository.allUsage() }
@@ -136,19 +145,20 @@ class StatsViewModel(
         // The day the windows were queried for, so the series and the mapper cannot straddle
         // midnight differently.
         val day = history.day
+        // Before the one-shot read lands this is just the chart window: a badge briefly missing is
+        // better than one briefly claiming to be un-earned.
+        val allUsage = mergeUsageHistory(history.allUsage, history.recentUsage)
         toStatsUiState(
             monitoredApps = monitoredApps,
             recentUsage = history.recentUsage,
             captures = captures,
             unlocks = history.unlocks,
             userName = name,
-            // Before the one-shot read lands, fall back to the chart window rather than an empty
-            // list: a badge briefly missing is better than one briefly claiming to be un-earned.
-            allUsage = history.allUsage.ifEmpty { history.recentUsage },
+            allUsage = allUsage,
             today = day,
             zone = zone(),
             scope = scope,
-            series = seriesFor(scope, monitoredApps, history, day),
+            series = seriesFor(scope, monitoredApps, history, allUsage, day),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -169,9 +179,15 @@ class StatsViewModel(
         scope: UsageScope,
         monitoredApps: List<MonitoredApp>,
         history: StatsHistory,
+        allUsage: List<DailyUsage>,
         day: LocalDate,
     ): UsageSeries? = when (scope) {
-        UsageScope.TRACKED -> trackedUsageSeries(history.recentUsage, monitoredApps, day)
+        UsageScope.TRACKED -> trackedUsageSeries(
+            history.recentUsage,
+            monitoredApps,
+            day,
+            measuredSince = firstMeasuredDay(allUsage, day),
+        )
         UsageScope.ALL -> history.device?.takeIf { it.endingOn == day }?.secondsByDateAndPackage?.let { byDate ->
             deviceUsageSeries(
                 secondsByDateAndPackage = byDate,
@@ -185,9 +201,9 @@ class StatsViewModel(
     fun onScopeChange(scope: UsageScope) {
         viewModelScope.launch {
             setUsageScope(scope)
-            // Loading here as well as in `init` is what makes the first tap on "All apps" show
+            // Loading here as well as on start is what makes the first tap on "All apps" show
             // figures, rather than an empty card waiting for a resume to fill it.
-            if (scope == UsageScope.ALL) loadDeviceUsage(currentDay.value ?: return@launch)
+            currentDay.value?.let(::requestDeviceUsage)
         }
     }
 
@@ -203,16 +219,38 @@ class StatsViewModel(
         currentDay.value?.let(::requestDeviceUsage)
     }
 
+    /**
+     * Reads the platform's figures for [day] unless that is already happening or was just done.
+     * Opening the screen fires both the flow's start and the Route's resume, which used to mean two
+     * `PackageManager` sweeps and twenty-eight binder calls for one visit (audit PERF-06).
+     */
     private fun requestDeviceUsage(day: LocalDate) {
         currentDay.value = day
-        viewModelScope.launch {
-            if (usageScope.first() == UsageScope.ALL) loadDeviceUsage(day)
+        if (deviceLoad?.isActive == true) {
+            if (deviceLoadDay == day) return
+            deviceLoad?.cancel()
+        }
+        deviceLoadDay = day
+        deviceLoad = viewModelScope.launch {
+            if (usageScope.first() != UsageScope.ALL) return@launch
+            if (deviceUsage.value?.isFreshFor(day) == true) return@launch
+            loadDeviceUsage(day)
         }
     }
+
+    /**
+     * A recent read of [day] that found figures. One that found no usage access is never fresh: the
+     * resume after granting it is exactly the read that must not be skipped.
+     */
+    private fun DeviceUsageSnapshot.isFreshFor(day: LocalDate): Boolean =
+        endingOn == day &&
+            secondsByDateAndPackage != null &&
+            nowMillis() - readAtMillis in 0 until DEVICE_USAGE_FRESH_MILLIS
 
     private suspend fun loadDeviceUsage(day: LocalDate) {
         deviceUsage.value = DeviceUsageSnapshot(
             endingOn = day,
+            readAtMillis = nowMillis(),
             secondsByDateAndPackage = deviceUsageProvider.dailySecondsByDate(
                 STATS_HISTORY_DAYS.toInt(),
                 endingOn = day,
@@ -225,6 +263,7 @@ class StatsViewModel(
 
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L
+        private const val DEVICE_USAGE_FRESH_MILLIS = 10_000L
 
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -240,6 +279,7 @@ class StatsViewModel(
                     container.deviceUsageProvider,
                     today = container.clockTicks.dates(),
                     zone = container.dayClock::zone,
+                    nowMillis = container.dayClock::nowMillis,
                 )
             }
         }

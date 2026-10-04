@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Celebration
@@ -170,15 +169,20 @@ private fun DailyScreenTimeCard(
                     // With no yesterday to compare against there is no direction to report, so the
                     // arrow is omitted entirely rather than defaulted: any usage at all beats zero,
                     // so a default would put a red "went up" arrow beside "No data for yesterday".
-                    val deltaTint = when {
-                        !state.deltaHasBaseline -> MaterialTheme.colorScheme.onSurfaceVariant
-                        state.deltaIsPositive -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.unPawseColors.success
+                    //
+                    // Only a rise gets an arrow. Today is still running, so being under yesterday
+                    // is "so far" rather than an improvement, and a green down arrow claimed one
+                    // every morning.
+                    val rose = state.deltaHasBaseline && state.deltaIsPositive
+                    val deltaTint = if (rose) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     }
-                    if (state.deltaHasBaseline) {
+                    if (rose) {
                         Icon(
-                            if (state.deltaIsPositive) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-                            contentDescription = if (state.deltaIsPositive) "Up from yesterday" else "Down from yesterday",
+                            Icons.Filled.ArrowUpward,
+                            contentDescription = "Up from yesterday",
                             tint = deltaTint,
                             modifier = Modifier.size(16.dp),
                         )

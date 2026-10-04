@@ -47,12 +47,15 @@ class StatsViewModelTest {
     private val today = MutableStateFlow(sunday)
     private val scope = MutableStateFlow(UsageScope.TRACKED)
     private val device = RecordingDeviceUsage()
+    private var nowMillis = 0L
 
     private class RecordingDeviceUsage : DeviceUsageProvider {
         val requested = mutableListOf<LocalDate>()
+        var granted = true
         override suspend fun dailyAverageSeconds(days: Int): Map<String, Long>? = emptyMap()
-        override suspend fun dailySecondsByDate(days: Int, endingOn: LocalDate): Map<String, Map<String, Long>> {
+        override suspend fun dailySecondsByDate(days: Int, endingOn: LocalDate): Map<String, Map<String, Long>>? {
             requested += endingOn
+            if (!granted) return null
             return mapOf(endingOn.toString() to mapOf("x" to 120L * 60))
         }
     }
@@ -76,6 +79,7 @@ class StatsViewModelTest {
         deviceUsageProvider = device,
         today = today,
         zone = { zone },
+        nowMillis = { nowMillis },
     )
 
     @Test
@@ -97,7 +101,7 @@ class StatsViewModelTest {
         // A fresh week: Monday measured, the rest still to come.
         assertEquals(0f, monday.weeklyPoints.first())
         assertNull(monday.weeklyPoints[1])
-        assertEquals("100% from yesterday", monday.deltaText)
+        assertEquals("100% below yesterday so far", monday.deltaText)
     }
 
     @Test
@@ -112,5 +116,70 @@ class StatsViewModelTest {
         assertEquals(listOf(sunday, sunday.plusDays(1)), device.requested)
         assertEquals("2h", vm.uiState.value.dailyTotal)
         assertEquals(0, vm.uiState.value.highlightDayIndex)
+    }
+
+    @Test
+    fun `opening the screen reads the platform once, not once per trigger`() = runTest {
+        scope.value = UsageScope.ALL
+        val vm = viewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+
+        // The Route's resume lands straight after the flow's own start.
+        vm.refresh()
+
+        assertEquals(1, device.requested.size)
+    }
+
+    @Test
+    fun `a resume after the snapshot goes stale reads again`() = runTest {
+        scope.value = UsageScope.ALL
+        val vm = viewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+
+        nowMillis += 60_000L
+        vm.refresh()
+
+        assertEquals(2, device.requested.size)
+    }
+
+    @Test
+    fun `a read without usage access is retried on the next resume`() = runTest {
+        // Returning from the grant screen is the read that must never be skipped as fresh.
+        scope.value = UsageScope.ALL
+        device.granted = false
+        val vm = viewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        assertEquals(true, vm.uiState.value.scopeUnavailable)
+
+        device.granted = true
+        vm.refresh()
+
+        assertEquals(2, device.requested.size)
+        assertEquals("2h", vm.uiState.value.dailyTotal)
+    }
+
+    @Test
+    fun `tracked scope never reads the platform`() = runTest {
+        val vm = viewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        vm.refresh()
+
+        assertEquals(emptyList<LocalDate>(), device.requested)
+    }
+
+    @Test
+    fun `badges read the live window over the one-shot history`() = runTest {
+        // Under Budget for yesterday must judge the final total, not what the history read caught.
+        usage.setLimit("a", "A", dailyLimitMinutes = 60)
+        usage.addUsage("a", 30.minutes)
+        val vm = viewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        usage.addUsage("a", 60.minutes)
+
+        repoToday = sunday.plusDays(1)
+        today.value = sunday.plusDays(1)
+
+        val underBudget = vm.uiState.value.achievements.single { it.title == "Under Budget" }
+        assertEquals(false, underBudget.unlocked)
     }
 }
