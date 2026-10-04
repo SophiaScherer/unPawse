@@ -37,6 +37,15 @@
          camera from the background. Granted via a system Settings toggle, not a runtime dialog. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- The privacy policy promises no network access. ML Kit's telemetry transport pulls both of
+         these in transitively; nothing the app itself does needs the network. -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+
     <!--
       Android 11+ package visibility. The app picker only ever offers launchable apps, so we declare
       the LAUNCHER intent rather than requesting QUERY_ALL_PACKAGES — the narrower ask, and one that
@@ -112,6 +121,16 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!--
+          Unregisters ML Kit's telemetry backend, so its usage events are dropped before they are
+          queued instead of piling up unsendable. Detection never uses it. The transport's job
+          service and alarm receiver stay: a leftover queue from an older install still schedules a
+          job, which then finds no backend and deletes the batch.
+        -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="remove" />
     </application>
 
 </manifest>
