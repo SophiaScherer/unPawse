@@ -3,7 +3,7 @@
 ## What was built
 
 - **No network permissions.** `INTERNET` and `ACCESS_NETWORK_STATE` came in through ML Kit's transitive `com.google.android.datatransport` libraries. `AndroidManifest.xml` now removes both with `tools:node="remove"`.
-- **ML Kit telemetry disabled at the source.** The manifest also removes `com.google.android.datatransport.runtime.backends.TransportBackendDiscovery`, which is where the `cct` backend (Firebase logging) registers. With no backend registered, `DefaultScheduler` drops every `FIREBASE_ML_SDK` event before it is stored ("Transport backend 'cct' is not registered", a warning). No events are queued and no upload jobs are scheduled.
+- **ML Kit's own telemetry backend removed.** The manifest also removes `com.google.android.datatransport.runtime.backends.TransportBackendDiscovery`, which is where the `cct` backend (Firebase logging) registers. With no backend registered, `DefaultScheduler` drops every `FIREBASE_ML_SDK` event before it is stored ("Transport backend 'cct' is not registered", a warning). No events are queued and no upload jobs are scheduled.
 - **Privacy policy matches the app.** `PrivacyPolicyContent.kt` now covers: the telemetry switch-off; everything that is actually stored (block counts, unlock counts, categories, weekend budgets, schedules, photo dimensions, earned minutes, favorites); Export data as a user-started way for data to leave the device; usage access also feeding the App Picker and Stats' "All apps" view; the reminder, warning and summary notifications; background running; and Delete all data. The backup paragraph is unchanged and still accurate.
 - **Status-bar icon.** `res/drawable/ic_stat_cat.xml` is a single-fill vector: the launcher's monochrome cat head, cropped to 24dp with about 1dp of padding. `Notifications.builder` uses it, and every notification goes through that builder.
 
@@ -36,3 +36,8 @@
 5. Grant usage access and the overlay permission, launch the app, and open the shade. The "unPawse is watching your limits" row should show the cat-head silhouette.
 
 All five were done on the API-36 emulator (2026-10-04). Steps 1 and 2 were done before and after the change. The upgrade path was also exercised: install the old build, capture offline to queue events, `install -r` the new build, then `cmd jobscheduler run -f` the leftover jobs. The result was a caught `SecurityException` and no crash.
+
+## Review follow-up
+
+- An independent review found a second ML Kit telemetry path: the labeller logs anonymous call counts through Google Play services (`TelemetryLoggingClient`, IPC to GmsCore), which uploads with its own network access. There is no clean way to disable it from the app, so the policy now discloses it (counts and timing only, never the photo or its result) instead of claiming reporting is off. Removing it entirely would mean dropping or replacing ML Kit, which is Sophia's call.
+- Also corrected: warnings are on by default (only reminders and the summary are opt-in), device-to-device transfer copies data too, and the manifest comment about leftover event queues.

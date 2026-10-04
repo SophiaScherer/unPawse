@@ -125,8 +125,8 @@
         <!--
           Unregisters ML Kit's telemetry backend, so its usage events are dropped before they are
           queued instead of piling up unsendable. Detection never uses it. The transport's job
-          service and alarm receiver stay: a leftover queue from an older install still schedules a
-          job, which then finds no backend and deletes the batch.
+          service and alarm receiver stay so JobScheduler never points at a missing component; a
+          queue left by an older install just fails its network check and stays put.
         -->
         <service
             android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
