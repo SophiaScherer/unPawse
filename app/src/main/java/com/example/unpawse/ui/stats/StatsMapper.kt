@@ -260,13 +260,13 @@ private fun trendCaption(days: List<LocalDate>): String {
     return "VS LAST $span"
 }
 
+/** Whether a week-over-week change is too small to show as anything but "0.0h". */
+internal fun trendIsLevel(deltaSeconds: Long): Boolean = trendLabel(deltaSeconds) == "0.0h"
+
 /**
  * Week-over-week change, signed. Zero is written without a sign: `-0.0h` was reachable whenever
  * the two weeks matched exactly, which reads as a decrease that didn't happen.
  */
-/** Whether a week-over-week change is too small to show as anything but "0.0h". */
-internal fun trendIsLevel(deltaSeconds: Long): Boolean = trendLabel(deltaSeconds) == "0.0h"
-
 internal fun trendLabel(deltaSeconds: Long): String {
     val hours = deltaSeconds / SECONDS_PER_HOUR
     val rounded = String.format(Locale.US, "%.1f", abs(hours))

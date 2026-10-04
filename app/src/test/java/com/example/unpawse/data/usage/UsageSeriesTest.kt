@@ -99,6 +99,47 @@ class UsageSeriesTest {
     }
 
     @Test
+    fun `the day the platform's history starts is partial, so it is not measured`() {
+        val edge = today.minusDays(9)
+        val series = deviceUsageSeries(
+            mapOf(edge.toString() to mapOf("a" to 3600L), today.minusDays(8).toString() to mapOf("a" to 32_400L)),
+            platformCategories = emptyMap(),
+            monitoredApps = emptyList(),
+            today = today,
+            readSince = today.minusDays(13),
+        )
+
+        assertEquals(today.minusDays(8), series.measuredSince)
+    }
+
+    @Test
+    fun `history reaching the start of the read is measured from there`() {
+        val start = today.minusDays(13)
+        val series = deviceUsageSeries(
+            mapOf(start.toString() to mapOf("a" to 3600L), today.toString() to mapOf("a" to 60L)),
+            platformCategories = emptyMap(),
+            monitoredApps = emptyList(),
+            today = today,
+            readSince = start,
+        )
+
+        assertEquals(start, series.measuredSince)
+    }
+
+    @Test
+    fun `a first day of usage today stays measured`() {
+        val series = deviceUsageSeries(
+            mapOf(today.toString() to mapOf("a" to 60L)),
+            platformCategories = emptyMap(),
+            monitoredApps = emptyList(),
+            today = today,
+            readSince = today.minusDays(13),
+        )
+
+        assertEquals(today, series.measuredSince)
+    }
+
+    @Test
     fun `a stored category beats the platform's guess`() {
         val installed = listOf(InstalledApp("com.ig", "Instagram", AppCategory.SOCIAL))
 

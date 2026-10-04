@@ -78,6 +78,10 @@ fun trackedUsageSeries(
  * [UsageSeries.measuredSince] starts after it: the chart draws no mark for it and the trend finds no
  * baseline, instead of claiming a day spent off the phone. A present but empty day is a real zero.
  *
+ * When the earliest present date is later than [readSince], it is where the platform's history
+ * starts, and the platform prunes whole files that don't begin at local midnight — so that day holds
+ * only part of its usage and counts as unmeasured too.
+ *
  * [platformCategories] is each package's own declaration, `null` where it made none; see
  * [categoryFromPlatform] for why that map is deliberately sparse.
  */
@@ -86,6 +90,7 @@ fun deviceUsageSeries(
     platformCategories: Map<String, AppCategory?>,
     monitoredApps: List<MonitoredApp>,
     today: LocalDate,
+    readSince: LocalDate? = null,
 ): UsageSeries {
     val todayByPackage = secondsByDateAndPackage[today.toString()].orEmpty()
     val resolved = resolveCategories(platformCategories, monitoredApps)
@@ -95,9 +100,14 @@ fun deviceUsageSeries(
         // Everything the platform reported gets a bucket, so nothing silently vanishes from the
         // donut — an app we can't classify is exactly what OTHER means.
         categories = todayByPackage.keys.associateWith { resolved[it] ?: AppCategory.OTHER },
-        measuredSince = secondsByDateAndPackage.keys
-            .minOrNull()?.let(LocalDate::parse)?.coerceAtMost(today) ?: today,
+        measuredSince = deviceMeasuredSince(secondsByDateAndPackage.keys, today, readSince),
     )
+}
+
+private fun deviceMeasuredSince(dates: Set<String>, today: LocalDate, readSince: LocalDate?): LocalDate {
+    val earliest = dates.minOfOrNull(LocalDate::parse)?.coerceAtMost(today) ?: return today
+    val retentionEdge = readSince != null && earliest > readSince && earliest < today
+    return if (retentionEdge) earliest.plusDays(1) else earliest
 }
 
 /**

@@ -201,6 +201,7 @@ class StatsViewModel(
                 platformCategories = history.device.installed.platformCategories(),
                 monitoredApps = monitoredApps,
                 today = day,
+                readSince = day.minusDays(STATS_HISTORY_DAYS - 1),
             )
         }
     }
