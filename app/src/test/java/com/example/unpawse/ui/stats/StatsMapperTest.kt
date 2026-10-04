@@ -751,6 +751,7 @@ class StatsMapperTest {
         assertEquals(1f, state.weeklyPoints[1]!!, 0.001f)
         assertEquals(null, state.trendBars[0])
         assertEquals(1f, state.trendBars[1]!!, 0.001f)
+        assertEquals("today is not a complete day", null, state.trendBars[3])
     }
 
     @Test
@@ -773,30 +774,59 @@ class StatsMapperTest {
     // weeks: two windows in one card, with nothing to tell them apart.
 
     @Test
-    fun `the sparkline covers the same week as the headline`() {
-        // today is Thursday; Tuesday saw half of today's usage.
-        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 2, 30)))
+    fun `the sparkline covers the same days as the headline`() {
+        // today is Thursday; Tuesday saw half of Wednesday's usage, and today's doesn't count.
+        val state = map(recentUsage = listOf(usage("a", 0, 600), usage("a", 1, 60), usage("a", 2, 30)))
 
         assertEquals(7, state.trendBars.size)
         assertEquals(state.weekdayLabels.size, state.trendBars.size)
-        assertEquals(1f, state.trendBars[3]!!, 0.001f)
+        assertEquals(1f, state.trendBars[2]!!, 0.001f)
         assertEquals(0.5f, state.trendBars[1]!!, 0.001f)
         assertEquals("Monday saw nothing, which is a real zero", 0f, state.trendBars[0]!!, 0.001f)
     }
 
     @Test
-    fun `days still to come have no bar`() {
+    fun `today and the days still to come have no bar`() {
         val state = map(recentUsage = listOf(usage("a", 0, 60)))
 
-        assertTrue("Fri-Sun have not happened", state.trendBars.takeLast(3).all { it == null })
-        assertTrue("Mon-Thu have", state.trendBars.take(4).none { it == null })
+        assertTrue("Thu-Sun are not complete", state.trendBars.takeLast(4).all { it == null })
+        assertTrue("Mon-Wed are", state.trendBars.take(3).none { it == null })
+    }
+
+    /** It drew one full bar for today beside "NO FULL DAY YET". */
+    @Test
+    fun `a monday's sparkline is empty, matching its caption`() {
+        val monday = LocalDate.of(2026, 7, 13)
+        val state = map(recentUsage = listOf(usage("a", 0, 60, from = monday)), on = monday)
+
+        assertEquals("NO FULL DAY YET", state.trendCaption)
+        assertTrue(state.trendBars.all { it == null })
     }
 
     @Test
-    fun `a week with no usage still has a bar per elapsed day`() {
+    fun `a week with no usage still has a bar per completed day`() {
         val state = map()
 
-        assertEquals(listOf(0f, 0f, 0f, 0f), state.trendBars.take(4))
+        assertEquals(listOf(0f, 0f, 0f), state.trendBars.take(3))
+    }
+
+    @Test
+    fun `a change that rounds to nothing is level, with no direction`() {
+        // Two minutes more than last Wednesday reads "0.0h"; an up arrow beside it would be a claim.
+        val state = map(recentUsage = listOf(usage("a", 1, 62), usage("a", 8, 60)))
+
+        assertEquals("0.0h", state.trendLabel)
+        assertTrue(state.trendIsLevel)
+        assertFalse(state.trendIsUp)
+    }
+
+    @Test
+    fun `a change that shows as a figure is not level`() {
+        val state = map(recentUsage = listOf(usage("a", 1, 66), usage("a", 8, 60)))
+
+        assertEquals("+0.1h", state.trendLabel)
+        assertFalse(state.trendIsLevel)
+        assertTrue(state.trendIsUp)
     }
 
     // --- Streak label ---------------------------------------------------------------------------

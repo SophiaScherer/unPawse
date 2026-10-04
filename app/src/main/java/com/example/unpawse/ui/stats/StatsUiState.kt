@@ -37,6 +37,8 @@ data class StatsUiState(
     val trendLabel: String,
     /** Whether week-over-week usage rose. Drives the arrow direction, which used to be hardcoded. */
     val trendIsUp: Boolean,
+    /** Whether the change rounds to nothing; the screen then draws no arrow, as for vs-yesterday. */
+    val trendIsLevel: Boolean = false,
     /**
      * Whether [trendLabel] is a real comparison. False until there is a last week to measure
      * against — a fresh install summed zero for it and rendered "+0.5h" beside an upward arrow, a
@@ -46,8 +48,8 @@ data class StatsUiState(
     /** The trend's period, stated on the card's face because week-to-date isn't guessable. */
     val trendCaption: String,
     /**
-     * One per day of the same week [trendLabel] compares; `null` for a day still to come or one
-     * from before measuring began.
+     * One per day of the week; drawn only for the completed days [trendLabel] compares, `null` for
+     * today, the days still to come and any from before measuring began.
      */
     val trendBars: List<Float?>,
     /**
@@ -149,7 +151,7 @@ data class StatsUiState(
             trendHasBaseline = true,
             trendCaption = "VS LAST MON–THU",
             // highlightDayIndex is Friday, so the weekend has not happened yet.
-            trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f, null, null),
+            trendBars = listOf(0.6f, 0.4f, 0.8f, 1f, null, null, null),
             breakdownTotal = "2h 37m",
             breakdown = listOf(
                 UsageCategory("Social", "1h 12m", 72 * 60L, UsageColor.SOCIAL),

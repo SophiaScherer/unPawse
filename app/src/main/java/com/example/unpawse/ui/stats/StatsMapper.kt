@@ -166,7 +166,10 @@ internal fun toStatsUiState(
         highlightDayIndex = today.dayOfWeek.value - 1,
         trendLabel = if (trendHasBaseline) trendLabel(trendDeltaSeconds) else NO_DATA,
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
-        trendIsUp = trendDeltaSeconds > 0,
+        // A change that rounds to "0.0h" is level, as on vs-yesterday: an arrow beside it would
+        // claim a direction the figure itself doesn't show.
+        trendIsUp = trendDeltaSeconds > 0 && !trendIsLevel(trendDeltaSeconds),
+        trendIsLevel = trendIsLevel(trendDeltaSeconds),
         trendHasBaseline = trendHasBaseline,
         trendCaption = when {
             !measured -> ""
@@ -261,6 +264,9 @@ private fun trendCaption(days: List<LocalDate>): String {
  * Week-over-week change, signed. Zero is written without a sign: `-0.0h` was reachable whenever
  * the two weeks matched exactly, which reads as a decrease that didn't happen.
  */
+/** Whether a week-over-week change is too small to show as anything but "0.0h". */
+internal fun trendIsLevel(deltaSeconds: Long): Boolean = trendLabel(deltaSeconds) == "0.0h"
+
 internal fun trendLabel(deltaSeconds: Long): String {
     val hours = deltaSeconds / SECONDS_PER_HOUR
     val rounded = String.format(Locale.US, "%.1f", abs(hours))
@@ -275,11 +281,12 @@ internal fun trendLabel(deltaSeconds: Long): String {
 /**
  * The Trend card's sparkline, normalised against the busiest day of the week.
  *
- * Drawn over the **same Mon–Sun week the headline compares**. It used to be a rolling five days,
- * so one small card held two different windows with nothing to tell them apart.
+ * Drawn over the **same completed days the headline compares**: Monday to yesterday. It used to be
+ * a rolling five days, and then the whole week to date — on a Monday that was one full-height bar
+ * for today beside "NO FULL DAY YET".
  *
- * A day still to come is `null`, not `0f`: it has no value to draw, and a zero would claim a day
- * spent off the phone. Same distinction [StatsUiState.weeklyPoints] makes.
+ * Today and the days still to come are `null`, not `0f`: they have no complete value to draw, and a
+ * zero would claim a day spent off the phone. Same distinction [StatsUiState.weeklyPoints] makes.
  */
 private fun weekBars(
     week: List<LocalDate>,
@@ -287,11 +294,11 @@ private fun weekBars(
     usedOn: (LocalDate) -> Long,
     measuredOn: (LocalDate) -> Boolean,
 ): List<Float?> {
-    val elapsed = week.filter { !it.isAfter(today) && measuredOn(it) }
-    val peak = elapsed.maxOfOrNull(usedOn) ?: 0L
+    val completed = week.filter { it.isBefore(today) && measuredOn(it) }
+    val peak = completed.maxOfOrNull(usedOn) ?: 0L
     return week.map { day ->
         when {
-            day.isAfter(today) || !measuredOn(day) -> null
+            !day.isBefore(today) || !measuredOn(day) -> null
             peak == 0L -> 0f
             else -> usedOn(day).toFloat() / peak
         }

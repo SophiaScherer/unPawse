@@ -275,7 +275,7 @@ private fun TrendCard(state: StatsUiState, modifier: Modifier = Modifier) {
             // rose showed "+0.6h" beside a downward arrow. With no last week behind it there is no
             // direction to report, so the arrow goes rather than defaulting — same rule as the
             // vs-yesterday arrow above.
-            if (state.trendHasBaseline) {
+            if (state.trendHasBaseline && !state.trendIsLevel) {
                 Icon(
                     if (state.trendIsUp) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                     contentDescription = if (state.trendIsUp) "Usage up week over week" else "Usage down week over week",
