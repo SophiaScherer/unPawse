@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import com.example.unpawse.ui.navigation.UnPawseBottomBar
 import com.example.unpawse.ui.navigation.UnPawseNavHost
 import com.example.unpawse.ui.navigation.navigateToTab
+import com.example.unpawse.ui.navigation.startDestinationFor
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.isDark
 import com.example.unpawse.ui.theme.overrideFor
@@ -64,8 +65,7 @@ fun UnPawseApp(initialRoute: String? = null) {
     // the tour had just performed.
     var startDestination by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(settings) {
-        startDestination =
-            if (settings.onboardingComplete.first()) Routes.HOME else Routes.ONBOARDING
+        startDestination = startDestinationFor(settings.onboardingComplete.first(), initialRoute)
     }
 
     UnPawseTheme(darkTheme = darkMode) {
@@ -86,11 +86,10 @@ fun UnPawseApp(initialRoute: String? = null) {
         // same tab semantics as the bottom bar: a plain navigate() would push it *onto* Home, and the
         // bottom bar's saveState/restoreState would then save that pushed entry under Home's slot —
         // leaving a later "Home" tap restoring the deep-linked screen instead of Home.
-        // Ignored while the tour is still the start destination: nothing can have raised a block on
-        // a device that has never granted usage access, and honouring it would strand the deep-link
-        // on top of an onboarding that Home has not replaced yet.
-        LaunchedEffect(initialRoute, start) {
-            if (initialRoute == null || start != Routes.HOME) return@LaunchedEffect
+        // A deep link always starts the graph on Home (see startDestinationFor), so this never
+        // pushes on top of the tour.
+        LaunchedEffect(initialRoute) {
+            if (initialRoute == null) return@LaunchedEffect
             val tab = TopLevelDestination.entries.firstOrNull { it.route == initialRoute }
             if (tab != null) navController.navigateToTab(tab) else navController.navigate(initialRoute)
         }
