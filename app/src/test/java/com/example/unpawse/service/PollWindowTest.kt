@@ -35,7 +35,18 @@ class PollWindowTest {
         // Begin before end, so the platform has something to answer; it used to be 40 minutes after.
         assertTrue(window.beginMillis < window.endMillis)
         assertEquals(now - fortyMinutes, window.endMillis)
-        assertEquals(CLOCK_CHANGE_OVERLAP_MILLIS, window.endMillis - window.beginMillis)
+        assertEquals(1_000L + CLOCK_CHANGE_OVERLAP_MILLIS, window.endMillis - window.beginMillis)
+    }
+
+    /** The gap's events are re-stamped into the elapsed span before the new time; reading less lost the stop. */
+    @Test
+    fun `a clock moved back during a screen-off gap still reads the whole gap`() {
+        val gap = 3 * hour
+        val lessThanGap = pollWindow(cursor = now, tick = now + 2 * hour, elapsedMillis = gap)
+        val moreThanGap = pollWindow(cursor = now, tick = now - 5 * hour, elapsedMillis = gap)
+
+        assertEquals(PollWindow(now - hour - CLOCK_CHANGE_OVERLAP_MILLIS, now + 2 * hour), lessThanGap)
+        assertEquals(PollWindow(now - 8 * hour - CLOCK_CHANGE_OVERLAP_MILLIS, now - 5 * hour), moreThanGap)
     }
 
     @Test

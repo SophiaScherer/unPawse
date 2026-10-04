@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -128,10 +129,10 @@ class UsageStatsForegroundAppMonitor(
 /** The half-open span of event time one poll reads. */
 internal data class PollWindow(val beginMillis: Long, val endMillis: Long)
 
-/** How far before a backward clock change a poll re-reads, to catch events raised during the change. */
+/** How far before a clock change a poll re-reads, to catch events raised during the change. */
 internal const val CLOCK_CHANGE_OVERLAP_MILLIS = 2_000L
 
-/** How far the wall clock may run ahead of real elapsed time before it counts as moved. */
+/** How far the wall clock may drift from real elapsed time, either way, before it counts as moved. */
 internal const val CLOCK_JUMP_TOLERANCE_MILLIS = 10_000L
 
 /**
@@ -141,8 +142,9 @@ internal const val CLOCK_JUMP_TOLERANCE_MILLIS = 10_000L
  * The cursor is wall-clock time, so a clock moved back leaves it in the future: the query would have
  * begin after end and return nothing until real time caught up, freezing the monitor on whatever was
  * last in front and stranding a block overlay over every app (audit UX-28). Restarting from the new
- * time fixes that. A clock moved forward reads only the real time that passed, so events stamped
- * before an earlier backward change aren't replayed. Any other gap — however long the screen was off
+ * time fixes that. Either way the window covers only the real time that passed, so a backward
+ * change doesn't drop a stop raised while the screen was off, and a forward one doesn't replay events
+ * stamped before an earlier change. Any other gap — however long the screen was off
  * — is read in full: dropping part of it loses the stop that says the app left.
  *
  * The stack is deliberately kept across a change, because the screen did not change when the clock
@@ -150,12 +152,14 @@ internal const val CLOCK_JUMP_TOLERANCE_MILLIS = 10_000L
  *
  * Pure, so the rule is unit-tested without `UsageStatsManager`.
  */
-internal fun pollWindow(cursor: Long, tick: Long, elapsedMillis: Long): PollWindow = when {
-    tick < cursor -> PollWindow(tick - CLOCK_CHANGE_OVERLAP_MILLIS, tick)
-    tick - cursor - elapsedMillis > CLOCK_JUMP_TOLERANCE_MILLIS ->
+internal fun pollWindow(cursor: Long, tick: Long, elapsedMillis: Long): PollWindow =
+    if (tick < cursor || abs(tick - cursor - elapsedMillis) > CLOCK_JUMP_TOLERANCE_MILLIS) {
+        // The platform re-stamps its history on a clock change, so what happened since the last poll
+        // now sits in the real elapsed span before the new time, whichever way the clock moved.
         PollWindow(tick - elapsedMillis - CLOCK_CHANGE_OVERLAP_MILLIS, tick)
-    else -> PollWindow(cursor, tick)
-}
+    } else {
+        PollWindow(cursor, tick)
+    }
 
 /**
  * What is in front, as the platform reports it: a package *and* the activity within it.
