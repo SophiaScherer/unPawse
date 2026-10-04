@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Flat cat-head silhouette (ears + head), one fill so themed icon tinting stays clean.
+         Ears and head are separate paths (not merged subpaths) so mirroring the right ear
+         can't flip its winding and cancel against the head under the nonZero fill rule. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M38,27 L46,40 L28,47 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M70,27 L62,40 L80,47 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M29,60 A25,25 0 1,0 79,60 A25,25 0 1,0 29,60 Z" />
+</vector>

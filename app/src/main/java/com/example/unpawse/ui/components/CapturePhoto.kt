@@ -39,6 +39,10 @@ const val MISSING_PHOTO_LABEL = "Photo file missing"
  *
  * [compact] drops the caption for slots too small to hold it (the sheet's 56dp thumbnail).
  *
+ * [contentScale] defaults to the grid's crop. The full-screen viewer passes [ContentScale.Fit]: a
+ * tile crops to keep the masonry tidy, but a viewer that cropped would hide the part of the photo
+ * the user opened it to look at.
+ *
  * [decorative] answers a different question: **is this slot a record, or is it the app's own
  * artwork?** A Gallery tile *is* a particular capture, so a missing file has to be named — that is
  * what this component exists for. The block overlay's hero and Home's banner merely borrow a photo
@@ -53,6 +57,7 @@ fun CapturePhoto(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     decorative: Boolean = false,
+    contentScale: ContentScale = ContentScale.Crop,
 ) {
     // Keyed on the path so a recycled grid slot re-tries the new photo rather than inheriting the
     // previous one's failure.
@@ -70,7 +75,7 @@ fun CapturePhoto(
         else -> AsyncImage(
             model = File(imagePath),
             contentDescription = null,
-            contentScale = ContentScale.Crop,
+            contentScale = contentScale,
             // Coil answers "is the file readable?" as part of loading it; File.exists() here would
             // be disk IO on the main thread for a question already being asked.
             onError = { failed = true },

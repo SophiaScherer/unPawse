@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.navigation
 
+import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Home
@@ -18,6 +19,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * on top of the Compose plugin).
  */
 object Routes {
+    /** Path argument of [CAPTURE_VIEWER]; also the key `NavBackStackEntry.arguments` stores it under. */
+    const val ARG_CAPTURE_ID = "captureId"
+
     const val HOME = "home"
     const val CAMERA = "camera"
     const val STATS = "stats"
@@ -30,6 +34,16 @@ object Routes {
      * it is the graph's start destination rather than something Home navigates to.
      */
     const val ONBOARDING = "onboarding"
+
+    /**
+     * Full-screen photo viewer, opened by tapping a Gallery tile. Like [BLOCK] it is a takeover —
+     * no bottom bar (see `UnPawseApp`). The capture's id is the only argument; which photos it can
+     * page across comes from the Gallery's live filter/search, not from the route.
+     */
+    const val CAPTURE_VIEWER = "capture_viewer/{$ARG_CAPTURE_ID}"
+
+    /** Builds a [CAPTURE_VIEWER] destination for one capture. */
+    fun captureViewer(captureId: String) = "capture_viewer/${Uri.encode(captureId)}"
 
     /** Settings sub-screen: choose monitored apps and their daily limits. */
     const val APP_PICKER = "app_picker"

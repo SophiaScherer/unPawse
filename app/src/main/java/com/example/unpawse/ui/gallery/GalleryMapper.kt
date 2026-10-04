@@ -149,9 +149,10 @@ internal fun List<Capture>.toGallerySections(
     groupBy { Instant.ofEpochMilli(it.capturedAt).atZone(zone).toLocalDate() }
         .toSortedMap(reverseOrder())
         .map { (date, captures) ->
+            val title = sectionTitle(date, today)
             GallerySection(
-                title = sectionTitle(date, today),
-                items = captures.map { it.toCaptureItem(zone) },
+                title = title,
+                items = captures.map { it.toCaptureItem(zone, title) },
             )
         }
 
@@ -161,7 +162,7 @@ private fun sectionTitle(date: LocalDate, today: LocalDate): String = when (date
     else -> date.format(DATE_FORMAT)
 }
 
-private fun Capture.toCaptureItem(zone: ZoneId): CaptureItem {
+private fun Capture.toCaptureItem(zone: ZoneId, dateLabel: String): CaptureItem {
     val time = Instant.ofEpochMilli(capturedAt).atZone(zone)
     return CaptureItem(
         id = id,
@@ -178,5 +179,7 @@ private fun Capture.toCaptureItem(zone: ZoneId): CaptureItem {
         isBonus = isBonus,
         imagePath = filePath,
         isFavorite = isFavorite,
+        // The section heading, carried on the item so the viewer can say which day it is showing.
+        dateLabel = dateLabel,
     )
 }
