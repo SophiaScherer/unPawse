@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -163,7 +163,8 @@ fun BlockOverlayScreen(
         val twoPane = maxWidth > maxHeight
         val compact = maxHeight < COMPACT_HEIGHT
         val heroSize = blockHeroSize(maxHeight, LocalDensity.current.fontScale)
-        val scroll = rememberScrollState()
+        // Keyed on the window size so a rotation reopens at the headline rather than mid-sentence.
+        val scroll = remember(maxWidth, maxHeight) { ScrollState(0) }
         Box(contentAlignment = Alignment.TopCenter) {
             CatEars()
             Surface(
