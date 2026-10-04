@@ -221,6 +221,9 @@ class SettingsViewModel(
     /** Trimmed so trailing spaces don't produce a blank-looking name that still counts as "set". */
     fun setUserName(value: String) = viewModelScope.launch { settings.setUserName(value.trim()) }
 
+    /** Persisted on the tap, as in the tour: seeing the header change is the confirmation. */
+    fun setAvatarId(id: Int) = viewModelScope.launch { settings.setAvatarId(id) }
+
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L
 

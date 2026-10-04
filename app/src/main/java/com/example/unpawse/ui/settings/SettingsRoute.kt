@@ -105,6 +105,7 @@ fun SettingsRoute(
             )
         },
         onNameChange = viewModel::setUserName,
+        onAvatarChange = viewModel::setAvatarId,
         onRowClick = { rowId ->
             when (rowId) {
                 SettingsRowIds.APP_LIMITS -> onNavigate(Routes.APP_PICKER)
