@@ -169,6 +169,20 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun `skip intro finishes the tour from any step without saving a typed name`() = runTest {
+        val vm = viewModel()
+        vm.walkTo(OnboardingStep.NAME)
+        vm.setNameDraft("Mia")
+        var handedOff = false
+
+        vm.skipIntro { handedOff = true }
+
+        assertTrue(handedOff)
+        assertTrue(settings.onboardingComplete.first())
+        assertEquals("", settings.userName.first())
+    }
+
+    @Test
     fun `a double tap on the last button hands off once`() = runTest {
         val vm = viewModel()
         vm.walkTo(OnboardingStep.DONE)

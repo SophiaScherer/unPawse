@@ -86,5 +86,6 @@ fun OnboardingRoute(
             }
         },
         onFinish = { viewModel.complete(onFinished) },
+        onSkipIntro = { viewModel.skipIntro(onFinished) },
     )
 }

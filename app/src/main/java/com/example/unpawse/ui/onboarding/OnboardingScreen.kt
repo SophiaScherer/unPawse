@@ -100,6 +100,7 @@ fun OnboardingScreen(
     onAvatarSelected: (Int) -> Unit = {},
     onGrant: (OnboardingStep) -> Unit = {},
     onFinish: () -> Unit = {},
+    onSkipIntro: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -109,7 +110,7 @@ fun OnboardingScreen(
             .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))
             .padding(horizontal = Dimens.ScreenHMargin),
     ) {
-        OnboardingProgress(state = state, onBack = onBack)
+        OnboardingProgress(state = state, onBack = onBack, onSkipIntro = onSkipIntro)
 
         // A fresh scroll position per step, so a long step scrolled to its end doesn't open the next
         // one halfway down.
@@ -179,7 +180,11 @@ private val COMPACT_HEIGHT = 480.dp
 
 /** Back arrow plus "Step n of m" and a thin progress bar; the arrow hides on the first step. */
 @Composable
-private fun OnboardingProgress(state: OnboardingUiState, onBack: () -> Unit) {
+private fun OnboardingProgress(
+    state: OnboardingUiState,
+    onBack: () -> Unit,
+    onSkipIntro: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = Dimens.Base),
         verticalAlignment = Alignment.CenterVertically,
@@ -208,7 +213,14 @@ private fun OnboardingProgress(state: OnboardingUiState, onBack: () -> Unit) {
                 drawStopIndicator = {},
             )
         }
-        Spacer(Modifier.size(48.dp))
+        // One tap out from anywhere: a replay from Settings otherwise took a Back press per step.
+        if (state.step != OnboardingStep.DONE) {
+            TextButton(onClick = onSkipIntro) {
+                Text("Skip intro", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            Spacer(Modifier.size(48.dp))
+        }
     }
 }
 
