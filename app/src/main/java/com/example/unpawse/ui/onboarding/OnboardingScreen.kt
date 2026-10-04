@@ -304,6 +304,15 @@ private fun StepDetail(
                 )
             }
 
+        OnboardingStep.NOTIFICATIONS ->
+            if (!state.satisfied && !state.notificationsCanAskSystem) {
+                PermissionNote(
+                    "Android won't show the notification prompt for unPawse any more, or " +
+                        "notifications are switched off for it. The button below opens its " +
+                        "notification settings instead.",
+                )
+            }
+
         OnboardingStep.DONE -> DoneRecap(state)
 
         else -> Unit

@@ -41,6 +41,9 @@ fun OnboardingRoute(
     LaunchedEffect(cameraPermission.canAskSystem) {
         viewModel.setCameraCanAskSystem(cameraPermission.canAskSystem)
     }
+    LaunchedEffect(notificationPermission.canAskSystem) {
+        viewModel.setNotificationsCanAskSystem(notificationPermission.canAskSystem)
+    }
 
     // A runtime dialog answers through its launcher, long after the tap that opened it. Keying on
     // the handles' own granted flags is what turns that late answer into an advanced step.

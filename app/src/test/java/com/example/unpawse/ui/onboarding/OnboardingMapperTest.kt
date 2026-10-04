@@ -17,10 +17,12 @@ class OnboardingMapperTest {
         avatarId: Int = 0,
         grants: PermissionGrants = PermissionGrants(),
         cameraCanAskSystem: Boolean = true,
+        notificationsCanAskSystem: Boolean = true,
     ) = toOnboardingUiState(
         step = step,
         answers = OnboardingAnswers(userName = userName, avatarId = avatarId, grants = grants),
         cameraCanAskSystem = cameraCanAskSystem,
+        notificationsCanAskSystem = notificationsCanAskSystem,
     )
 
     /** With an answer in place Skip and Continue would differ only in a way the user can't see. */
@@ -96,6 +98,19 @@ class OnboardingMapperTest {
 
         val askable = state(OnboardingStep.CAMERA, cameraCanAskSystem = true)
         assertEquals("Allow camera", askable.copy.primaryLabel)
+    }
+
+    @Test
+    fun `silenced notifications send the button to notification settings`() {
+        val dead = state(OnboardingStep.NOTIFICATIONS, notificationsCanAskSystem = false)
+        assertEquals("Open notification settings", dead.copy.primaryLabel)
+
+        val askable = state(OnboardingStep.NOTIFICATIONS)
+        assertEquals("Allow notifications", askable.copy.primaryLabel)
+
+        // Each step reads its own prompt: a dead camera says nothing about notifications.
+        val other = state(OnboardingStep.NOTIFICATIONS, cameraCanAskSystem = false)
+        assertEquals("Allow notifications", other.copy.primaryLabel)
     }
 
     @Test

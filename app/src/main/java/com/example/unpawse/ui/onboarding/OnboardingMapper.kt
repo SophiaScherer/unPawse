@@ -9,18 +9,27 @@ internal fun toOnboardingUiState(
     step: OnboardingStep,
     answers: OnboardingAnswers,
     cameraCanAskSystem: Boolean,
+    notificationsCanAskSystem: Boolean = true,
 ): OnboardingUiState {
     val satisfied = isSatisfied(step, answers)
     return OnboardingUiState(
         step = step,
         answers = answers,
-        copy = onboardingCopyFor(step, satisfied = satisfied, canAskSystem = cameraCanAskSystem),
+        copy = onboardingCopyFor(
+            step,
+            satisfied = satisfied,
+            canAskSystem = when (step) {
+                OnboardingStep.NOTIFICATIONS -> notificationsCanAskSystem
+                else -> cameraCanAskSystem
+            },
+        ),
         satisfied = satisfied,
         stepNumber = stepNumber(step),
         stepCount = ONBOARDING_STEP_COUNT,
         progress = stepProgress(step),
         canGoBack = previousStep(step) != null,
         cameraCanAskSystem = cameraCanAskSystem,
+        notificationsCanAskSystem = notificationsCanAskSystem,
         missingPermissions = missingPermissionSteps(answers.grants),
     )
 }

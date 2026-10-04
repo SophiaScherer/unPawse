@@ -67,8 +67,10 @@ class OnboardingViewModel(
      */
     private val nameDraft = savedState.getStateFlow<String?>(KEY_NAME_DRAFT, null)
 
-    /** Mirrored in from the camera permission handle, which is the only thing that knows. */
-    private val cameraCanAskSystem = MutableStateFlow(true)
+    /** Mirrored in from the permission handles, which are the only things that know. */
+    private val canAskSystem = MutableStateFlow(SystemPrompts())
+
+    private data class SystemPrompts(val camera: Boolean = true, val notifications: Boolean = true)
 
     private val effectiveName = combine(settings.userName, nameDraft) { stored, draft ->
         draft ?: stored
@@ -79,12 +81,13 @@ class OnboardingViewModel(
         permissions,
         effectiveName,
         settings.avatarId,
-        cameraCanAskSystem,
+        canAskSystem,
     ) { currentStep, grants, name, avatarId, canAsk ->
         toOnboardingUiState(
             step = currentStep,
             answers = OnboardingAnswers(userName = name, avatarId = avatarId, grants = grants),
-            cameraCanAskSystem = canAsk,
+            cameraCanAskSystem = canAsk.camera,
+            notificationsCanAskSystem = canAsk.notifications,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -127,7 +130,11 @@ class OnboardingViewModel(
     fun setAvatarId(id: Int) = viewModelScope.launch { settings.setAvatarId(id) }
 
     fun setCameraCanAskSystem(canAsk: Boolean) {
-        cameraCanAskSystem.value = canAsk
+        canAskSystem.value = canAskSystem.value.copy(camera = canAsk)
+    }
+
+    fun setNotificationsCanAskSystem(canAsk: Boolean) {
+        canAskSystem.value = canAskSystem.value.copy(notifications = canAsk)
     }
 
     /**

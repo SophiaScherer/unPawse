@@ -24,6 +24,8 @@ data class OnboardingUiState(
      * to app settings; the screen uses this to explain why.
      */
     val cameraCanAskSystem: Boolean = true,
+    /** The same for notifications: false once the dialog is silenced or the app's switch is off. */
+    val notificationsCanAskSystem: Boolean = true,
     /** Permission steps still unsatisfied, listed on the closing step. */
     val missingPermissions: List<OnboardingStep> = PERMISSION_STEPS,
 ) {

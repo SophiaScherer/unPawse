@@ -42,8 +42,8 @@ val LOOP_BEATS: List<LoopBeat> = listOf(
 
 /**
  * The copy for [step]. [satisfied] flips a permission step from its pitch to its confirmation, and
- * [canAskSystem] false means Android has stopped showing the camera dialog, so the button has to
- * offer the app's own settings page instead of a request that would do nothing.
+ * [canAskSystem] false means no dialog can help any more (the camera's or the notification one), so
+ * the button has to offer a settings page instead of a request that would do nothing.
  */
 fun onboardingCopyFor(
     step: OnboardingStep,
@@ -138,7 +138,11 @@ fun onboardingCopyFor(
             "A quiet warning a few minutes before an app runs out, so a block is never a " +
                 "surprise. Nice to have, not load-bearing — skip it and everything else still works."
         },
-        primaryLabel = if (satisfied) "Continue" else "Allow notifications",
+        primaryLabel = when {
+            satisfied -> "Continue"
+            !canAskSystem -> "Open notification settings"
+            else -> "Allow notifications"
+        },
         secondaryLabel = if (satisfied) null else "Not now",
     )
 
