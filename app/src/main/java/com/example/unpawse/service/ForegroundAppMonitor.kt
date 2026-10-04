@@ -4,6 +4,7 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.PowerManager
+import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +46,8 @@ class UsageStatsForegroundAppMonitor(
     context: Context,
     private val pollInterval: Duration = POLL_INTERVAL,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Monotonic and counts deep sleep, so comparing it with [now] tells a clock change from a gap. */
+    private val elapsedRealtime: () -> Long = SystemClock::elapsedRealtime,
 ) : ForegroundAppMonitor {
 
     private val appContext = context.applicationContext
@@ -54,16 +57,19 @@ class UsageStatsForegroundAppMonitor(
     override fun foregroundApp(): Flow<String?> = flow {
         var stack = emptyList<ForegroundActivity>()
         var cursor = now() - INITIAL_LOOKBACK_MILLIS
+        var cursorElapsed = elapsedRealtime() - INITIAL_LOOKBACK_MILLIS
 
         while (true) {
             val tick = now()
+            val tickElapsed = elapsedRealtime()
             val interactive = powerManager?.isInteractive != false
             if (interactive) {
-                val window = pollWindow(cursor, tick)
+                val window = pollWindow(cursor, tick, elapsedMillis = tickElapsed - cursorElapsed)
                 stack = resolveForeground(stack, transitionsIn(window.beginMillis, window.endMillis))
                 // Only advanced when we actually queried, so the first waking tick still covers
                 // everything that happened in the dark rather than skipping past it.
                 cursor = tick
+                cursorElapsed = tickElapsed
             }
 
             // Screen off: nothing is in the foreground, so time must stop accruing — without this
@@ -125,23 +131,29 @@ internal data class PollWindow(val beginMillis: Long, val endMillis: Long)
 /** How far before a backward clock change a poll re-reads, to catch events raised during the change. */
 internal const val CLOCK_CHANGE_OVERLAP_MILLIS = 2_000L
 
-/** The longest span one poll will read; the platform keeps only days of events, so more buys nothing. */
-internal const val MAX_CATCH_UP_MILLIS = 24L * 60 * 60 * 1000
+/** How far the wall clock may run ahead of real elapsed time before it counts as moved. */
+internal const val CLOCK_JUMP_TOLERANCE_MILLIS = 10_000L
 
 /**
- * What one poll should read, given where the last one stopped ([cursor]) and the wall clock now.
+ * What one poll should read, given where the last one stopped ([cursor]), the wall clock now, and the
+ * real time that passed in between ([elapsedMillis]).
  *
  * The cursor is wall-clock time, so a clock moved back leaves it in the future: the query would have
  * begin after end and return nothing until real time caught up, freezing the monitor on whatever was
  * last in front and stranding a block overlay over every app (audit UX-28). Restarting from the new
- * time fixes that; the stack is deliberately kept, because the screen did not change when the clock
+ * time fixes that. A clock moved forward reads only the real time that passed, so events stamped
+ * before an earlier backward change aren't replayed. Any other gap — however long the screen was off
+ * — is read in full: dropping part of it loses the stop that says the app left.
+ *
+ * The stack is deliberately kept across a change, because the screen did not change when the clock
  * did — clearing it would read as the user leaving the blocked app and take the overlay down.
  *
  * Pure, so the rule is unit-tested without `UsageStatsManager`.
  */
-internal fun pollWindow(cursor: Long, tick: Long): PollWindow = when {
+internal fun pollWindow(cursor: Long, tick: Long, elapsedMillis: Long): PollWindow = when {
     tick < cursor -> PollWindow(tick - CLOCK_CHANGE_OVERLAP_MILLIS, tick)
-    tick - cursor > MAX_CATCH_UP_MILLIS -> PollWindow(tick - MAX_CATCH_UP_MILLIS, tick)
+    tick - cursor - elapsedMillis > CLOCK_JUMP_TOLERANCE_MILLIS ->
+        PollWindow(tick - elapsedMillis - CLOCK_CHANGE_OVERLAP_MILLIS, tick)
     else -> PollWindow(cursor, tick)
 }
 
