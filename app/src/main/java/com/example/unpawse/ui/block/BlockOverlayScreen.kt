@@ -161,8 +161,9 @@ fun BlockOverlayScreen(
         val twoPane = maxWidth > maxHeight
         val compact = maxHeight < COMPACT_HEIGHT
         val heroSize = blockHeroSize(maxHeight, LocalDensity.current.fontScale)
-        // Keyed on the window size so a rotation reopens at the headline rather than mid-sentence.
-        val scroll = remember(maxWidth, maxHeight) { ScrollState(0) }
+        // Keyed on the layout, not the size: a rotation reopens at the headline rather than
+        // mid-sentence, but transient system bars over a fullscreen video must not reset a scroll.
+        val scroll = remember(twoPane) { ScrollState(0) }
         Box(contentAlignment = Alignment.TopCenter) {
             CatEars()
             Surface(
