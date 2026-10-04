@@ -151,11 +151,18 @@ class OnboardingViewModel(
      * Marks the tour done and hands off. The flag is written before [onFinished] runs, so the
      * navigation that leaves onboarding can't outrun the write that stops it coming back.
      */
-    fun complete(onFinished: () -> Unit) = viewModelScope.launch {
-        commitDraftFor(currentStep)
-        settings.setOnboardingComplete(true)
-        onFinished()
+    fun complete(onFinished: () -> Unit) {
+        // A double tap on the last button would otherwise navigate twice.
+        if (finishing) return
+        finishing = true
+        viewModelScope.launch {
+            commitDraftFor(currentStep)
+            settings.setOnboardingComplete(true)
+            onFinished()
+        }
     }
+
+    private var finishing = false
 
     /**
      * Continue's half of the name step. Like [skip] it leaves no draft behind — the difference is

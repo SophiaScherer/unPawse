@@ -122,7 +122,9 @@ fun UnPawseNavHost(
 
         composable(Routes.ONBOARDING) {
             OnboardingRoute(
-                onFinished = {
+                onFinished = finish@{
+                    // A second call (a double tap, say) would pop whatever is underneath too.
+                    if (navController.currentDestination?.route != Routes.ONBOARDING) return@finish
                     // Decided by the back stack, not by the start destination: that is latched once
                     // per composition, so a replay finished in the same session as the first run
                     // would otherwise push a second Home over Settings.

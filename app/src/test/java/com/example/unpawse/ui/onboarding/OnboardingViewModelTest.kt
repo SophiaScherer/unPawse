@@ -169,6 +169,18 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun `a double tap on the last button hands off once`() = runTest {
+        val vm = viewModel()
+        vm.walkTo(OnboardingStep.DONE)
+        var handoffs = 0
+
+        vm.complete { handoffs++ }
+        vm.complete { handoffs++ }
+
+        assertEquals(1, handoffs)
+    }
+
+    @Test
     fun `picking a cat is stored on the tap`() = runTest {
         val vm = viewModel()
         vm.walkTo(OnboardingStep.AVATAR)
