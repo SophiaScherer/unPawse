@@ -163,3 +163,17 @@ fun missingPermissionLabel(step: OnboardingStep): String = when (step) {
     OnboardingStep.NOTIFICATIONS -> "Notifications — without them there's no warning"
     else -> ""
 }
+
+/**
+ * The line under the recap's list. Settings has a row for three of the four permissions but
+ * deliberately none for the camera, which is only ever needed from the camera screen and asks there.
+ */
+fun missingPermissionsFootnote(missing: List<OnboardingStep>): String {
+    val cameraMissing = OnboardingStep.CAMERA in missing
+    return when {
+        cameraMissing && missing.size == 1 -> "The camera asks again the first time you open it."
+        cameraMissing -> "Settings has a row for the others, and the camera asks again the first " +
+            "time you open it."
+        else -> "Settings has a row for each of these whenever you change your mind."
+    }
+}

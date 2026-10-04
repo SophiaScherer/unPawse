@@ -531,7 +531,7 @@ private fun DoneRecap(state: OnboardingUiState) {
                 }
                 Spacer(Modifier.height(Dimens.Base))
                 Text(
-                    text = "Settings has a row for each of these whenever you change your mind.",
+                    text = missingPermissionsFootnote(state.missingPermissions),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

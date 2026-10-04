@@ -113,6 +113,21 @@ class OnboardingMapperTest {
         assertEquals("Allow notifications", other.copy.primaryLabel)
     }
 
+    /** Settings has no camera row on purpose, so the recap must not promise one. */
+    @Test
+    fun `the recap footnote never sends the user to a camera row in Settings`() {
+        val onlyCamera = missingPermissionsFootnote(listOf(OnboardingStep.CAMERA))
+        assertFalse(onlyCamera.contains("Settings"))
+        assertTrue(onlyCamera.contains("camera"))
+
+        val mixed = missingPermissionsFootnote(PERMISSION_STEPS)
+        assertTrue(mixed.contains("the others"))
+        assertTrue(mixed.contains("camera asks"))
+
+        val noCamera = missingPermissionsFootnote(listOf(OnboardingStep.NOTIFICATIONS))
+        assertEquals("Settings has a row for each of these whenever you change your mind.", noCamera)
+    }
+
     @Test
     fun `a granted camera ignores the permanent-denial fallback`() {
         val granted = state(
