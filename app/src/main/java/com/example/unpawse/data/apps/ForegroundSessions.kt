@@ -27,7 +27,7 @@ internal data class ForegroundInterval(val packageName: String, val beginMillis:
 
 /**
  * Turns [events] (oldest first) into per-package foreground spans within [beginMillis, endMillis],
- * crediting **one app at a time** — whatever is on top — so a day can never hold more than 24 hours.
+ * crediting **one app at a time** — whatever is on top — so a day never holds more time than it lasts.
  *
  * Built from events rather than `queryAndAggregateUsageStats`, which returns every whole platform
  * bucket the window touches; the buckets aren't aligned to local midnight, so a one-day query came
@@ -37,7 +37,8 @@ internal data class ForegroundInterval(val packageName: String, val beginMillis:
  *   or stop removes that activity, and whatever was beneath resurfaces. Pairing each activity's own
  *   resume and pause instead double-counted anything that stays resumed underneath — an emulator's
  *   secondary-display launcher added a whole day to every day that way.
- * - If the first event is a departure, that activity was in front at [beginMillis].
+ * - A departure with no arrival credits nothing: the arrival is older than the platform's history,
+ *   which usually starts days after [beginMillis], so crediting from there invented days of usage.
  * - Whatever is on top at the end is counted up to [endMillis].
  * - A device boundary empties the stack at the last event seen before it: nothing survives a reboot,
  *   and the shutdown itself may not have been logged.
@@ -55,11 +56,8 @@ internal fun foregroundIntervals(
     fun creditTop(until: Long) {
         val top = stack.lastOrNull()
         if (top != null && until > since) spans += ForegroundInterval(top.first, since, until)
-        since = until
-    }
-
-    events.firstOrNull()?.takeIf { it.kind == ForegroundEvent.Kind.LEFT }?.let {
-        stack = listOf(it.packageName to it.className)
+        // Never step back: an out-of-order event would otherwise credit the same time twice.
+        since = maxOf(since, until)
     }
 
     for (event in events) {

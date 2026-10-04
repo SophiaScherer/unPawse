@@ -54,10 +54,26 @@ class ForegroundSessionsTest {
     }
 
     @Test
-    fun `a departure with no arrival was in front from the start of the read`() {
-        val days = byDay(listOf(event("chrome", begin + 10 * minute, LEFT)))
+    fun `a departure with no arrival credits nothing before it`() {
+        val days = byDay(listOf(event("chrome", at(0, 14), LEFT), event("yt", at(0, 15), RESUMED)), end = at(0, 16))
 
-        assertEquals(600L, days.getValue(today.minusDays(2).toString()).getValue("chrome"))
+        assertFalse(days.getValue(today.toString()).containsKey("chrome"))
+        assertFalse(days.containsKey(today.minusDays(2).toString()))
+        assertEquals(3600L, days.getValue(today.toString()).getValue("yt"))
+    }
+
+    @Test
+    fun `out-of-order events never count the same time twice`() {
+        val days = byDay(
+            listOf(
+                event("a", at(0, 9), RESUMED),
+                event("b", at(0, 10), RESUMED),
+                event("a", at(0, 9, 30), LEFT),
+                event("b", at(0, 11), LEFT),
+            ),
+        )
+
+        assertTrue(days.getValue(today.toString()).values.sum() <= 2 * 3600L)
     }
 
     @Test
