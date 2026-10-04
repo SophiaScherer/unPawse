@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <!-- Status-bar small icon: the launcher's monochrome cat head, cropped to a 24dp box with ~1dp
+         padding. The system draws only its alpha, so it must stay a single opaque fill. -->
+    <group
+        android:translateX="-22"
+        android:translateY="-24">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M38,27 L46,40 L28,47 Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M70,27 L62,40 L80,47 Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M29,60 A25,25 0 1,0 79,60 A25,25 0 1,0 29,60 Z" />
+    </group>
+</vector>
