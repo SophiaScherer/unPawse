@@ -1,9 +1,11 @@
 package com.example.unpawse.ui.block
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,8 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -29,9 +33,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.ui.components.CapturePhoto
 import com.example.unpawse.ui.components.StatPill
@@ -116,9 +129,8 @@ data class BlockUiState(
 }
 
 /**
- * Full-screen "limit reached" takeover. In production this would be drawn over the blocked app;
- * here it is a normal nav destination (reachable from Home) so the design can be reviewed. No
- * bottom bar — the hosting scaffold hides it on this route.
+ * Full-screen "limit reached" takeover, drawn by the monitor service over the blocked app. It is
+ * also registered as an in-app nav destination for design review, though nothing navigates to it.
  */
 @Composable
 fun BlockOverlayScreen(
@@ -134,7 +146,7 @@ fun BlockOverlayScreen(
     // nor the @Preview has one. Swallowing back there would also trap the user with no way out.
     if (interceptBack) BackHandler { /* back is exactly what this window exists to refuse */ }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surfaceDim)
@@ -142,6 +154,7 @@ fun BlockOverlayScreen(
             .padding(20.dp),
         contentAlignment = Alignment.Center,
     ) {
+        val heroSize = blockHeroSize(maxHeight, LocalDensity.current.fontScale)
         Box(contentAlignment = Alignment.TopCenter) {
             CatEars()
             Surface(
@@ -154,32 +167,43 @@ fun BlockOverlayScreen(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    MeowChipRow()
-                    CatIllustration(state.photoPath)
-                    Spacer(Modifier.height(20.dp))
-                    Text(
-                        state.headline,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        state.subtitle,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        state.body,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                    state.reward?.let { RewardTermsPanel(it) }
+                    // Only the copy scrolls: the buttons are measured first and can never be pushed
+                    // off, because back is swallowed and they are the only way out of this window.
+                    val scroll = rememberScrollState()
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .fadingEdges(scroll)
+                            .verticalScroll(scroll),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        MeowChipRow()
+                        CatIllustration(state.photoPath, heroSize)
+                        Spacer(Modifier.height(20.dp))
+                        Text(
+                            state.headline,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            state.subtitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            state.body,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                        state.reward?.let { RewardTermsPanel(it) }
+                    }
                     Spacer(Modifier.height(24.dp))
                     if (state.showCamera) {
                         Button(
@@ -211,6 +235,48 @@ fun BlockOverlayScreen(
         }
     }
 }
+
+/**
+ * The hero gets whatever height the rest of the card leaves, so a short screen or a large font
+ * shrinks the photo before it makes the copy scroll. The reserve is the reward card's other
+ * content at 100% font, split into what grows with the font and what doesn't.
+ */
+internal fun blockHeroSize(availableHeight: Dp, fontScale: Float): Dp =
+    (availableHeight - FIXED_RESERVE - TEXT_RESERVE * fontScale).coerceIn(MIN_HERO_SIZE, MAX_HERO_SIZE)
+
+private val FIXED_RESERVE = 270.dp
+private val TEXT_RESERVE = 250.dp
+internal val MIN_HERO_SIZE = 96.dp
+internal val MAX_HERO_SIZE = 180.dp
+
+/**
+ * Fades the content out at an edge it can still scroll past. Without it a cut that lands in a gap
+ * between items looks like the end of the card, and the reward terms are never found.
+ */
+private fun Modifier.fadingEdges(scroll: ScrollState): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val fade = FADE_HEIGHT.toPx()
+        if (scroll.canScrollBackward) {
+            drawRect(
+                brush = Brush.verticalGradient(listOf(Color.Black, Color.Transparent), endY = fade),
+                blendMode = BlendMode.DstOut,
+            )
+        }
+        if (scroll.canScrollForward) {
+            drawRect(
+                brush = Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black),
+                    startY = size.height - fade,
+                    endY = size.height,
+                ),
+                blendMode = BlendMode.DstOut,
+            )
+        }
+    }
+
+private val FADE_HEIGHT = 32.dp
 
 /**
  * The reward rules, stated up front rather than discovered by being refused. Reuses [StatPill] —
@@ -275,10 +341,10 @@ private fun MeowChipRow() {
 }
 
 @Composable
-private fun CatIllustration(photoPath: String?) {
+private fun CatIllustration(photoPath: String?, size: Dp) {
     Box(
         modifier = Modifier
-            .size(180.dp)
+            .size(size)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.primaryContainer)
             .padding(12.dp),
@@ -319,6 +385,26 @@ private fun BlockOverlayRewardPreview() {
                     allowanceValue = "45m",
                     allowanceLabel = "Bonus left today",
                     cooldownNote = "Chrome can earn again in 6 minutes.",
+                ),
+            ),
+        )
+    }
+}
+
+/** The worst case UX-06 was found at: the copy scrolls and both buttons stay whole. */
+@Preview(name = "Block · 360x640, 200% font", showBackground = true, widthDp = 360, heightDp = 640, fontScale = 2f)
+@Composable
+private fun BlockOverlaySmallLargeFontPreview() {
+    UnPawseTheme {
+        BlockOverlayScreen(
+            state = BlockUiState.forApp(
+                appName = "Chrome",
+                reward = RewardTerms(
+                    grantValue = "+15m",
+                    grantLabel = "Per cat",
+                    allowanceValue = "45m",
+                    allowanceLabel = "Bonus left today",
+                    cooldownNote = null,
                 ),
             ),
         )
