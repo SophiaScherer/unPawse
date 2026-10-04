@@ -12,7 +12,7 @@ import com.example.unpawse.data.apps.InstalledApp
 import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.apps.platformCategories
 import com.example.unpawse.data.capture.CaptureRepository
-import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.time.dates
 import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.DailyUsage
@@ -22,15 +22,19 @@ import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.data.usage.UsageSeries
 import com.example.unpawse.data.usage.deviceUsageSeries
 import com.example.unpawse.data.usage.trackedUsageSeries
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Streams two weeks of usage, all captures and this fortnight's unlock counts into [StatsUiState];
@@ -42,20 +46,28 @@ import java.time.LocalDate
  * to one private data class instead of a rewrite. The usage scope takes the fifth and last top-level
  * slot; the device reads behind [UsageScope.ALL] went into the holder, which is what it is for.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class StatsViewModel(
     usageRepository: UsageRepository,
     captureRepository: CaptureRepository,
     unlockRepository: UnlockRepository,
     userName: Flow<String>,
-    private val settingsRepository: SettingsRepository,
+    private val usageScope: Flow<UsageScope>,
+    private val setUsageScope: suspend (UsageScope) -> Unit,
     private val installedAppsProvider: InstalledAppsProvider,
     private val deviceUsageProvider: DeviceUsageProvider,
-    /** Injected so the series and the mapper agree on today, as `UsageRepository` does for rollover. */
-    private val today: () -> LocalDate = LocalDate::now,
+    /**
+     * The container's day source. The windows below are re-queried whenever it changes, so a Stats
+     * screen left open across midnight moves on to the new day rather than charting the old one.
+     */
+    private val today: Flow<LocalDate>,
+    private val zone: () -> ZoneId,
 ) : ViewModel() {
 
     /** The day-keyed series behind the charts and badges, gathered so the combine stays narrow. */
     private data class StatsHistory(
+        /** The day the windows were queried for; the mapper's `today`, so the two can't disagree. */
+        val day: LocalDate,
         val recentUsage: List<DailyUsage>,
         val unlocks: List<DailyUnlocks>,
         val allUsage: List<DailyUsage>,
@@ -71,6 +83,8 @@ class StatsViewModel(
      * final, which is why the load is idempotent and a resume re-runs it.
      */
     private data class DeviceUsageSnapshot(
+        /** The last day of the window read; a snapshot for another day is treated as not read yet. */
+        val endingOn: LocalDate,
         val secondsByDateAndPackage: Map<String, Map<String, Long>>?,
         val installed: List<InstalledApp>,
     )
@@ -93,32 +107,35 @@ class StatsViewModel(
      */
     private val deviceUsage = MutableStateFlow<DeviceUsageSnapshot?>(null)
 
+    /** The day the screen is showing, once known; what a resume or a scope change reloads for. */
+    private val currentDay = MutableStateFlow<LocalDate?>(null)
+
     init {
         viewModelScope.launch { allUsage.value = usageRepository.allUsage() }
-        // Triggered by the stored value, not by the user touching the chips: a cold open with ALL
-        // already saved has to fetch its own figures.
-        viewModelScope.launch {
-            if (settingsRepository.usageScope.first() == UsageScope.ALL) loadDeviceUsage()
-        }
     }
 
-    private val history = combine(
-        usageRepository.observeRecentUsage(STATS_HISTORY_DAYS),
-        unlockRepository.observeRecentUnlocks(STATS_HISTORY_DAYS),
-        allUsage,
-        deviceUsage,
-        ::StatsHistory,
-    )
+    private val history = today.flatMapLatest { day ->
+        combine(
+            usageRepository.observeRecentUsage(STATS_HISTORY_DAYS, endingOn = day),
+            unlockRepository.observeRecentUnlocks(STATS_HISTORY_DAYS, endingOn = day),
+            allUsage,
+            deviceUsage,
+        ) { recent, unlocks, all, device -> StatsHistory(day, recent, unlocks, all, device) }
+            // Triggered by the stored scope, not by the user touching the toggle: a cold open with ALL
+            // already saved has to fetch its own figures, and so does a new day.
+            .onStart { requestDeviceUsage(day) }
+    }
 
     val uiState: StateFlow<StatsUiState> = combine(
         usageRepository.observeMonitoredApps(),
         history,
         captureRepository.observeCaptures(),
         userName,
-        settingsRepository.usageScope,
+        usageScope,
     ) { monitoredApps, history, captures, name, scope ->
-        // Read once per emission so the series and the mapper cannot straddle midnight differently.
-        val day = today()
+        // The day the windows were queried for, so the series and the mapper cannot straddle
+        // midnight differently.
+        val day = history.day
         toStatsUiState(
             monitoredApps = monitoredApps,
             recentUsage = history.recentUsage,
@@ -129,6 +146,7 @@ class StatsViewModel(
             // list: a badge briefly missing is better than one briefly claiming to be un-earned.
             allUsage = history.allUsage.ifEmpty { history.recentUsage },
             today = day,
+            zone = zone(),
             scope = scope,
             series = seriesFor(scope, monitoredApps, history, day),
         )
@@ -154,7 +172,7 @@ class StatsViewModel(
         day: LocalDate,
     ): UsageSeries? = when (scope) {
         UsageScope.TRACKED -> trackedUsageSeries(history.recentUsage, monitoredApps, day)
-        UsageScope.ALL -> history.device?.secondsByDateAndPackage?.let { byDate ->
+        UsageScope.ALL -> history.device?.takeIf { it.endingOn == day }?.secondsByDateAndPackage?.let { byDate ->
             deviceUsageSeries(
                 secondsByDateAndPackage = byDate,
                 platformCategories = history.device.installed.platformCategories(),
@@ -166,10 +184,10 @@ class StatsViewModel(
 
     fun onScopeChange(scope: UsageScope) {
         viewModelScope.launch {
-            settingsRepository.setUsageScope(scope)
+            setUsageScope(scope)
             // Loading here as well as in `init` is what makes the first tap on "All apps" show
             // figures, rather than an empty card waiting for a resume to fill it.
-            if (scope == UsageScope.ALL) loadDeviceUsage()
+            if (scope == UsageScope.ALL) loadDeviceUsage(currentDay.value ?: return@launch)
         }
     }
 
@@ -182,14 +200,23 @@ class StatsViewModel(
      * resume must not cost a `PackageManager` sweep.
      */
     fun refresh() {
+        currentDay.value?.let(::requestDeviceUsage)
+    }
+
+    private fun requestDeviceUsage(day: LocalDate) {
+        currentDay.value = day
         viewModelScope.launch {
-            if (settingsRepository.usageScope.first() == UsageScope.ALL) loadDeviceUsage()
+            if (usageScope.first() == UsageScope.ALL) loadDeviceUsage(day)
         }
     }
 
-    private suspend fun loadDeviceUsage() {
+    private suspend fun loadDeviceUsage(day: LocalDate) {
         deviceUsage.value = DeviceUsageSnapshot(
-            secondsByDateAndPackage = deviceUsageProvider.dailySecondsByDate(STATS_HISTORY_DAYS.toInt()),
+            endingOn = day,
+            secondsByDateAndPackage = deviceUsageProvider.dailySecondsByDate(
+                STATS_HISTORY_DAYS.toInt(),
+                endingOn = day,
+            ),
             // Only ever the donut's categories, so it rides along with the figures rather than
             // living in its own flow — the installed list can't usefully change while Stats is open.
             installed = installedAppsProvider.installedApps(),
@@ -207,9 +234,12 @@ class StatsViewModel(
                     container.captureRepository,
                     container.unlockRepository,
                     container.settingsRepository.userName,
-                    container.settingsRepository,
+                    container.settingsRepository.usageScope,
+                    container.settingsRepository::setUsageScope,
                     container.installedAppsProvider,
                     container.deviceUsageProvider,
+                    today = container.clockTicks.dates(),
+                    zone = container.dayClock::zone,
                 )
             }
         }

@@ -27,18 +27,20 @@ class UsageRepository(
     fun observeMonitoredApps(): Flow<List<MonitoredApp>> =
         dao.observeMonitoredApps().map { rows -> rows.map(MonitoredAppEntity::toDomain) }
 
-    /** Today's usage rows (one per app that has been used today). */
-    fun observeTodayUsage(): Flow<List<DailyUsage>> =
-        dao.observeUsageForDate(todayKey()).map { rows -> rows.map(DailyUsageEntity::toDomain) }
+    /**
+     * Usage rows for [date] (one per app used that day). The date is a parameter, not `today()`, so
+     * a screen switches queries on its day source instead of holding one bound when it was built.
+     */
+    fun observeUsageForDate(date: LocalDate): Flow<List<DailyUsage>> =
+        dao.observeUsageForDate(date.toString()).map { rows -> rows.map(DailyUsageEntity::toDomain) }
 
     /**
-     * Usage over the last [days] days, today inclusive — the history behind the Stats charts.
+     * Usage over the [days] days ending on [endingOn] inclusive — the history behind the Stats charts.
      * Days with no usage simply have no row; callers fill the gaps with zero.
      */
-    fun observeRecentUsage(days: Long): Flow<List<DailyUsage>> {
-        val end = today()
-        val start = end.minusDays(days - 1)
-        return dao.observeUsageBetween(start.toString(), end.toString())
+    fun observeRecentUsage(days: Long, endingOn: LocalDate): Flow<List<DailyUsage>> {
+        val start = endingOn.minusDays(days - 1)
+        return dao.observeUsageBetween(start.toString(), endingOn.toString())
             .map { rows -> rows.map(DailyUsageEntity::toDomain) }
     }
 

@@ -6,7 +6,6 @@ import com.example.unpawse.service.UsageAccess
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -33,7 +32,8 @@ interface DeviceUsageProvider {
     suspend fun dailyAverageSeconds(days: Int = RECENT_DAYS): Map<String, Long>?
 
     /**
-     * Foreground seconds per package for each of the last [days] **local** days, keyed by ISO date
+     * Foreground seconds per package for each of the [days] **local** days ending on [endingOn],
+     * keyed by ISO date
      * — the day-by-day series the Stats chart needs, where [dailyAverageSeconds] gives one figure
      * for a whole window.
      *
@@ -47,7 +47,7 @@ interface DeviceUsageProvider {
      * The platform keeps daily buckets for roughly a week, so days beyond that come back empty. That
      * is why the caller must treat a missing day as "not measured" rather than as an idle day.
      */
-    suspend fun dailySecondsByDate(days: Int): Map<String, Map<String, Long>>?
+    suspend fun dailySecondsByDate(days: Int, endingOn: LocalDate): Map<String, Map<String, Long>>?
 }
 
 /** How far back "recently" looks. Short enough to track a habit the user is currently trying to change. */
@@ -87,17 +87,19 @@ class UsageStatsDeviceUsageProvider(
         averageSecondsPerDay(totals, days)
     }
 
-    override suspend fun dailySecondsByDate(days: Int): Map<String, Map<String, Long>>? =
+    override suspend fun dailySecondsByDate(
+        days: Int,
+        endingOn: LocalDate,
+    ): Map<String, Map<String, Long>>? =
         withContext(ioDispatcher) {
             if (!UsageAccess.isGranted(appContext)) return@withContext null
             val manager = usageStatsManager ?: return@withContext null
 
             val timeZone = zone()
-            val today = Instant.ofEpochMilli(now()).atZone(timeZone).toLocalDate()
             // One query per day rather than queryUsageStats(INTERVAL_DAILY, …): the platform's daily
             // buckets are not aligned to local midnight, and the chart's axis is. Off the main
             // thread and read once per screen entry, so the extra binder calls are affordable.
-            dayWindows(today, days, timeZone).associate { window ->
+            dayWindows(endingOn, days, timeZone).associate { window ->
                 val totals = manager
                     .queryAndAggregateUsageStats(window.beginMillis, window.endMillis)
                     .mapValues { (_, stats) -> stats.totalTimeInForeground }

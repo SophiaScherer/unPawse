@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.time.dates
 import com.example.unpawse.ui.format.avatarInitialFor
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,10 @@ class GalleryViewModel(
     private val repository: CaptureRepository,
     retentionDays: Flow<Int>,
     userName: Flow<String>,
+    /** The container's day source, so "Today" and "Yesterday" move on at midnight. */
+    today: Flow<LocalDate>,
+    private val zone: () -> ZoneId,
+    private val nowMillis: () -> Long,
 ) : ViewModel() {
 
     private val selectedFilter = MutableStateFlow(GalleryFilter.ALL)
@@ -35,16 +40,16 @@ class GalleryViewModel(
 
     val uiState: StateFlow<GalleryUiState> =
         combine(
-            repository.observeCaptures(),
+            // Paired so the combine stays at five; the date travels with the list it labels.
+            combine(repository.observeCaptures(), today, ::Pair),
             selectedFilter,
             searchQuery,
             retentionDays,
             userName,
-        ) { captures, filter, query, retention, name ->
-            val zone = ZoneId.systemDefault()
-            val today = LocalDate.now(zone)
+        ) { (captures, today), filter, query, retention, name ->
+            val zone = zone()
             val sections = captures
-                .matchingFilter(filter, System.currentTimeMillis(), retention)
+                .matchingFilter(filter, nowMillis(), retention)
                 .matchingSearch(query, today, zone)
                 .toGallerySections(today, zone)
             GalleryUiState(
@@ -97,6 +102,9 @@ class GalleryViewModel(
                     repository = container.captureRepository,
                     retentionDays = container.settingsRepository.retentionDays,
                     userName = container.settingsRepository.userName,
+                    today = container.clockTicks.dates(),
+                    zone = container.dayClock::zone,
+                    nowMillis = container.dayClock::nowMillis,
                 )
             }
         }

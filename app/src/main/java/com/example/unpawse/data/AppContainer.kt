@@ -14,6 +14,8 @@ import com.example.unpawse.data.export.ImportRepository
 import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.time.DayClock
+import com.example.unpawse.data.time.clockChanges
 import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.ml.CatDetector
@@ -29,13 +31,16 @@ import com.example.unpawse.service.UsageTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 
 /**
  * Application-scoped dependency graph. Owns the single instances of the database, repositories, and
@@ -45,6 +50,15 @@ import kotlinx.coroutines.launch
  * lifetime. Kept as an interface so tests can supply fakes.
  */
 interface AppContainer {
+    /** The one source of "today", shared so every store and screen rolls over on the same day. */
+    val dayClock: DayClock
+
+    /**
+     * [DayClock.ticks], shared app-wide so several screens observing the day register one set of
+     * time-change receivers between them.
+     */
+    val clockTicks: Flow<LocalDateTime>
+
     val captureRepository: CaptureRepository
     val settingsRepository: SettingsRepository
     val usageRepository: UsageRepository
@@ -144,6 +158,18 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val database by lazy { CaptureDatabase.getInstance(appContext) }
 
+    override val dayClock: DayClock by lazy { DayClock(changes = clockChanges(appContext)) }
+
+    // The cache expires with the last subscriber, so a screen returning after midnight waits for a
+    // fresh tick rather than replaying yesterday's.
+    override val clockTicks: Flow<LocalDateTime> by lazy {
+        dayClock.ticks().shareIn(
+            appScope,
+            SharingStarted.WhileSubscribed(replayExpirationMillis = 0),
+            replay = 1,
+        )
+    }
+
     override val captureRepository: CaptureRepository by lazy {
         CaptureRepository(database.captureDao(), PhotoStorage(appContext))
     }
@@ -153,7 +179,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val usageRepository: UsageRepository by lazy {
-        UsageRepository(database.usageDao())
+        UsageRepository(database.usageDao(), today = dayClock::today, now = dayClock::nowMillis)
     }
 
     override val scheduleRepository: ScheduleRepository by lazy {
@@ -164,7 +190,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     // its first read is a UI read or a receiver write, never a blocking decision made in the same
     // expression that creates it.
     override val unlockRepository: UnlockRepository by lazy {
-        UnlockRepository(database.unlockDao())
+        UnlockRepository(database.unlockDao(), today = dayClock::today)
     }
 
     override val installedAppsProvider: InstalledAppsProvider by lazy {

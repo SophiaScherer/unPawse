@@ -62,9 +62,9 @@ internal fun toHomeUiState(
     captures: List<Capture>,
     userName: String,
     protection: ProtectionStatus,
-    today: LocalDate = LocalDate.now(),
-    zone: ZoneId = ZoneId.systemDefault(),
-    time: LocalTime = LocalTime.now(zone),
+    today: LocalDate,
+    zone: ZoneId,
+    time: LocalTime,
 ): HomeUiState {
     val displayName = displayNameOf(userName)
     // Without usage access nothing accrues, so every usage figure below is a claim the app can't

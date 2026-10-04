@@ -67,8 +67,8 @@ internal fun toStatsUiState(
     allUsage: List<DailyUsage> = recentUsage,
     /** Blank is the stored "not set" state, so the header falls back like everywhere else. */
     userName: String = "",
-    today: LocalDate = LocalDate.now(),
-    zone: ZoneId = ZoneId.systemDefault(),
+    today: LocalDate,
+    zone: ZoneId,
     scope: UsageScope = UsageScope.TRACKED,
     series: UsageSeries? = trackedUsageSeries(recentUsage, monitoredApps, today),
 ): StatsUiState {

@@ -187,6 +187,8 @@ class CameraViewModel(
                     usageRepository = container.usageRepository,
                     blockSession = container.blockSession,
                     earnedMinutesPerCat = { container.earnedMinutesPerCat.value },
+                    today = container.dayClock::today,
+                    zone = container.dayClock::zone,
                 )
             }
         }

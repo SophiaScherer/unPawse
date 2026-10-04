@@ -56,7 +56,7 @@ class UnlockRepositoryTest {
         repo.recordUnlock()
         today = today.plusDays(7)
 
-        val window = repo.observeRecentUnlocks(days = 7).first().map { it.date }
+        val window = repo.observeRecentUnlocks(days = 7, endingOn = today).first().map { it.date }
 
         assertEquals(2, window.size)
         assertTrue(window.contains(today.toString()))
