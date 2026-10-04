@@ -59,7 +59,8 @@ class UsageStatsForegroundAppMonitor(
             val tick = now()
             val interactive = powerManager?.isInteractive != false
             if (interactive) {
-                stack = resolveForeground(stack, transitionsIn(cursor, tick))
+                val window = pollWindow(cursor, tick)
+                stack = resolveForeground(stack, transitionsIn(window.beginMillis, window.endMillis))
                 // Only advanced when we actually queried, so the first waking tick still covers
                 // everything that happened in the dark rather than skipping past it.
                 cursor = tick
@@ -116,6 +117,32 @@ class UsageStatsForegroundAppMonitor(
         /** On the first tick, look back far enough to learn what's already on screen. */
         private const val INITIAL_LOOKBACK_MILLIS = 60_000L
     }
+}
+
+/** The half-open span of event time one poll reads. */
+internal data class PollWindow(val beginMillis: Long, val endMillis: Long)
+
+/** How far before a backward clock change a poll re-reads, to catch events raised during the change. */
+internal const val CLOCK_CHANGE_OVERLAP_MILLIS = 2_000L
+
+/** The longest span one poll will read; the platform keeps only days of events, so more buys nothing. */
+internal const val MAX_CATCH_UP_MILLIS = 24L * 60 * 60 * 1000
+
+/**
+ * What one poll should read, given where the last one stopped ([cursor]) and the wall clock now.
+ *
+ * The cursor is wall-clock time, so a clock moved back leaves it in the future: the query would have
+ * begin after end and return nothing until real time caught up, freezing the monitor on whatever was
+ * last in front and stranding a block overlay over every app (audit UX-28). Restarting from the new
+ * time fixes that; the stack is deliberately kept, because the screen did not change when the clock
+ * did — clearing it would read as the user leaving the blocked app and take the overlay down.
+ *
+ * Pure, so the rule is unit-tested without `UsageStatsManager`.
+ */
+internal fun pollWindow(cursor: Long, tick: Long): PollWindow = when {
+    tick < cursor -> PollWindow(tick - CLOCK_CHANGE_OVERLAP_MILLIS, tick)
+    tick - cursor > MAX_CATCH_UP_MILLIS -> PollWindow(tick - MAX_CATCH_UP_MILLIS, tick)
+    else -> PollWindow(cursor, tick)
 }
 
 /**
