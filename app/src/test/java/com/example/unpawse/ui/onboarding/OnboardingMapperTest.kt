@@ -3,6 +3,7 @@ package com.example.unpawse.ui.onboarding
 import com.example.unpawse.data.settings.CatAvatar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -31,6 +32,17 @@ class OnboardingMapperTest {
 
         assertNotNull(state(OnboardingStep.AVATAR).copy.secondaryLabel)
         assertNull(state(OnboardingStep.AVATAR, avatarId = CatAvatar.SMOKE.id).copy.secondaryLabel)
+    }
+
+    /** "We'll send you there" under a green tick reads as though the trip still has to happen. */
+    @Test
+    fun `a granted permission step confirms instead of repeating its pitch`() {
+        PERMISSION_STEPS.forEach { step ->
+            val asking = onboardingCopyFor(step, satisfied = false)
+            val granted = onboardingCopyFor(step, satisfied = true)
+            assertNotEquals(step.name, asking.body, granted.body)
+            assertTrue(step.name, granted.body.contains(" on"))
+        }
     }
 
     @Test

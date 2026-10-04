@@ -15,7 +15,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -91,6 +93,7 @@ private enum class CatPattern {
 private val Charcoal = Color(0xFF2E2226)
 private val Blush = Color(0xFFF5B6C8)
 private val Cream = Color(0xFFF6EBEC)
+private val Outline = Charcoal.copy(alpha = 0.16f)
 
 private fun furFor(avatar: CatAvatar): CatFur = when (avatar) {
     CatAvatar.CREAM -> CatFur(
@@ -180,6 +183,9 @@ private fun DrawScope.drawCatFace(fur: CatFur) {
         }
     }
 
+    // Cream, Calico and Siamese are pale coats on pale grounds; without an edge the face dissolves.
+    drawCircle(color = Outline, radius = head, center = headCenter, style = Stroke(width = d * 0.018f))
+
     val eyeDx = head * 0.42f
     val eyeDy = head * 0.12f
     val eyeR = head * 0.16f
@@ -222,14 +228,17 @@ private fun DrawScope.drawEar(fur: CatFur, headCenter: Offset, head: Float, left
     val side = if (leftSide) -1f else 1f
     val baseX = headCenter.x + side * head * 0.55f
     val baseY = headCenter.y - head * 0.62f
+    val ear = Path().apply {
+        moveTo(baseX - side * head * 0.34f, baseY + head * 0.25f)
+        lineTo(baseX + side * head * 0.18f, baseY - head * 0.62f)
+        lineTo(baseX + side * head * 0.42f, baseY + head * 0.18f)
+        close()
+    }
+    drawPath(path = ear, color = fur.coat)
     drawPath(
-        path = Path().apply {
-            moveTo(baseX - side * head * 0.34f, baseY + head * 0.25f)
-            lineTo(baseX + side * head * 0.18f, baseY - head * 0.62f)
-            lineTo(baseX + side * head * 0.42f, baseY + head * 0.18f)
-            close()
-        },
-        color = fur.coat,
+        path = ear,
+        color = Outline,
+        style = Stroke(width = size.minDimension * 0.018f, join = StrokeJoin.Round),
     )
     drawPath(
         path = Path().apply {

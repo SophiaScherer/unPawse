@@ -86,26 +86,40 @@ fun onboardingCopyFor(
 
     OnboardingStep.USAGE_ACCESS -> OnboardingCopy(
         title = "Let unPawse see your screen time",
-        body = "This is the one unPawse can't work without: it's how we know which app is open " +
-            "and how long you've had it open. Android keeps this behind a switch in Settings, so " +
-            "we'll send you there — find unPawse in the list and turn it on.",
+        body = if (satisfied) {
+            "Screen time access is on, so unPawse can see which app is open and count the minutes."
+        } else {
+            "This is the one unPawse can't work without: it's how we know which app is open " +
+                "and how long you've had it open. Android keeps this behind a switch in Settings, " +
+                "so we'll send you there — find unPawse in the list and turn it on."
+        },
         primaryLabel = if (satisfied) "Continue" else "Open Settings",
         secondaryLabel = if (satisfied) null else "Not now",
     )
 
     OnboardingStep.OVERLAY_ACCESS -> OnboardingCopy(
         title = "Let unPawse draw the break",
-        body = "When you hit a limit, the break has to appear over the app you're in — otherwise " +
-            "we can count your minutes but never actually interrupt you. This is another " +
-            "Settings switch: \"Display over other apps\".",
+        body = if (satisfied) {
+            "Display over other apps is on, so when a limit runs out the break can appear right " +
+                "over the app you're in."
+        } else {
+            "When you hit a limit, the break has to appear over the app you're in — otherwise " +
+                "we can count your minutes but never actually interrupt you. This is another " +
+                "Settings switch: \"Display over other apps\"."
+        },
         primaryLabel = if (satisfied) "Continue" else "Open Settings",
         secondaryLabel = if (satisfied) null else "Not now",
     )
 
     OnboardingStep.CAMERA -> OnboardingCopy(
         title = "The cat camera",
-        body = "Photographing a cat is how you earn your minutes back. The check runs on your " +
-            "device and the photo stays on it — nothing is uploaded, ever.",
+        body = if (satisfied) {
+            "Camera access is on. When a limit runs out, a photo of a cat earns your minutes back " +
+                "— checked on your device, and the photo never leaves it."
+        } else {
+            "Photographing a cat is how you earn your minutes back. The check runs on your " +
+                "device and the photo stays on it — nothing is uploaded, ever."
+        },
         primaryLabel = when {
             satisfied -> "Continue"
             // Two denials and Android stops showing the dialog; asking again would be a dead button.
@@ -117,8 +131,13 @@ fun onboardingCopyFor(
 
     OnboardingStep.NOTIFICATIONS -> OnboardingCopy(
         title = "A heads-up before the wall",
-        body = "A quiet warning a few minutes before an app runs out, so a block is never a " +
-            "surprise. Nice to have, not load-bearing — skip it and everything else still works.",
+        body = if (satisfied) {
+            "Notifications are on. You'll get a quiet heads-up a few minutes before an app runs " +
+                "out, so a block is never a surprise."
+        } else {
+            "A quiet warning a few minutes before an app runs out, so a block is never a " +
+                "surprise. Nice to have, not load-bearing — skip it and everything else still works."
+        },
         primaryLabel = if (satisfied) "Continue" else "Allow notifications",
         secondaryLabel = if (satisfied) null else "Not now",
     )

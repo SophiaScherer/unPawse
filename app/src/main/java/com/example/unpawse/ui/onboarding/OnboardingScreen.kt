@@ -2,20 +2,29 @@ package com.example.unpawse.ui.onboarding
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -40,14 +49,19 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.data.settings.CatAvatar
@@ -86,38 +100,64 @@ fun OnboardingScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            // The host already pads for the navigation bar; this adds only the part of the keyboard
+            // above it, so the name step's buttons ride on top of the keyboard instead of under it.
+            .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))
             .padding(horizontal = Dimens.ScreenHMargin),
     ) {
         OnboardingProgress(state = state, onBack = onBack)
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Dimens.Gutter),
-        ) {
-            Spacer(Modifier.height(Dimens.Base))
-            StepHero(state = state)
-            Text(
-                text = state.copy.title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = state.copy.body,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            StepDetail(
-                state = state,
-                onNameChange = onNameChange,
-                onAvatarSelected = onAvatarSelected,
-            )
-            Spacer(Modifier.height(Dimens.Base))
+        // A fresh scroll position per step, so a long step scrolled to its end doesn't open the next
+        // one halfway down.
+        val scrollState = remember(state.step) { ScrollState(initial = 0) }
+        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            val viewport = maxHeight
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+                    // At least the viewport tall, so a short step sits centered instead of clinging
+                    // to the top over a screen-high gap; a long one still scrolls.
+                    .heightIn(min = viewport),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Dimens.Gutter, Alignment.CenterVertically),
+            ) {
+                Spacer(Modifier.height(Dimens.Base))
+                // On a short screen the hero gives way to the words; it is decoration, they are not.
+                StepHero(state = state, size = if (viewport < COMPACT_HEIGHT) 72.dp else 104.dp)
+                Text(
+                    text = state.copy.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = state.copy.body,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                StepDetail(
+                    state = state,
+                    onNameChange = onNameChange,
+                    onAvatarSelected = onAvatarSelected,
+                    onNext = onNext,
+                )
+                Spacer(Modifier.height(Dimens.Base))
+            }
+            // Without it a long step reads as ending mid-sentence at the button, with no hint
+            // that the rest is a scroll away.
+            if (scrollState.canScrollForward) {
+                val ground = MaterialTheme.colorScheme.background
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(32.dp)
+                        .background(Brush.verticalGradient(listOf(ground.copy(alpha = 0f), ground))),
+                )
+            }
         }
 
         OnboardingActions(
@@ -129,6 +169,9 @@ fun OnboardingScreen(
         )
     }
 }
+
+/** Below this the tour is on a small phone or at a large font scale, and the hero shrinks. */
+private val COMPACT_HEIGHT = 480.dp
 
 /** Back arrow plus "Step n of m" and a thin progress bar; the arrow hides on the first step. */
 @Composable
@@ -167,19 +210,19 @@ private fun OnboardingProgress(state: OnboardingUiState, onBack: () -> Unit) {
 
 /** The step's illustration: the chosen cat where there is one, otherwise a tinted icon tile. */
 @Composable
-private fun StepHero(state: OnboardingUiState) {
+private fun StepHero(state: OnboardingUiState, size: Dp) {
     val granted = isPermissionStep(state.step) && state.satisfied
     if (state.step == OnboardingStep.DONE || state.step == OnboardingStep.AVATAR) {
         ProfileAvatar(
             avatarId = state.answers.avatarId,
             initial = avatarInitialFor(state.answers.userName),
-            size = 104.dp,
+            size = size,
         )
         return
     }
     Box(
         modifier = Modifier
-            .size(104.dp)
+            .size(size)
             .clip(CircleShape)
             .background(
                 if (granted) {
@@ -198,7 +241,7 @@ private fun StepHero(state: OnboardingUiState) {
             } else {
                 MaterialTheme.colorScheme.primary
             },
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(size * 0.46f),
         )
     }
 }
@@ -221,6 +264,7 @@ private fun StepDetail(
     state: OnboardingUiState,
     onNameChange: (String) -> Unit,
     onAvatarSelected: (Int) -> Unit,
+    onNext: () -> Unit,
 ) {
     when (state.step) {
         OnboardingStep.HOW_IT_WORKS -> LoopBeats()
@@ -233,9 +277,13 @@ private fun StepDetail(
             shape = FieldShape,
             label = { Text("Your name") },
             placeholder = { Text("Leave it blank and we'll say \"friend\"") },
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
                 imeAction = ImeAction.Done,
             ),
+            // Done is the same answer as the Continue button, so it moves on rather than just
+            // dropping the keyboard and leaving the user to find the button.
+            keyboardActions = KeyboardActions(onDone = { onNext() }),
         )
 
         OnboardingStep.AVATAR -> AvatarPicker(
@@ -361,7 +409,8 @@ private fun AvatarOption(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
+            // Selectable, not clickable, so TalkBack announces which cat is the current one.
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = Dimens.Base),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -385,6 +434,7 @@ private fun AvatarOption(
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
             color = if (selected) {
                 MaterialTheme.colorScheme.primary
             } else {
@@ -458,7 +508,7 @@ private fun OnboardingActions(
     onFinish: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(bottom = Dimens.Gutter),
+        modifier = Modifier.fillMaxWidth().padding(top = Dimens.Base, bottom = Dimens.Gutter),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Button(
@@ -469,10 +519,15 @@ private fun OnboardingActions(
                     else -> onNext()
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            // A floor, not a fixed height: at large font scales the label needs room to grow.
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
             shape = CircleShape,
         ) {
-            Text(text = state.copy.primaryLabel, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = state.copy.primaryLabel,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+            )
         }
         val skipLabel = state.copy.secondaryLabel
         if (skipLabel != null) {
