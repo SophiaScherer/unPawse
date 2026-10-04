@@ -1,9 +1,11 @@
 package com.example.unpawse.ui.onboarding
 
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -33,23 +36,36 @@ class OnboardingViewModel(
     private val overlayAccessGranted: () -> Boolean,
     private val cameraGranted: () -> Boolean,
     private val notificationsGranted: () -> Boolean,
+    // The permission steps send the user to system Settings, which is exactly when Android may kill
+    // the process; without this the tour would restart at the welcome step on the way back.
+    private val savedState: SavedStateHandle = SavedStateHandle(),
 ) : ViewModel() {
 
-    private val step = MutableStateFlow(OnboardingStep.WELCOME)
+    private var currentStep: OnboardingStep
+        get() = onboardingStepNamed(savedState[KEY_STEP])
+        set(value) {
+            savedState[KEY_STEP] = value.name
+        }
+
+    private val step = savedState.getStateFlow(KEY_STEP, OnboardingStep.WELCOME.name)
+        .map(::onboardingStepNamed)
 
     /**
      * None of the four can be observed — two are system-Settings switches with no callback at all,
      * and the other two only report through their launcher — so they are re-read on demand; see
-     * [refreshPermissions].
+     * [refreshPermissions]. Seeded from the saved copy when there is one, so a grant made while the
+     * process was dead still reads as "arrived while away" and advances the step.
      */
-    private val permissions = MutableStateFlow(readPermissions())
+    private val permissions = MutableStateFlow(
+        savedState.get<BooleanArray>(KEY_GRANTS)?.let(::grantsFrom) ?: readPermissions(),
+    )
 
     /**
      * What the user has typed on the name step but not yet committed. Null means "hasn't typed",
      * which is what lets the stored name show through and what Skip goes back to; committing only
      * on Continue keeps a per-keystroke DataStore write off the disk.
      */
-    private val nameDraft = MutableStateFlow<String?>(null)
+    private val nameDraft = savedState.getStateFlow<String?>(KEY_NAME_DRAFT, null)
 
     /** Mirrored in from the camera permission handle, which is the only thing that knows. */
     private val cameraCanAskSystem = MutableStateFlow(true)
@@ -77,7 +93,7 @@ class OnboardingViewModel(
         // frame claim nothing is granted — a replayed tour would otherwise flash its whole pitch at
         // someone who has already granted everything.
         initialValue = toOnboardingUiState(
-            step = step.value,
+            step = currentStep,
             answers = OnboardingAnswers(grants = permissions.value),
             cameraCanAskSystem = true,
         ),
@@ -85,8 +101,8 @@ class OnboardingViewModel(
 
     /** Moves on, committing anything the current step was holding. */
     fun next() {
-        commitDraftFor(step.value)
-        step.value = nextStep(step.value)
+        commitDraftFor(currentStep)
+        currentStep = nextStep(currentStep)
     }
 
     /**
@@ -94,17 +110,17 @@ class OnboardingViewModel(
      * rather than quietly saved. Every step can take this, permissions included.
      */
     fun skip() {
-        if (step.value == OnboardingStep.NAME) nameDraft.value = null
-        step.value = nextStep(step.value)
+        if (currentStep == OnboardingStep.NAME) savedState[KEY_NAME_DRAFT] = null
+        currentStep = nextStep(currentStep)
     }
 
     /** Back within the tour; on the first step there is nothing above us and this is a no-op. */
     fun back() {
-        previousStep(step.value)?.let { step.value = it }
+        previousStep(currentStep)?.let { currentStep = it }
     }
 
     fun setNameDraft(value: String) {
-        nameDraft.value = value
+        savedState[KEY_NAME_DRAFT] = value
     }
 
     /** Persisted on the tap: a discrete choice, and seeing it stick immediately is the point. */
@@ -125,9 +141,10 @@ class OnboardingViewModel(
     fun refreshPermissions() {
         val before = permissions.value
         val after = readPermissions()
+        savedState[KEY_GRANTS] = after.toArray()
         if (before == after) return
         permissions.value = after
-        step.value = stepAfterGrant(step.value, before, after)
+        currentStep = stepAfterGrant(currentStep, before, after)
     }
 
     /**
@@ -135,7 +152,7 @@ class OnboardingViewModel(
      * navigation that leaves onboarding can't outrun the write that stops it coming back.
      */
     fun complete(onFinished: () -> Unit) = viewModelScope.launch {
-        commitDraftFor(step.value)
+        commitDraftFor(currentStep)
         settings.setOnboardingComplete(true)
         onFinished()
     }
@@ -156,6 +173,9 @@ class OnboardingViewModel(
 
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L
+        private const val KEY_STEP = "step"
+        private const val KEY_NAME_DRAFT = "name_draft"
+        private const val KEY_GRANTS = "grants"
 
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -166,8 +186,19 @@ class OnboardingViewModel(
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
                     cameraGranted = { CameraAccess.isGranted(appContext) },
                     notificationsGranted = { Notifications.canPost(appContext) },
+                    savedState = createSavedStateHandle(),
                 )
             }
         }
     }
 }
+
+/** Tolerant of a name this build doesn't know, so stale saved state restarts the tour, not the app. */
+internal fun onboardingStepNamed(name: String?): OnboardingStep =
+    OnboardingStep.entries.firstOrNull { it.name == name } ?: OnboardingStep.WELCOME
+
+private fun PermissionGrants.toArray() =
+    booleanArrayOf(usageAccess, overlayAccess, camera, notifications)
+
+private fun grantsFrom(saved: BooleanArray): PermissionGrants? =
+    if (saved.size != 4) null else PermissionGrants(saved[0], saved[1], saved[2], saved[3])
