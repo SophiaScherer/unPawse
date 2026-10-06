@@ -22,8 +22,8 @@ import com.example.unpawse.ui.theme.ThemeMode
 
 /**
  * Central navigation graph. Every destination renders from a real ViewModel via its `XxxRoute`,
- * except the Block Overlay — which is only reachable here as a design/debug entry (in production the
- * service draws it over the offending app), so it still uses [SampleData].
+ * except the Block Overlay — which the service draws over the offending app. Its destination here
+ * still uses [SampleData] for design review, but nothing navigates to it.
  *
  * [themeMode] / [onThemeModeChange] are threaded down from [com.example.unpawse.UnPawseApp] so the
  * Settings appearance picker actually flips the app theme.
