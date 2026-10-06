@@ -1,13 +1,17 @@
 package com.example.unpawse
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -17,10 +21,12 @@ import androidx.navigation.compose.rememberNavController
 import com.example.unpawse.service.UsageMonitorController
 import com.example.unpawse.ui.navigation.Routes
 import com.example.unpawse.ui.navigation.TopLevelDestination
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.example.unpawse.ui.navigation.UnPawseBottomBar
 import com.example.unpawse.ui.navigation.UnPawseNavHost
 import com.example.unpawse.ui.navigation.navigateToTab
+import com.example.unpawse.ui.navigation.startDestinationFor
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.isDark
 import com.example.unpawse.ui.theme.overrideFor
@@ -53,7 +59,24 @@ fun UnPawseApp(initialRoute: String? = null) {
         onPauseOrDispose { }
     }
 
+    // A NavHost's start destination is fixed at composition, and DataStore answers asynchronously —
+    // so this is read once and latched, rather than collected. Collecting it would also rebuild the
+    // whole graph the moment onboarding sets the flag, tearing down the navigation that completing
+    // the tour had just performed.
+    var startDestination by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(settings) {
+        startDestination = startDestinationFor(settings.onboardingComplete.first(), initialRoute)
+    }
+
     UnPawseTheme(darkTheme = darkMode) {
+        val start = startDestination
+        if (start == null) {
+            // One or two frames while DataStore answers. Guessing Home and correcting would flash
+            // the app at a first-run user before the tour they haven't seen yet.
+            Surface(modifier = Modifier.fillMaxSize()) {}
+            return@UnPawseTheme
+        }
+
         val navController = rememberNavController()
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route
@@ -63,14 +86,18 @@ fun UnPawseApp(initialRoute: String? = null) {
         // same tab semantics as the bottom bar: a plain navigate() would push it *onto* Home, and the
         // bottom bar's saveState/restoreState would then save that pushed entry under Home's slot —
         // leaving a later "Home" tap restoring the deep-linked screen instead of Home.
+        // A deep link always starts the graph on Home (see startDestinationFor), so this never
+        // pushes on top of the tour.
         LaunchedEffect(initialRoute) {
             if (initialRoute == null) return@LaunchedEffect
             val tab = TopLevelDestination.entries.firstOrNull { it.route == initialRoute }
             if (tab != null) navController.navigateToTab(tab) else navController.navigate(initialRoute)
         }
 
-        // The Block Overlay and the photo viewer are full-screen takeovers — no bottom bar.
-        val showBottomBar = currentRoute != Routes.BLOCK && currentRoute != Routes.CAPTURE_VIEWER
+        // The Block Overlay, the photo viewer and the first-run tour are full-screen takeovers — no bottom bar.
+        val showBottomBar = currentRoute != Routes.BLOCK &&
+            currentRoute != Routes.CAPTURE_VIEWER &&
+            currentRoute != Routes.ONBOARDING
 
         Scaffold(
             bottomBar = {
@@ -89,6 +116,7 @@ fun UnPawseApp(initialRoute: String? = null) {
                     scope.launch { settings.setDarkModeOverride(overrideFor(mode)) }
                 },
                 modifier = Modifier.padding(innerPadding),
+                startDestination = start,
             )
         }
     }

@@ -13,6 +13,7 @@ import com.example.unpawse.data.apps.InstalledAppsProvider
 import com.example.unpawse.data.apps.platformCategories
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.settings.UserProfile
 import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.unlocks.UnlockRepository
 import com.example.unpawse.data.usage.DailyUsage
@@ -46,7 +47,7 @@ class StatsViewModel(
     usageRepository: UsageRepository,
     captureRepository: CaptureRepository,
     unlockRepository: UnlockRepository,
-    userName: Flow<String>,
+    profile: Flow<UserProfile>,
     private val settingsRepository: SettingsRepository,
     private val installedAppsProvider: InstalledAppsProvider,
     private val deviceUsageProvider: DeviceUsageProvider,
@@ -114,9 +115,9 @@ class StatsViewModel(
         usageRepository.observeMonitoredApps(),
         history,
         captureRepository.observeCaptures(),
-        userName,
+        profile,
         settingsRepository.usageScope,
-    ) { monitoredApps, history, captures, name, scope ->
+    ) { monitoredApps, history, captures, user, scope ->
         // Read once per emission so the series and the mapper cannot straddle midnight differently.
         val day = today()
         toStatsUiState(
@@ -124,7 +125,8 @@ class StatsViewModel(
             recentUsage = history.recentUsage,
             captures = captures,
             unlocks = history.unlocks,
-            userName = name,
+            userName = user.name,
+            avatarId = user.avatarId,
             // Before the one-shot read lands, fall back to the chart window rather than an empty
             // list: a badge briefly missing is better than one briefly claiming to be un-earned.
             allUsage = history.allUsage.ifEmpty { history.recentUsage },
@@ -206,7 +208,7 @@ class StatsViewModel(
                     container.usageRepository,
                     container.captureRepository,
                     container.unlockRepository,
-                    container.settingsRepository.userName,
+                    container.settingsRepository.profile,
                     container.settingsRepository,
                     container.installedAppsProvider,
                     container.deviceUsageProvider,

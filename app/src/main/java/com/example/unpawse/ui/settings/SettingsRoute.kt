@@ -94,14 +94,24 @@ fun SettingsRoute(
         onWarningMinutesChange = viewModel::setWarningMinutes,
         onReminderMinutesChange = viewModel::setReminderMinutes,
         // Leave Settings once the wipe lands: staying would show a screen still rendering the data
-        // that was just deleted.
-        onEraseEverything = { viewModel.eraseEverything(onFinished = onBack) },
+        // that was just deleted. The wipe also cleared the tour flag, so show it now rather than on
+        // some later cold start; it is pushed over Home, so finishing it lands there.
+        onEraseEverything = {
+            viewModel.eraseEverything(
+                onFinished = {
+                    onBack()
+                    onNavigate(Routes.ONBOARDING)
+                },
+            )
+        },
         onNameChange = viewModel::setUserName,
+        onAvatarChange = viewModel::setAvatarId,
         onRowClick = { rowId ->
             when (rowId) {
                 SettingsRowIds.APP_LIMITS -> onNavigate(Routes.APP_PICKER)
                 SettingsRowIds.SCHEDULES -> onNavigate(Routes.SCHEDULES)
                 SettingsRowIds.PRIVACY_POLICY -> onNavigate(Routes.PRIVACY_POLICY)
+                SettingsRowIds.REPLAY_ONBOARDING -> onNavigate(Routes.ONBOARDING)
                 SettingsRowIds.MANAGE_PHOTOS -> onNavigate(Routes.PHOTO_STORAGE)
                 SettingsRowIds.EXPORT -> exportLauncher.launch(viewModel.exportFileName())
                 // The screen confirms before this fires, so the warning is read before a file is

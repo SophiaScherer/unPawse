@@ -30,6 +30,12 @@ object Routes {
     const val BLOCK = "block"
 
     /**
+     * The first-run tour. Like [BLOCK] it is full-screen with no bottom bar, and on a fresh install
+     * it is the graph's start destination rather than something Home navigates to.
+     */
+    const val ONBOARDING = "onboarding"
+
+    /**
      * Full-screen photo viewer, opened by tapping a Gallery tile. Like [BLOCK] it is a takeover —
      * no bottom bar (see `UnPawseApp`). The capture's id is the only argument; which photos it can
      * page across comes from the Gallery's live filter/search, not from the route.
@@ -79,6 +85,9 @@ object SettingsRowIds {
 
     /** Opens the in-app policy at [Routes.PRIVACY_POLICY]. */
     const val PRIVACY_POLICY = "privacy_policy_row"
+
+    /** Replays the first-run tour at [Routes.ONBOARDING]; finishing returns here. */
+    const val REPLAY_ONBOARDING = "replay_onboarding"
 }
 
 /**

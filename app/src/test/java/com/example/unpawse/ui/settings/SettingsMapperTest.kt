@@ -1,5 +1,7 @@
 package com.example.unpawse.ui.settings
 
+import com.example.unpawse.data.settings.AVATAR_NONE
+import com.example.unpawse.data.settings.CatAvatar
 import com.example.unpawse.BuildConfig
 import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.usage.DAILY_EARNED_CAP_MINUTES
@@ -49,6 +51,20 @@ class SettingsMapperTest {
         notificationsGranted = notificationsGranted,
         versionLabel = versionLabel,
     )
+
+    @Test
+    fun `the header avatar follows the stored choice`() {
+        val chosen = toSettingsUiState(
+            userName = "", sensitivity = 0.65f, dailySummaryEnabled = false,
+            earnedMinutesPerCat = 15, warningMinutes = 5, reminderMinutes = 0, photoCount = 0,
+            photoStorageBytes = 0L, monitoredApps = emptyList(), scheduleWindows = emptyList(),
+            usageAccessGranted = false, overlayAccessGranted = false, notificationsGranted = false,
+            versionLabel = "1.0 (1)", avatarId = CatAvatar.MIDNIGHT.id,
+        )
+
+        assertEquals(CatAvatar.MIDNIGHT.id, chosen.avatarId)
+        assertEquals(AVATAR_NONE, state().avatarId)
+    }
 
     @Test
     fun `no apps reads as a prompt rather than an empty string`() {

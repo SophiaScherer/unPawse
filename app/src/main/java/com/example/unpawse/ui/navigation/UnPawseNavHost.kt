@@ -14,6 +14,7 @@ import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.CaptureViewerRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
 import com.example.unpawse.ui.home.HomeRoute
+import com.example.unpawse.ui.onboarding.OnboardingRoute
 import com.example.unpawse.ui.photos.PhotoStorageRoute
 import com.example.unpawse.ui.schedules.SchedulesRoute
 import com.example.unpawse.ui.settings.SettingsRoute
@@ -34,10 +35,15 @@ fun UnPawseNavHost(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * [Routes.ONBOARDING] on a fresh install, [Routes.HOME] afterwards. Fixed for the life of the
+     * composition — see the note in `UnPawseApp`, which latches it.
+     */
+    startDestination: String = Routes.HOME,
 ) {
     NavHost(
         navController = navController,
-        startDestination = Routes.HOME,
+        startDestination = startDestination,
         modifier = modifier,
     ) {
         composable(Routes.HOME) {
@@ -114,6 +120,28 @@ fun UnPawseNavHost(
             PrivacyPolicyScreen(onBack = { navController.popBackStack() })
         }
 
+        composable(Routes.ONBOARDING) {
+            OnboardingRoute(
+                onFinished = finish@{
+                    // A second call (a double tap, say) would pop whatever is underneath too.
+                    if (navController.currentDestination?.route != Routes.ONBOARDING) return@finish
+                    // Decided by the back stack, not by the start destination: that is latched once
+                    // per composition, so a replay finished in the same session as the first run
+                    // would otherwise push a second Home over Settings.
+                    if (navController.previousBackStackEntry == null) {
+                        // Nothing underneath (first run): Home replaces the tour outright, so a back
+                        // press from Home leaves the app rather than replaying it.
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    } else {
+                        // Pushed over Settings (replay) or Home (after a reset); return there.
+                        navController.popBackStack()
+                    }
+                },
+            )
+        }
+
         composable(Routes.BLOCK) {
             BlockOverlayScreen(
                 state = SampleData.blockState,
@@ -127,7 +155,10 @@ fun UnPawseNavHost(
 /** Navigate to a top-level tab with standard bottom-nav semantics (single instance, saved state). */
 fun NavHostController.navigateToTab(destination: TopLevelDestination) {
     navigate(destination.route) {
-        popUpTo(graph.startDestinationId) {
+        // Home by name, not `graph.startDestinationId`: on a fresh install the graph starts at
+        // Onboarding, which completion pops off for good — leaving `popUpTo` aimed at a destination
+        // that is no longer on the back stack, so every tab tap would stack another entry.
+        popUpTo(Routes.HOME) {
             saveState = true
         }
         launchSingleTop = true

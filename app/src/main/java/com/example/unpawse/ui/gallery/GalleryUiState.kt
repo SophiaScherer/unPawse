@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.gallery
 
+import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
 
 /** Immutable UI state for the Gallery screen. [sample] supplies mockup data for previews. */
@@ -10,6 +11,8 @@ data class GalleryUiState(
     val sections: List<GallerySection>,
     /** Header avatar letter; see [com.example.unpawse.ui.format.avatarInitialFor]. */
     val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
+    /** The chosen cat; [AVATAR_NONE] shows [avatarInitial] instead. */
+    val avatarId: Int = AVATAR_NONE,
     /** What to say when [sections] is empty; null whenever there is a grid to show. */
     val emptyState: GalleryEmpty? = null,
 ) {

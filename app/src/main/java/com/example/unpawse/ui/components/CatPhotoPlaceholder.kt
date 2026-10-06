@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlin.math.absoluteValue
 
@@ -57,9 +58,15 @@ fun InitialsAvatar(
             .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center,
     ) {
+        // Sized from the circle rather than the type scale: a fixed 16sp letter is lost in the
+        // onboarding hero, and font scaling would push it out of a 40dp header avatar.
+        val letterSize = with(LocalDensity.current) { (size * 0.4f).toSp() }
         Text(
             text = initial.uppercase(),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontSize = letterSize,
+                lineHeight = letterSize,
+            ),
             color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }

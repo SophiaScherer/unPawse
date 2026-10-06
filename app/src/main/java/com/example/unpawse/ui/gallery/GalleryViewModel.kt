@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
+import com.example.unpawse.data.settings.UserProfile
 import com.example.unpawse.ui.format.avatarInitialFor
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +28,7 @@ import java.time.ZoneId
 class GalleryViewModel(
     private val repository: CaptureRepository,
     retentionDays: Flow<Int>,
-    userName: Flow<String>,
+    profile: Flow<UserProfile>,
 ) : ViewModel() {
 
     private val selectedFilter = MutableStateFlow(GalleryFilter.ALL)
@@ -39,8 +40,8 @@ class GalleryViewModel(
             selectedFilter,
             searchQuery,
             retentionDays,
-            userName,
-        ) { captures, filter, query, retention, name ->
+            profile,
+        ) { captures, filter, query, retention, user ->
             val zone = ZoneId.systemDefault()
             val today = LocalDate.now(zone)
             val sections = captures
@@ -52,7 +53,8 @@ class GalleryViewModel(
                 searchPlaceholder = GalleryUiState.SEARCH_PLACEHOLDER,
                 selectedFilter = filter,
                 sections = sections,
-                avatarInitial = avatarInitialFor(name),
+                avatarInitial = avatarInitialFor(user.name),
+                avatarId = user.avatarId,
                 // The unfiltered list is what separates "nothing photographed yet" from "the chip
                 // hid it all", and it is already in scope here.
                 emptyState = galleryEmptyState(
@@ -96,7 +98,7 @@ class GalleryViewModel(
                 GalleryViewModel(
                     repository = container.captureRepository,
                     retentionDays = container.settingsRepository.retentionDays,
-                    userName = container.settingsRepository.userName,
+                    profile = container.settingsRepository.profile,
                 )
             }
         }

@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.format
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
@@ -32,6 +33,24 @@ class DisplayNameTest {
     fun `a whitespace-only name counts as unset`() {
         assertEquals(DEFAULT_DISPLAY_NAME, displayNameOf("   "))
         assertEquals('F', avatarInitialFor("   "))
+    }
+
+    @Test
+    fun `a name field keeps at most thirty characters`() {
+        assertEquals("Sophia", capDisplayName("Sophia"))
+        val long = "Maximiliana Theodora Wilhelmina Featherstonehaugh"
+        assertEquals(MAX_DISPLAY_NAME_LENGTH, capDisplayName(long).length)
+        assertEquals(long.take(30), capDisplayName(long))
+    }
+
+    @Test
+    fun `the cap never splits an emoji`() {
+        val name = "a".repeat(MAX_DISPLAY_NAME_LENGTH - 1) + "\uD83D\uDC31\uD83D\uDC31"
+
+        val capped = capDisplayName(name)
+
+        assertEquals("a".repeat(MAX_DISPLAY_NAME_LENGTH - 1) + "\uD83D\uDC31", capped)
+        assertFalse(Character.isHighSurrogate(capped.last()))
     }
 
     @Test

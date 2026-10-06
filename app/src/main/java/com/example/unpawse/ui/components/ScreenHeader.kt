@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
@@ -29,6 +30,8 @@ fun ScreenHeader(
     // Deliberately no default: it used to be 'S', so a caller that forgot to pass one silently
     // showed the mockup's initial instead of the user's.
     avatarInitial: Char,
+    // Required for the same reason: a header that forgot it would quietly ignore the chosen cat.
+    avatarId: Int,
     greeting: String? = null,
     title: String,
 ) {
@@ -39,7 +42,7 @@ fun ScreenHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        InitialsAvatar(initial = avatarInitial)
+        ProfileAvatar(avatarId = avatarId, initial = avatarInitial)
         Column(modifier = Modifier.weight(1f)) {
             if (greeting != null) {
                 Text(
@@ -51,12 +54,17 @@ fun ScreenHeader(
                     text = title,
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onSurface,
+                    // The title is the user's name here; a long one must not wrap the header.
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             } else {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

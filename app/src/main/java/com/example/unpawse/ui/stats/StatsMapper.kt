@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
@@ -67,6 +68,7 @@ internal fun toStatsUiState(
     allUsage: List<DailyUsage> = recentUsage,
     /** Blank is the stored "not set" state, so the header falls back like everywhere else. */
     userName: String = "",
+    avatarId: Int = AVATAR_NONE,
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
     scope: UsageScope = UsageScope.TRACKED,
@@ -128,6 +130,7 @@ internal fun toStatsUiState(
     // `SettingsMapper`; `sample()` is now @Preview-only.
     return StatsUiState(
         avatarInitial = avatarInitialFor(userName),
+        avatarId = avatarId,
         // Every scoped figure below goes blank when the chosen scope has nothing to measure, rather
         // than rendering the zeroes an empty series would otherwise produce. Same rule as
         // `deltaHasBaseline` and `ProtectionStatus.OFF`: one numeric slot cannot also say "unknown".
