@@ -116,7 +116,7 @@ object Notifications {
         Notification.Builder(context, channelId)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_cat)
             .setContentIntent(openAppIntent(context))
 
     private fun openAppIntent(context: Context): PendingIntent = PendingIntent.getActivity(
