@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import com.example.unpawse.ui.navigation.UnPawseBottomBar
 import com.example.unpawse.ui.navigation.UnPawseNavHost
 import com.example.unpawse.ui.navigation.navigateToTab
+import com.example.unpawse.ui.navigation.owningTab
 import com.example.unpawse.ui.navigation.startDestinationFor
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.isDark
@@ -103,7 +104,7 @@ fun UnPawseApp(initialRoute: String? = null) {
             bottomBar = {
                 if (showBottomBar) {
                     UnPawseBottomBar(
-                        currentRoute = currentRoute,
+                        selectedTab = owningTab(currentRoute),
                         onNavigate = navController::navigateToTab,
                     )
                 }

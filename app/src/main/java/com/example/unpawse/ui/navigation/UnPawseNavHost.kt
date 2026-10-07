@@ -49,10 +49,10 @@ fun UnPawseNavHost(
         composable(Routes.HOME) {
             HomeRoute(
                 // "Edit Limits" opens the App Picker, which owns app selection and per-app limits.
-                onEditLimits = { navController.navigate(Routes.APP_PICKER) },
+                onEditLimits = { navController.navigateWithinTab(Routes.APP_PICKER) },
                 // The two permission rows that fix this live in Settings and already deep-link out
                 // to the system screens, so Home hands off rather than duplicating that.
-                onFixProtection = { navController.navigateToTab(TopLevelDestination.SETTINGS) },
+                onFixProtection = { navController.navigateWithinTab(Routes.SETTINGS) },
             )
         }
 
@@ -68,7 +68,7 @@ fun UnPawseNavHost(
             StatsRoute(
                 // The breakdown groups by category and the App Picker is where categories and limits
                 // are set, so "Details" lands on the screen that can act on what the donut reports.
-                onDetails = { navController.navigate(Routes.APP_PICKER) },
+                onDetails = { navController.navigateWithinTab(Routes.APP_PICKER) },
             )
         }
 
@@ -96,14 +96,14 @@ fun UnPawseNavHost(
                 themeMode = themeMode,
                 onThemeModeChange = onThemeModeChange,
                 onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
-                onNavigate = navController::navigate,
+                onNavigate = navController::navigateWithinTab,
             )
         }
 
         composable(Routes.APP_PICKER) {
             AppPickerRoute(
                 onBack = { navController.popBackStack() },
-                onOpenSchedules = { navController.navigate(Routes.SCHEDULES) },
+                onOpenSchedules = { navController.navigateWithinTab(Routes.SCHEDULES) },
             )
         }
 
@@ -149,19 +149,5 @@ fun UnPawseNavHost(
                 onExit = { navController.popBackStack() },
             )
         }
-    }
-}
-
-/** Navigate to a top-level tab with standard bottom-nav semantics (single instance, saved state). */
-fun NavHostController.navigateToTab(destination: TopLevelDestination) {
-    navigate(destination.route) {
-        // Home by name, not `graph.startDestinationId`: on a fresh install the graph starts at
-        // Onboarding, which completion pops off for good — leaving `popUpTo` aimed at a destination
-        // that is no longer on the back stack, so every tab tap would stack another entry.
-        popUpTo(Routes.HOME) {
-            saveState = true
-        }
-        launchSingleTop = true
-        restoreState = true
     }
 }
