@@ -3,6 +3,7 @@ package com.example.unpawse.ui.navigation
 import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Settings
@@ -122,7 +123,7 @@ enum class TopLevelDestination(
         route = Routes.GALLERY,
         label = "Gallery",
         // Material Icons has no AutoAwesomeMosaic; GridView is the closest match to the mockup glyph.
-        selectedIcon = Icons.Outlined.GridView,
+        selectedIcon = Icons.Filled.GridView,
         unselectedIcon = Icons.Outlined.GridView,
     ),
     SETTINGS(

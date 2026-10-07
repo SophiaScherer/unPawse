@@ -95,7 +95,7 @@ fun UnPawseNavHost(
             SettingsRoute(
                 themeMode = themeMode,
                 onThemeModeChange = onThemeModeChange,
-                onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
+                onLeave = { navController.navigateToTab(TopLevelDestination.HOME) },
                 onNavigate = navController::navigateWithinTab,
             )
         }

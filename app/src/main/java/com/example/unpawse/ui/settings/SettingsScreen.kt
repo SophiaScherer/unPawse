@@ -55,11 +55,10 @@ import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
 import com.example.unpawse.data.settings.catAvatarForId
 import com.example.unpawse.ui.components.AvatarPicker
-import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.Chevron
 import com.example.unpawse.ui.components.ConfirmDialog
 import com.example.unpawse.ui.components.OptionPickerDialog
-import com.example.unpawse.ui.components.ProfileAvatar
+import com.example.unpawse.ui.components.ScreenHeader
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
 import com.example.unpawse.ui.components.SettingsRow
@@ -76,7 +75,6 @@ import com.example.unpawse.ui.theme.UnPawseTheme
 fun SettingsScreen(
     state: SettingsUiState,
     modifier: Modifier = Modifier,
-    onBack: () -> Unit = {},
     onSensitivityChange: (Float) -> Unit = {},
     onEarnedMinutesChange: (Int) -> Unit = {},
     onWarningMinutesChange: (Int) -> Unit = {},
@@ -204,7 +202,14 @@ fun SettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
-        item { SettingsHeader(state.userName, state.avatarId, onBack) }
+        // A tab, so no back arrow: system back already leaves it, and the arrow only ever went Home.
+        item {
+            ScreenHeader(
+                title = "Settings",
+                avatarInitial = avatarInitialFor(state.userName),
+                avatarId = state.avatarId,
+            )
+        }
 
         item {
             SectionLabel(text = "Profile", uppercase = true)
@@ -443,17 +448,6 @@ fun SettingsScreen(
             }
         }
     }
-}
-
-@Composable
-private fun SettingsHeader(userName: String, avatarId: Int, onBack: () -> Unit) {
-    BackHeader(
-        title = "Settings",
-        onBack = onBack,
-        trailing = {
-            ProfileAvatar(avatarId = avatarId, initial = avatarInitialFor(userName), size = 40.dp)
-        },
-    )
 }
 
 /** The tour's picker in a dialog; a choice is stored on the tap, so the only button is Done. */
