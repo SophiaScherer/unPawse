@@ -47,4 +47,8 @@ interface CaptureDao {
 
     @Query("DELETE FROM captures WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    /** Rows only, for a wipe inside a transaction; the JPEGs go once it has committed. */
+    @Query("DELETE FROM captures")
+    suspend fun deleteAll()
 }

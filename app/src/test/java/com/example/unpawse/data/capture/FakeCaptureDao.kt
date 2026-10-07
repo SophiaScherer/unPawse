@@ -45,6 +45,16 @@ internal class FakeCaptureDao : CaptureDao {
         rows.remove(id)
     }
 
+    override suspend fun deleteAll() {
+        rows.clear()
+    }
+
+    /** Test helper for [com.example.unpawse.data.FakeTransactor]: returns a rollback. */
+    fun checkpoint(): () -> Unit {
+        val saved = rows.toMap()
+        return { rows.clear(); rows.putAll(saved) }
+    }
+
     /** Test helper: current rows, used to assert what survived a purge. */
     fun all(): List<CaptureEntity> = rows.values.toList()
 }

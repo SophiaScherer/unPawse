@@ -15,6 +15,12 @@ internal class FakeUnlockDao : UnlockDao() {
 
     private val rows = mutableMapOf<String, DailyUnlocksEntity>()
 
+    /** Test helper for [com.example.unpawse.data.FakeTransactor]: returns a rollback. */
+    fun checkpoint(): () -> Unit {
+        val saved = rows.toMap()
+        return { rows.clear(); rows.putAll(saved) }
+    }
+
     override fun observeUnlocksBetween(
         startDate: String,
         endDate: String,

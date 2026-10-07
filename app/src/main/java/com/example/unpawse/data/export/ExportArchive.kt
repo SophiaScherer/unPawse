@@ -1,12 +1,18 @@
 package com.example.unpawse.data.export
 
+import java.io.ByteArrayOutputStream
+import java.io.Closeable
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.zip.CRC32
+import java.util.zip.CheckedInputStream
 import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
+import java.util.zip.ZipException
+import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
-/** The manifest, always the bundle's first entry — see [readBundle]. */
+/** The manifest, written as the first entry; [BundleReader] looks it up by name. */
 const val MANIFEST_ENTRY = "export.json"
 
 const val PHOTOS_DIR = "photos/"
@@ -67,25 +73,38 @@ fun writeBundle(out: OutputStream, manifestJson: String, photos: List<PhotoSourc
 }
 
 /**
- * Reads the bundle in one pass, handing each entry straight to a callback so only one JPEG is in
- * memory at a time. [onManifest] is guaranteed to run before any [onPhoto], which is what lets the
- * caller decide whether to proceed before a single byte is written anywhere.
+ * Random-access reader over a bundle saved to disk. Opening it reads the central directory, which a
+ * ZIP keeps at its very end, so a truncated file is refused here instead of passing as a smaller
+ * archive — a streaming reader can't tell a cut on an entry boundary from the real end.
  */
-suspend fun readBundle(
-    input: InputStream,
-    onManifest: suspend (String) -> Unit,
-    onPhoto: suspend (fileName: String, bytes: ByteArray) -> Unit,
-) {
-    val zip = ZipInputStream(input)
-    var entry = zip.nextEntry
-    while (entry != null) {
-        if (!entry.isDirectory) {
-            when {
-                entry.name == MANIFEST_ENTRY -> onManifest(zip.readBytes().decodeToString())
-                else -> photoFileNameOf(entry.name)?.let { onPhoto(it, zip.readBytes()) }
-            }
-        }
-        zip.closeEntry()
-        entry = zip.nextEntry
+class BundleReader(file: File) : Closeable {
+
+    private val zip = ZipFile(file)
+
+    /** The manifest's text, or null when the archive isn't one of ours. */
+    fun manifest(): String? = zip.getEntry(MANIFEST_ENTRY)?.let { entry ->
+        ByteArrayOutputStream().also { copyVerified(entry, it) }.toByteArray().decodeToString()
     }
+
+    /**
+     * Copies the photo the manifest calls [fileName] to [target]. False when the bundle doesn't
+     * carry it (the export skipped a JPEG it couldn't read); throws if it is there but damaged.
+     */
+    fun copyPhoto(fileName: String, target: File): Boolean {
+        val name = photoFileNameOf(PHOTOS_DIR + fileName) ?: return false
+        val entry = zip.getEntry(PHOTOS_DIR + name) ?: return false
+        target.outputStream().use { copyVerified(entry, it) }
+        return true
+    }
+
+    // ZipFile doesn't check an entry's CRC on read, and a corrupt photo must fail before the wipe.
+    private fun copyVerified(entry: ZipEntry, out: OutputStream) {
+        val crc = CRC32()
+        val copied = CheckedInputStream(zip.getInputStream(entry), crc).use { it.copyTo(out) }
+        if (copied != entry.size || crc.value != entry.crc) {
+            throw ZipException("${entry.name} is damaged")
+        }
+    }
+
+    override fun close() = zip.close()
 }

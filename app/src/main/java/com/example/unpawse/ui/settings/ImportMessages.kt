@@ -10,6 +10,8 @@ import com.example.unpawse.ui.format.countLabel
  */
 internal fun importMessage(result: ImportResult): String = when (result) {
     is ImportResult.Restored -> when {
+        // The data committed but the preferences didn't, so they are still the old ones.
+        !result.settingsRestored -> "Data restored, but your settings couldn't be — check them below"
         result.captures == 0 && result.skippedCaptures == 0 -> "Data restored"
         // An older export carried no photos, so saying "restored" alone would overstate it.
         result.skippedCaptures > 0 ->
@@ -18,7 +20,9 @@ internal fun importMessage(result: ImportResult): String = when (result) {
         else -> "Data restored with ${countLabel(result.captures, "photo")}"
     }
     ImportResult.Unreadable -> "That isn't an unPawse export — nothing was changed"
+    ImportResult.Damaged -> "That export is incomplete or damaged — nothing was changed"
     is ImportResult.TooNew ->
         "That export is from a newer version of unPawse — nothing was changed"
-    ImportResult.Failed -> "Couldn't finish the import"
+    // The wipe and the restore share one transaction, so a failure rolls both back.
+    ImportResult.Failed -> "Couldn't finish the import — nothing was changed"
 }

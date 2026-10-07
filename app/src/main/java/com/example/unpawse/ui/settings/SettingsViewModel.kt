@@ -211,7 +211,11 @@ class SettingsViewModel(
      * afterwards — the screen it returns to would otherwise be rendering data that no longer exists.
      */
     fun eraseEverything(onFinished: () -> Unit) = viewModelScope.launch {
-        resetRepository.eraseEverything()
+        // Without the catch a failed transaction would crash the app; it rolled back, so retrying is safe.
+        if (runCatching { resetRepository.eraseEverything() }.isFailure) {
+            _messages.send("Couldn't delete your data — try again")
+            return@launch
+        }
         _messages.send("All data deleted")
         onFinished()
     }
