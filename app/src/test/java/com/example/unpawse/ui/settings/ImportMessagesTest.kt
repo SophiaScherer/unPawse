@@ -40,10 +40,11 @@ class ImportMessagesTest {
         )
     }
 
-    /** Both refusals must say nothing was changed, or they read as a wipe that lost the data. */
+    /** Every refusal must say nothing was changed, or they read as a wipe that lost the data. */
     @Test
     fun `refusals say the device was left alone`() {
         assertTrue(importMessage(ImportResult.Unreadable).contains("nothing was changed"))
+        assertTrue(importMessage(ImportResult.Damaged).contains("nothing was changed"))
         assertTrue(importMessage(ImportResult.TooNew(99)).contains("nothing was changed"))
     }
 

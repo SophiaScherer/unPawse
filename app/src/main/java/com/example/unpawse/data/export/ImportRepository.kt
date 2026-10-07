@@ -14,6 +14,8 @@ import com.example.unpawse.data.usage.appCategoryFrom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
+import java.io.File
+import java.io.IOException
 import java.io.InputStream
 
 /**
@@ -25,8 +27,11 @@ sealed interface ImportResult {
     /** Everything in the document was restored. [skippedCaptures] carried no photo to restore. */
     data class Restored(val captures: Int, val skippedCaptures: Int) : ImportResult
 
-    /** Not an unPawse export, or too damaged to read. Nothing was touched. */
+    /** Not an unPawse export. Nothing was touched. */
     data object Unreadable : ImportResult
+
+    /** Ours, but cut short or corrupt — a partial download, say. Nothing was touched. */
+    data object Damaged : ImportResult
 
     /** A document from a newer build, whose meaning we'd only be guessing at. Nothing was touched. */
     data class TooNew(val formatVersion: Int) : ImportResult
@@ -57,6 +62,8 @@ class ImportRepository(
      * `applySettings` is one: it keeps the whole class constructible in a JVM unit test.
      */
     private val openDocument: (Uri) -> InputStream?,
+    /** Holds a bundle and its photos until all of it has been read; emptied after each import. */
+    private val stagingDir: File,
 ) {
 
     suspend fun importFrom(uri: Uri): ImportResult = withContext(Dispatchers.IO) {
@@ -68,9 +75,9 @@ class ImportRepository(
     /**
      * Reads [input], which may be a v6 bundle or a bare legacy document, and restores it.
      *
-     * The manifest is parsed and accepted *before* anything is erased. A wipe followed by a failed
-     * parse would destroy the user's data on behalf of a corrupt file, so that ordering is the one
-     * thing in here that must not be rearranged.
+     * Everything is read and checked *before* anything is erased — the manifest, the format version
+     * and every photo. A wipe followed by a failed read would destroy the user's data on behalf of a
+     * corrupt file, so that ordering is the one thing in here that must not be rearranged.
      */
     suspend fun importFrom(input: InputStream): ImportResult {
         val buffered = BufferedInputStream(input)
@@ -88,37 +95,68 @@ class ImportRepository(
     }
 
     private suspend fun importBundle(input: InputStream): ImportResult {
-        var manifest: ExportSnapshot? = null
-        var rejected: ImportResult? = null
-        // fileName as the archive knew it -> the path PhotoStorage just wrote it to.
-        val restoredPaths = mutableMapOf<String, String>()
-
-        val read = runCatching {
-            readBundle(
-                input = input,
-                onManifest = { json ->
-                    when (val outcome = readManifest(json)) {
-                        is ManifestOutcome.Ok -> {
-                            manifest = outcome.snapshot
-                            reset.eraseEverything()
-                        }
-                        is ManifestOutcome.Rejected -> rejected = outcome.result
-                    }
-                },
-                onPhoto = { fileName, bytes ->
-                    // Only once a manifest has been accepted, so a bundle with no manifest (or an
-                    // unreadable one) can't leave orphan JPEGs behind.
-                    if (manifest != null) restoredPaths[fileName] = captures.storePhoto(bytes)
-                },
-            )
-        }.isSuccess
-
-        rejected?.let { return it }
-        val snapshot = manifest ?: return ImportResult.Unreadable
-        if (!read) return ImportResult.Failed
-
-        return runCatching { restore(snapshot, restoredPaths) }.getOrElse { ImportResult.Failed }
+        // Cleared before as well as after, so an import killed mid-way can't strand its photos here.
+        stagingDir.deleteRecursively()
+        stagingDir.mkdirs()
+        try {
+            val staged = runCatching { stage(input) }
+                .getOrElse { Staging.Refused(ImportResult.Failed) }
+            return when (staged) {
+                is Staging.Refused -> staged.result
+                is Staging.Ready -> replaceWith(staged.snapshot, staged.photos)
+            }
+        } finally {
+            stagingDir.deleteRecursively()
+        }
     }
+
+    private sealed interface Staging {
+        /** [photos] maps each name the manifest uses to its fully read, CRC-checked copy. */
+        class Ready(val snapshot: ExportSnapshot, val photos: Map<String, File>) : Staging
+        class Refused(val result: ImportResult) : Staging
+    }
+
+    private fun stage(input: InputStream): Staging {
+        val archive = File(stagingDir, STAGED_BUNDLE)
+        return try {
+            archive.outputStream().use { input.copyTo(it) }
+            BundleReader(archive).use { reader ->
+                val json = reader.manifest() ?: return Staging.Refused(ImportResult.Unreadable)
+                val snapshot = when (val outcome = readManifest(json)) {
+                    is ManifestOutcome.Ok -> outcome.snapshot
+                    is ManifestOutcome.Rejected -> return Staging.Refused(outcome.result)
+                }
+                val names = snapshot.captures.mapNotNull { it.fileName }.distinct()
+                val photos = names.withIndex().mapNotNull { (index, name) ->
+                    val staged = File(stagingDir, "photo-$index")
+                    if (reader.copyPhoto(name, staged)) name to staged else null
+                }.toMap()
+                Staging.Ready(snapshot, photos)
+            }
+        } catch (_: IOException) {
+            // ZipFile refuses a file missing its central directory, and a photo that fails its CRC
+            // throws too: either way the bundle is incomplete, and nothing has been touched yet.
+            Staging.Refused(ImportResult.Damaged)
+        } finally {
+            archive.delete()
+        }
+    }
+
+    /**
+     * Swaps the stored data for [snapshot]. Every photo in [photos] has already been read, so
+     * nothing past this point depends on the file the user picked.
+     */
+    private suspend fun replaceWith(
+        snapshot: ExportSnapshot,
+        photos: Map<String, File>,
+    ): ImportResult = runCatching {
+        reset.eraseEverything()
+        val paths = photos.mapValues { captures.reservePhotoPath() }
+        val unplaced = captures.placePhotos(
+            paths.entries.associate { (name, path) -> path to photos.getValue(name) },
+        )
+        restore(snapshot, paths.filterValues { it !in unplaced })
+    }.getOrElse { ImportResult.Failed }
 
     /** A v5-or-older document: everything but the captures, which had no photos to carry. */
     private suspend fun importLegacyJson(input: InputStream): ImportResult {
@@ -129,9 +167,7 @@ class ImportRepository(
             is ManifestOutcome.Rejected -> return outcome.result
         }
 
-        reset.eraseEverything()
-        return runCatching { restore(snapshot, restoredPaths = emptyMap()) }
-            .getOrElse { ImportResult.Failed }
+        return replaceWith(snapshot, photos = emptyMap())
     }
 
     private sealed interface ManifestOutcome {
@@ -189,6 +225,8 @@ class ImportRepository(
     private companion object {
         /** A ZIP local-file header's magic is four bytes; that's all the sniff needs. */
         const val ZIP_HEADER_BYTES = 4
+
+        const val STAGED_BUNDLE = "bundle.zip"
     }
 }
 
@@ -210,7 +248,7 @@ private fun ExportScheduleWindow.toDomain() = ScheduleWindow(
     enabled = enabled,
 )
 
-/** [filePath] comes from where the JPEG was just written, never from the document. */
+/** [filePath] is the path reserved for the photo, never anything from the document. */
 private fun ExportCapture.toDomain(filePath: String) = Capture(
     id = id,
     filePath = filePath,

@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Application-scoped dependency graph. Owns the single instances of the database, repositories, and
@@ -200,6 +201,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
             reset = resetRepository,
             applySettings = settingsRepository::applyImported,
             openDocument = appContext.contentResolver::openInputStream,
+            // cacheDir shares a volume with filesDir, so placing a staged photo is a rename.
+            stagingDir = File(appContext.cacheDir, "import-staging"),
         )
     }
 

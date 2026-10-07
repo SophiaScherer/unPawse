@@ -18,6 +18,7 @@ internal fun importMessage(result: ImportResult): String = when (result) {
         else -> "Data restored with ${countLabel(result.captures, "photo")}"
     }
     ImportResult.Unreadable -> "That isn't an unPawse export — nothing was changed"
+    ImportResult.Damaged -> "That export is incomplete or damaged — nothing was changed"
     is ImportResult.TooNew ->
         "That export is from a newer version of unPawse — nothing was changed"
     ImportResult.Failed -> "Couldn't finish the import"

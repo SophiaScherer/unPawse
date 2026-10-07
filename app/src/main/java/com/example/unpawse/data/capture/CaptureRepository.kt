@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
@@ -68,13 +69,23 @@ class CaptureRepository(
     }
 
     /**
-     * Writes photo bytes and returns their new path, for an import. The name is [PhotoStorage]'s own
-     * UUID, not whatever the archive called the file — a stored path is install-specific, so it has
-     * to be re-mapped either way, and an attacker-supplied name never reaches the filesystem.
+     * Where an imported photo will live. The name is [PhotoStorage]'s own UUID, not whatever the
+     * archive called the file: a stored path is install-specific, and an attacker-supplied name
+     * never reaches the filesystem.
      */
-    suspend fun storePhoto(bytes: ByteArray): String = photoStorage.save(bytes)
+    fun reservePhotoPath(): String = photoStorage.newPath()
 
-    /** Bulk-restores capture rows whose JPEGs are already on disk via [storePhoto]. */
+    /**
+     * Moves staged import photos to the paths reserved for them, returning the paths that couldn't
+     * be filled so the caller can drop their rows.
+     */
+    suspend fun placePhotos(moves: Map<String, File>): Set<String> {
+        val failed = moves.filterNot { (path, staged) -> photoStorage.moveIn(staged, path) }.keys
+        storageRevision.value++
+        return failed
+    }
+
+    /** Bulk-restores capture rows; their JPEGs are placed with [placePhotos]. */
     suspend fun restoreCaptures(captures: List<Capture>) {
         dao.insertAll(captures.map(Capture::toEntity))
         storageRevision.value++
