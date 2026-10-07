@@ -95,7 +95,7 @@ class StatsMapperTest {
         // Today is still running, so half of yesterday by now says nothing about how today ends.
         val state = map(recentUsage = listOf(usage("a", 0, 30), usage("a", 1, 60)))
 
-        assertEquals("50% below yesterday so far", state.deltaText)
+        assertEquals("50% of yesterday's total so far", state.deltaText)
         assertFalse(state.deltaIsPositive)
         assertTrue(state.deltaHasBaseline)
     }

@@ -139,7 +139,7 @@ data class StatsUiState(
         fun sample() = StatsUiState(
             avatarInitial = 'S',
             dailyTotal = "3h 24m",
-            deltaText = "12% below yesterday so far",
+            deltaText = "88% of yesterday's total so far",
             deltaIsPositive = false,
             deltaHasBaseline = true,
             weeklyPoints = listOf(2.1f, 2.6f, 2.9f, 3.4f, 3.8f, null, null),

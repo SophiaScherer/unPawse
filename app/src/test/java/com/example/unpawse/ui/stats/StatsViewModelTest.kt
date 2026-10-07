@@ -105,7 +105,7 @@ class StatsViewModelTest {
         // A fresh week: Monday measured, the rest still to come.
         assertEquals(0f, monday.weeklyPoints.first())
         assertNull(monday.weeklyPoints[1])
-        assertEquals("100% below yesterday so far", monday.deltaText)
+        assertEquals("0% of yesterday's total so far", monday.deltaText)
     }
 
     @Test

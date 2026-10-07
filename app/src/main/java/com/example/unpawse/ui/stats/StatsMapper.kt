@@ -234,7 +234,8 @@ private fun unlocksLabel(unlocks: List<DailyUnlocks>, today: LocalDate): String 
 
 /**
  * Today so far against the whole of yesterday. A rise is a fact the moment it happens, but being
- * under yesterday is only true *so far*, so that case says so and claims no improvement.
+ * under yesterday is only true *so far*, so that case reports progress toward yesterday's total
+ * rather than a shortfall, which read as "100% below" just after midnight.
  */
 private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String {
     if (yesterdaySeconds == 0L) return "No data for yesterday"
@@ -242,7 +243,7 @@ private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String {
     return when {
         percent > 0 -> "$percent% more than yesterday"
         percent == 0 -> "Level with yesterday"
-        else -> "${abs(percent)}% below yesterday so far"
+        else -> "${100 + percent}% of yesterday's total so far"
     }
 }
 
