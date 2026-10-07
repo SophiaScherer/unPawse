@@ -45,7 +45,7 @@ private val IMPORT_MIME_TYPES = arrayOf(BUNDLE_MIME_TYPE, LEGACY_MIME_TYPE, "*/*
 fun SettingsRoute(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
-    onBack: () -> Unit,
+    onLeave: () -> Unit,
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -62,7 +62,7 @@ fun SettingsRoute(
     // OpenDocument rather than GetContent: it yields a durable provider uri we can re-open.
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let { viewModel.importFrom(it, onFinished = onBack) } }
+    ) { uri -> uri?.let { viewModel.importFrom(it, onFinished = onLeave) } }
 
     // Writing a file produces nothing visible on screen; surface the outcome so a successful export
     // is distinguishable from a silent failure.
@@ -86,7 +86,6 @@ fun SettingsRoute(
     SettingsScreen(
         state = state.copy(themeMode = themeMode),
         modifier = modifier,
-        onBack = onBack,
         onThemeModeChange = onThemeModeChange,
         onToggleDailySummary = viewModel::setDailySummary,
         onSensitivityChange = viewModel::setSensitivity,
@@ -99,7 +98,7 @@ fun SettingsRoute(
         onEraseEverything = {
             viewModel.eraseEverything(
                 onFinished = {
-                    onBack()
+                    onLeave()
                     onNavigate(Routes.ONBOARDING)
                 },
             )

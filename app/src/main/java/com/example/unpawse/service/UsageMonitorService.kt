@@ -308,7 +308,9 @@ class UsageMonitorService : Service() {
         startActivity(
             Intent(this, MainActivity::class.java).apply {
                 putExtra(MainActivity.EXTRA_OPEN_CAMERA, true)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                // No CLEAR_TOP: it recreated the activity and threw away the user's back stack.
+                // MainActivity is singleTop, so a running one gets this through onNewIntent.
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             },
         )
     }

@@ -6,10 +6,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.unpawse.data.SampleData
 import com.example.unpawse.ui.about.PrivacyPolicyScreen
 import com.example.unpawse.ui.apppicker.AppPickerRoute
-import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.CaptureViewerRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
@@ -22,9 +20,8 @@ import com.example.unpawse.ui.stats.StatsRoute
 import com.example.unpawse.ui.theme.ThemeMode
 
 /**
- * Central navigation graph. Every destination renders from a real ViewModel via its `XxxRoute`,
- * except the Block Overlay — which is only reachable here as a design/debug entry (in production the
- * service draws it over the offending app), so it still uses [SampleData].
+ * Central navigation graph. Every destination renders from a real ViewModel via its `XxxRoute`; the
+ * block overlay is not here at all, since the service draws it over the offending app.
  *
  * [themeMode] / [onThemeModeChange] are threaded down from [com.example.unpawse.UnPawseApp] so the
  * Settings appearance picker actually flips the app theme.
@@ -49,10 +46,10 @@ fun UnPawseNavHost(
         composable(Routes.HOME) {
             HomeRoute(
                 // "Edit Limits" opens the App Picker, which owns app selection and per-app limits.
-                onEditLimits = { navController.navigate(Routes.APP_PICKER) },
+                onEditLimits = { navController.navigateWithinTab(Routes.APP_PICKER) },
                 // The two permission rows that fix this live in Settings and already deep-link out
                 // to the system screens, so Home hands off rather than duplicating that.
-                onFixProtection = { navController.navigateToTab(TopLevelDestination.SETTINGS) },
+                onFixProtection = { navController.navigateWithinTab(Routes.SETTINGS) },
             )
         }
 
@@ -60,7 +57,6 @@ fun UnPawseNavHost(
             CameraRoute(
                 onClose = { navController.navigateToTab(TopLevelDestination.HOME) },
                 onOpenGallery = { navController.navigateToTab(TopLevelDestination.GALLERY) },
-                onOpenSettings = { navController.navigateToTab(TopLevelDestination.SETTINGS) },
             )
         }
 
@@ -68,7 +64,7 @@ fun UnPawseNavHost(
             StatsRoute(
                 // The breakdown groups by category and the App Picker is where categories and limits
                 // are set, so "Details" lands on the screen that can act on what the donut reports.
-                onDetails = { navController.navigate(Routes.APP_PICKER) },
+                onDetails = { navController.navigateWithinTab(Routes.APP_PICKER) },
             )
         }
 
@@ -95,15 +91,15 @@ fun UnPawseNavHost(
             SettingsRoute(
                 themeMode = themeMode,
                 onThemeModeChange = onThemeModeChange,
-                onBack = { navController.navigateToTab(TopLevelDestination.HOME) },
-                onNavigate = navController::navigate,
+                onLeave = { navController.navigateToTab(TopLevelDestination.HOME) },
+                onNavigate = navController::navigateWithinTab,
             )
         }
 
         composable(Routes.APP_PICKER) {
             AppPickerRoute(
                 onBack = { navController.popBackStack() },
-                onOpenSchedules = { navController.navigate(Routes.SCHEDULES) },
+                onOpenSchedules = { navController.navigateWithinTab(Routes.SCHEDULES) },
             )
         }
 
@@ -125,43 +121,9 @@ fun UnPawseNavHost(
                 onFinished = finish@{
                     // A second call (a double tap, say) would pop whatever is underneath too.
                     if (navController.currentDestination?.route != Routes.ONBOARDING) return@finish
-                    // Decided by the back stack, not by the start destination: that is latched once
-                    // per composition, so a replay finished in the same session as the first run
-                    // would otherwise push a second Home over Settings.
-                    if (navController.previousBackStackEntry == null) {
-                        // Nothing underneath (first run): Home replaces the tour outright, so a back
-                        // press from Home leaves the app rather than replaying it.
-                        navController.navigate(Routes.HOME) {
-                            popUpTo(Routes.ONBOARDING) { inclusive = true }
-                        }
-                    } else {
-                        // Pushed over Settings (replay) or Home (after a reset); return there.
-                        navController.popBackStack()
-                    }
+                    navController.leaveOnboarding()
                 },
             )
         }
-
-        composable(Routes.BLOCK) {
-            BlockOverlayScreen(
-                state = SampleData.blockState,
-                onOpenCamera = { navController.navigateToTab(TopLevelDestination.CAMERA) },
-                onExit = { navController.popBackStack() },
-            )
-        }
-    }
-}
-
-/** Navigate to a top-level tab with standard bottom-nav semantics (single instance, saved state). */
-fun NavHostController.navigateToTab(destination: TopLevelDestination) {
-    navigate(destination.route) {
-        // Home by name, not `graph.startDestinationId`: on a fresh install the graph starts at
-        // Onboarding, which completion pops off for good — leaving `popUpTo` aimed at a destination
-        // that is no longer on the back stack, so every tab tap would stack another entry.
-        popUpTo(Routes.HOME) {
-            saveState = true
-        }
-        launchSingleTop = true
-        restoreState = true
     }
 }

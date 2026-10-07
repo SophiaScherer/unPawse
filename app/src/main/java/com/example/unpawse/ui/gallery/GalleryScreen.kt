@@ -83,7 +83,7 @@ fun GalleryScreen(
         item(span = StaggeredGridItemSpan.FullLine) {
             Column {
                 ScreenHeader(
-                    title = "unPawse",
+                    title = "Gallery",
                     avatarInitial = state.avatarInitial,
                     avatarId = state.avatarId,
                 )
