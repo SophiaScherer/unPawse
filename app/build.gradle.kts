@@ -1,3 +1,7 @@
+import com.android.build.api.artifact.SingleArtifact
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -38,6 +42,57 @@ android {
         // Generates BuildConfig, which the Settings "Version" row reads so the shipped version can
         // never drift from defaultConfig above.
         buildConfig = true
+    }
+}
+
+// The privacy policy promises no network access, and a dependency bump can silently merge it back
+// in, so every variant's merged manifest is checked before it can be assembled or linted.
+androidComponents {
+    onVariants { variant ->
+        val suffix = variant.name.replaceFirstChar { it.uppercase() }
+        val guard = tasks.register<CheckNoNetworkTask>("checkNoNetwork$suffix") {
+            mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
+            report.set(layout.buildDirectory.file("reports/noNetwork/${variant.name}.txt"))
+        }
+        tasks.matching { it.name == "assemble$suffix" || it.name == "lint$suffix" }
+            .configureEach { dependsOn(guard) }
+    }
+}
+
+abstract class CheckNoNetworkTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val mergedManifest: RegularFileProperty
+
+    @get:OutputFile
+    abstract val report: RegularFileProperty
+
+    @TaskAction
+    fun check() {
+        val forbiddenPermissions = setOf(
+            "android.permission.INTERNET",
+            "android.permission.ACCESS_NETWORK_STATE",
+        )
+        val forbiddenComponents = setOf(
+            "com.google.android.datatransport.runtime.backends.TransportBackendDiscovery",
+        )
+        val androidNs = "http://schemas.android.com/apk/res/android"
+        val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+        val doc = factory.newDocumentBuilder().parse(mergedManifest.get().asFile)
+        fun names(tag: String) = doc.getElementsByTagName(tag).let { nodes ->
+            (0 until nodes.length).map { (nodes.item(it) as Element).getAttributeNS(androidNs, "name") }
+        }
+        val found = (names("uses-permission") + names("uses-permission-sdk-23"))
+            .filter { it in forbiddenPermissions } +
+            names("service").filter { it in forbiddenComponents }
+        if (found.isNotEmpty()) {
+            throw GradleException(
+                "Merged manifest reintroduces network access: ${found.distinct().joinToString()}. " +
+                    "Add a tools:node=\"remove\" entry to AndroidManifest.xml, or update the " +
+                    "privacy policy before allowing it."
+            )
+        }
+        report.get().asFile.writeText("No network permissions or transport backend.\n")
     }
 }
 
