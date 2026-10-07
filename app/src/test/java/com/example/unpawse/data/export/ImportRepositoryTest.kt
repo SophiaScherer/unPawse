@@ -1,5 +1,6 @@
 package com.example.unpawse.data.export
 
+import com.example.unpawse.data.FakeTransactor
 import com.example.unpawse.data.ResetRepository
 import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.capture.CaptureRepository
@@ -45,6 +46,12 @@ class ImportRepositoryTest {
     private val schedules = ScheduleRepository(scheduleDao)
     private val unlocks = UnlockRepository(unlockDao)
 
+    private val transactor = FakeTransactor(
+        listOf(captureDao::checkpoint, usageDao::checkpoint, scheduleDao::checkpoint, unlockDao::checkpoint),
+    )
+    private val focusSession = FocusSession()
+    private var failSettingsWrite = false
+
     private val stagingDir by lazy { File(tmp.root, "staging") }
 
     private var settingsCleared = false
@@ -56,8 +63,9 @@ class ImportRepositoryTest {
             schedules = schedules,
             captures = captures,
             unlocks = unlocks,
-            focusSession = FocusSession(),
+            focusSession = focusSession,
             blockSession = BlockSession(),
+            transactor = transactor,
             clearSettings = { settingsCleared = true },
         )
     }
@@ -69,7 +77,11 @@ class ImportRepositoryTest {
             schedules = schedules,
             captures = captures,
             reset = reset,
-            applySettings = { appliedSettings = it },
+            transactor = transactor,
+            applySettings = {
+                if (failSettingsWrite) throw IllegalStateException("disk full")
+                appliedSettings = it
+            },
             // Every case here drives the InputStream overload directly; the uri path is device-only.
             openDocument = { null },
             stagingDir = stagingDir,
@@ -158,7 +170,8 @@ class ImportRepositoryTest {
 
         repo.importFrom(ByteArrayInputStream(bundle()))
 
-        assertTrue(settingsCleared)
+        // Preferences are replaced by the one imported write rather than cleared separately.
+        assertEquals(snapshot.settings, appliedSettings)
         assertNull(usage.monitoredApps().find { it.packageName == "com.old" })
         assertEquals(listOf("Bedtime"), schedules.allWindows().map { it.label })
         assertEquals(listOf("abc"), captures.observeCaptures().first().map { it.id })
@@ -255,6 +268,45 @@ class ImportRepositoryTest {
 
         assertEquals(ImportResult.Damaged, result)
         assertUntouched(before)
+    }
+
+    /** The wipe and the restore share a transaction, so a failed commit takes back both. */
+    @Test
+    fun `a failed commit leaves every store untouched`() = runBlocking {
+        seedExistingData()
+        focusSession.start(durationMinutes = 30)
+        val before = captures.observeCaptures().first().single()
+        transactor.failCommit = true
+
+        val result = repo.importFrom(ByteArrayInputStream(bundle()))
+
+        assertEquals(ImportResult.Failed, result)
+        assertUntouched(before)
+        assertTrue("the focus session only stops once the import commits", focusSession.isActive())
+    }
+
+    /** By then the data has committed, so saying "nothing was changed" would be false. */
+    @Test
+    fun `a settings write failing after the commit is reported rather than hidden`() = runBlocking {
+        seedExistingData()
+        failSettingsWrite = true
+
+        val result = repo.importFrom(ByteArrayInputStream(bundle()))
+
+        assertEquals(ImportResult.Restored(captures = 1, skippedCaptures = 0, settingsRestored = false), result)
+        assertEquals(listOf("Bedtime"), schedules.allWindows().map { it.label })
+    }
+
+    /** The old library's JPEGs go after the commit, and only the imported one is left. */
+    @Test
+    fun `a restore leaves exactly the imported photos on disk`() = runBlocking {
+        seedExistingData()
+
+        repo.importFrom(ByteArrayInputStream(bundle()))
+
+        val restored = captures.observeCaptures().first().single()
+        assertEquals(listOf(File(restored.filePath).name), File(tmp.root, "captures").list()?.toList())
+        assertTrue("staging should be emptied", stagingDir.list().isNullOrEmpty())
     }
 
     /** Rows, files and settings all as [seedExistingData] left them, and no orphan JPEGs. */

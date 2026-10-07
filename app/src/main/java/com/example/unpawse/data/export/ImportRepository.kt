@@ -2,6 +2,7 @@ package com.example.unpawse.data.export
 
 import android.net.Uri
 import com.example.unpawse.data.ResetRepository
+import com.example.unpawse.data.Transactor
 import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.capture.CaptureRepository
 import com.example.unpawse.data.schedule.ScheduleRepository
@@ -19,13 +20,20 @@ import java.io.IOException
 import java.io.InputStream
 
 /**
- * What an import did. Four cases rather than a boolean for the same reason `RewardOutcome` has four:
+ * What an import did. Several cases rather than a boolean for the same reason `RewardOutcome` has four:
  * a refusal the user can't explain reads as the app being broken.
  */
 sealed interface ImportResult {
 
-    /** Everything in the document was restored. [skippedCaptures] carried no photo to restore. */
-    data class Restored(val captures: Int, val skippedCaptures: Int) : ImportResult
+    /**
+     * Everything in the document was restored. [skippedCaptures] carried no photo to restore, and
+     * [settingsRestored] is false only if the preferences write failed after the data committed.
+     */
+    data class Restored(
+        val captures: Int,
+        val skippedCaptures: Int,
+        val settingsRestored: Boolean = true,
+    ) : ImportResult
 
     /** Not an unPawse export. Nothing was touched. */
     data object Unreadable : ImportResult
@@ -36,7 +44,7 @@ sealed interface ImportResult {
     /** A document from a newer build, whose meaning we'd only be guessing at. Nothing was touched. */
     data class TooNew(val formatVersion: Int) : ImportResult
 
-    /** The document read fine but the restore itself failed part-way. */
+    /** The document read fine but the restore failed; the transaction rolled it back. */
     data object Failed : ImportResult
 }
 
@@ -52,8 +60,10 @@ class ImportRepository(
     private val schedules: ScheduleRepository,
     private val captures: CaptureRepository,
     private val reset: ResetRepository,
+    /** The wipe and the restore commit together or not at all. */
+    private val transactor: Transactor,
     /**
-     * Writes the imported preferences. Injected as a function for the same reason as
+     * Replaces every preference with the imported ones in a single write. Injected as a function for the same reason as
      * [ResetRepository]'s `clearSettings`: `SettingsRepository` needs a `Context`.
      */
     private val applySettings: suspend (ExportSettings) -> Unit,
@@ -145,18 +155,43 @@ class ImportRepository(
     /**
      * Swaps the stored data for [snapshot]. Every photo in [photos] has already been read, so
      * nothing past this point depends on the file the user picked.
+     *
+     * The wipe and every row write share one transaction, so a failure there leaves the old data
+     * exactly as it was. Only after the commit come the steps that can't be rolled back — the old
+     * JPEGs, the staged moves, the sessions — and the preferences last of all.
      */
     private suspend fun replaceWith(
         snapshot: ExportSnapshot,
         photos: Map<String, File>,
-    ): ImportResult = runCatching {
-        reset.eraseEverything()
+    ): ImportResult {
         val paths = photos.mapValues { captures.reservePhotoPath() }
+        val restorable = snapshot.captures.mapNotNull { capture ->
+            paths[capture.fileName]?.let { path -> capture.toDomain(path) }
+        }
+
+        val committed = runCatching {
+            transactor.inTransaction {
+                reset.eraseRows()
+                restoreRows(snapshot, restorable)
+            }
+        }
+        if (committed.isFailure) return ImportResult.Failed
+
+        reset.afterRowsErased()
         val unplaced = captures.placePhotos(
             paths.entries.associate { (name, path) -> path to photos.getValue(name) },
         )
-        restore(snapshot, paths.filterValues { it !in unplaced })
-    }.getOrElse { ImportResult.Failed }
+        // A row whose photo couldn't be moved in would be a permanently broken tile.
+        val (placed, broken) = restorable.partition { it.filePath !in unplaced }
+        broken.forEach { captures.deleteCapture(it) }
+        val settingsRestored = runCatching { applySettings(snapshot.settings) }.isSuccess
+
+        return ImportResult.Restored(
+            captures = placed.size,
+            skippedCaptures = snapshot.captures.size - placed.size,
+            settingsRestored = settingsRestored,
+        )
+    }
 
     /** A v5-or-older document: everything but the captures, which had no photos to carry. */
     private suspend fun importLegacyJson(input: InputStream): ImportResult {
@@ -187,12 +222,7 @@ class ImportRepository(
         )
     }
 
-    private suspend fun restore(
-        snapshot: ExportSnapshot,
-        restoredPaths: Map<String, String>,
-    ): ImportResult {
-        applySettings(snapshot.settings)
-
+    private suspend fun restoreRows(snapshot: ExportSnapshot, restorable: List<Capture>) {
         snapshot.monitoredApps.forEach { app ->
             // setLimit seeds the category only when there's no row, which after the wipe is always.
             usage.setLimit(
@@ -210,16 +240,7 @@ class ImportRepository(
         // Upsert with the exported id preserves it, and clearing the table doesn't reset the
         // autoincrement high-water mark, so nothing can collide.
         snapshot.schedules.forEach { schedules.save(it.toDomain()) }
-
-        val restorable = snapshot.captures.mapNotNull { capture ->
-            restoredPaths[capture.fileName]?.let { path -> capture.toDomain(path) }
-        }
         captures.restoreCaptures(restorable)
-
-        return ImportResult.Restored(
-            captures = restorable.size,
-            skippedCaptures = snapshot.captures.size - restorable.size,
-        )
     }
 
     private companion object {

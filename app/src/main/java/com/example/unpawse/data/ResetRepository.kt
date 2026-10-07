@@ -30,6 +30,8 @@ class ResetRepository(
     private val unlocks: UnlockRepository,
     private val focusSession: FocusSession,
     private val blockSession: BlockSession,
+    /** Wraps the row deletes so a failure part-way leaves every table as it was. */
+    private val transactor: Transactor,
     /**
      * Clears the preference store. Injected as a function rather than taking a
      * [SettingsRepository], which needs a `Context` and so cannot be built in a JVM unit test —
@@ -37,22 +39,29 @@ class ResetRepository(
      */
     private val clearSettings: suspend () -> Unit,
 ) {
-    /**
-     * Order matters at one point only: the sessions are stopped first, so the container's
-     * focus-persistence collector writes its `null` before preferences are cleared rather than
-     * re-adding a key afterwards.
-     */
+    /** Rows first in one transaction, then the steps that can't be rolled back, preferences last. */
     suspend fun eraseEverything() {
-        focusSession.stop()
-        blockSession.clear()
+        transactor.inTransaction { eraseRows() }
+        afterRowsErased()
+        clearSettings()
+    }
 
-        captures.deleteAllCaptures()
+    /** Every Room delete, for a caller that owns the transaction; an import adds its restore to it. */
+    suspend fun eraseRows() {
+        captures.deleteAllRows()
         usage.clearAll()
-        // Schedules are plain rows with no in-memory counterpart, so unlike the sessions above they
-        // carry no ordering constraint — but they must go, or a window would keep blocking apps the
-        // app no longer has any record of monitoring.
+        // Schedules must go too, or a window would keep blocking apps the app no longer monitors.
         schedules.clearAll()
         unlocks.clearAll()
-        clearSettings()
+    }
+
+    /**
+     * What can't be undone, so it runs only after [eraseRows] has committed. The sessions stop before
+     * any preference write, so the focus-persistence collector's `null` can't re-add a key afterwards.
+     */
+    suspend fun afterRowsErased() {
+        captures.deleteAllFiles()
+        focusSession.stop()
+        blockSession.clear()
     }
 }

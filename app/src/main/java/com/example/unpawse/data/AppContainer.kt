@@ -1,6 +1,7 @@
 package com.example.unpawse.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.example.unpawse.BuildConfig
 import com.example.unpawse.data.apps.DeviceUsageProvider
 import com.example.unpawse.data.apps.InstalledAppsProvider
@@ -145,6 +146,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val database by lazy { CaptureDatabase.getInstance(appContext) }
 
+    private val transactor = Transactor { block -> database.withTransaction { block() } }
+
     override val captureRepository: CaptureRepository by lazy {
         CaptureRepository(database.captureDao(), PhotoStorage(appContext))
     }
@@ -199,6 +202,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             schedules = scheduleRepository,
             captures = captureRepository,
             reset = resetRepository,
+            transactor = transactor,
             applySettings = settingsRepository::applyImported,
             openDocument = appContext.contentResolver::openInputStream,
             // cacheDir shares a volume with filesDir, so placing a staged photo is a rename.
@@ -214,6 +218,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             unlocks = unlockRepository,
             focusSession = focusSession,
             blockSession = blockSession,
+            transactor = transactor,
             clearSettings = settingsRepository::clearAll,
         )
     }

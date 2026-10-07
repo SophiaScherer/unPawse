@@ -48,8 +48,19 @@ class ImportMessagesTest {
         assertTrue(importMessage(ImportResult.TooNew(99)).contains("nothing was changed"))
     }
 
+    /** Only true because the wipe and the restore commit together; see `ImportRepositoryTest`. */
     @Test
-    fun `a part-way failure does not claim the device was left alone`() {
-        assertEquals("Couldn't finish the import", importMessage(ImportResult.Failed))
+    fun `a failed restore says it was rolled back`() {
+        assertTrue(importMessage(ImportResult.Failed).contains("nothing was changed"))
+    }
+
+    /** By then the data has committed, so this one must not claim nothing changed. */
+    @Test
+    fun `settings that failed after the commit are called out`() {
+        val message = importMessage(
+            ImportResult.Restored(captures = 2, skippedCaptures = 0, settingsRestored = false),
+        )
+        assertTrue(message.contains("settings couldn't be"))
+        assertTrue(!message.contains("nothing was changed"))
     }
 }

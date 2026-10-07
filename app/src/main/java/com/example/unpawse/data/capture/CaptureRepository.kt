@@ -169,6 +169,18 @@ class CaptureRepository(
     }
 
     /**
+     * Drops every capture row but leaves the JPEGs, for a wipe run inside a transaction: a file
+     * deleted there can't come back if the transaction rolls back. [deleteAllFiles] follows the commit.
+     */
+    suspend fun deleteAllRows() = dao.deleteAll()
+
+    /** The file half of [deleteAllRows], orphans included. */
+    suspend fun deleteAllFiles() {
+        photoStorage.deleteAll()
+        storageRevision.value++
+    }
+
+    /**
      * Bytes the stored JPEGs occupy, re-measured whenever the library changes. Driven off the
      * capture stream because size can only be measured, not derived from the row count — a save, a
      * delete or a purge all move it.

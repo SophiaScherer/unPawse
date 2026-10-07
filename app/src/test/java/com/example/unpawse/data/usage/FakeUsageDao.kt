@@ -16,6 +16,16 @@ internal class FakeUsageDao : UsageDao() {
     private val apps = mutableMapOf<String, MonitoredAppEntity>()
     private val usage = mutableMapOf<Pair<String, String>, DailyUsageEntity>()
 
+    /** Test helper for [com.example.unpawse.data.FakeTransactor]: returns a rollback. */
+    fun checkpoint(): () -> Unit {
+        val savedApps = apps.toMap()
+        val savedUsage = usage.toMap()
+        return {
+            apps.clear(); apps.putAll(savedApps)
+            usage.clear(); usage.putAll(savedUsage)
+        }
+    }
+
     override fun observeMonitoredApps(): Flow<List<MonitoredAppEntity>> = flowOf(apps.values.toList())
 
     override suspend fun monitoredApp(packageName: String): MonitoredAppEntity? = apps[packageName]
