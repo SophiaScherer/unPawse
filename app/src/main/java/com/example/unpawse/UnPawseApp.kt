@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.unpawse.service.UsageMonitorController
@@ -30,6 +31,7 @@ import com.example.unpawse.ui.navigation.openDeepLink
 import com.example.unpawse.ui.navigation.owningTab
 import com.example.unpawse.ui.navigation.showsBottomBar
 import com.example.unpawse.ui.navigation.startDestinationFor
+import com.example.unpawse.ui.theme.ThemeMode
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.isDark
 import com.example.unpawse.ui.theme.overrideFor
@@ -81,8 +83,6 @@ fun UnPawseApp(deepLink: String? = null, onDeepLinkHandled: () -> Unit = {}) {
         }
 
         val navController = rememberNavController()
-        val backStackEntry by navController.currentBackStackEntryAsState()
-        val currentRoute = backStackEntry?.destination?.route
 
         // Cleared once handled, so neither a recomposition nor a later rotation navigates again.
         LaunchedEffect(deepLink) {
@@ -91,28 +91,48 @@ fun UnPawseApp(deepLink: String? = null, onDeepLinkHandled: () -> Unit = {}) {
             onDeepLinkHandled()
         }
 
-        val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val showBottomBar = showsBottomBar(currentRoute, landscape)
-
-        Scaffold(
-            bottomBar = {
-                if (showBottomBar) {
-                    UnPawseBottomBar(
-                        selectedTab = owningTab(currentRoute),
-                        onNavigate = navController::navigateToTab,
-                    )
-                }
+        UnPawseScaffold(
+            navController = navController,
+            startDestination = start,
+            themeMode = themeMode,
+            onThemeModeChange = { mode ->
+                scope.launch { settings.setDarkModeOverride(overrideFor(mode)) }
             },
-        ) { innerPadding ->
-            UnPawseNavHost(
-                navController = navController,
-                themeMode = themeMode,
-                onThemeModeChange = { mode ->
-                    scope.launch { settings.setDarkModeOverride(overrideFor(mode)) }
-                },
-                modifier = Modifier.padding(innerPadding),
-                startDestination = start,
-            )
-        }
+        )
+    }
+}
+
+/**
+ * The bottom bar and the nav graph, split out so navigation tests can drive them with their own
+ * controller.
+ */
+@Composable
+fun UnPawseScaffold(
+    navController: NavHostController,
+    startDestination: String,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+) {
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    Scaffold(
+        bottomBar = {
+            if (showsBottomBar(currentRoute, landscape)) {
+                UnPawseBottomBar(
+                    selectedTab = owningTab(currentRoute),
+                    onNavigate = navController::navigateToTab,
+                )
+            }
+        },
+    ) { innerPadding ->
+        UnPawseNavHost(
+            navController = navController,
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
+            modifier = Modifier.padding(innerPadding),
+            startDestination = startDestination,
+        )
     }
 }
