@@ -205,8 +205,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
             transactor = transactor,
             applySettings = settingsRepository::applyImported,
             openDocument = appContext.contentResolver::openInputStream,
-            // cacheDir shares a volume with filesDir, so placing a staged photo is a rename.
-            stagingDir = File(appContext.cacheDir, "import-staging"),
+            // Same volume as filesDir, so placing a photo is a rename. Not cacheDir: it is setgid, and a
+            // file renamed out of it keeps the cache group, so quota accounting counts the photo as cache.
+            stagingDir = File(appContext.noBackupFilesDir, "import-staging"),
         )
     }
 
