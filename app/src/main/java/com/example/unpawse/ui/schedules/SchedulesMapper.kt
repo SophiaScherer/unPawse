@@ -98,7 +98,7 @@ internal fun toSchedulesUiState(
 internal fun schedulesSummary(windows: List<ScheduleWindow>, locale: Locale = Locale.getDefault()): String {
     if (windows.isEmpty()) return "No schedules yet"
 
-    val active = windows.filter { it.enabled }
+    val active = windows.filter { it.enabled && it.daysMask != 0 }
     if (active.isEmpty()) return "All schedules paused"
 
     val first = active.first()

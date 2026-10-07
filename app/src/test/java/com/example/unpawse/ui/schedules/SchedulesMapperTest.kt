@@ -199,4 +199,22 @@ class SchedulesMapperTest {
 
         assertEquals("All schedules paused", schedulesSummary(windows, us))
     }
+
+    // --- Windows with no days ---------------------------------------------------------------------
+
+    @Test
+    fun `a draft with no days cannot be saved`() {
+        assertFalse(ScheduleDraft(daysMask = 0).canSave)
+        assertTrue(ScheduleDraft(daysMask = WEEKDAYS_MASK).canSave)
+    }
+
+    @Test
+    fun `a stored window with no days is neither active nor in the summary`() {
+        val windows = listOf(window(id = 1, label = "Ghost", days = 0), window(id = 2, label = "Bedtime"))
+        val state = toSchedulesUiState(windows = windows, monitoredApps = apps, locale = us)
+
+        assertEquals(1, state.activeCount)
+        assertTrue(schedulesSummary(windows, us).startsWith("1 schedule · Bedtime"))
+        assertEquals("All schedules paused", schedulesSummary(listOf(window(id = 1, days = 0)), us))
+    }
 }

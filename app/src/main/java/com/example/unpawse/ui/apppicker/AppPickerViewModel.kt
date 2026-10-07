@@ -33,7 +33,7 @@ class AppPickerViewModel(
     private val usageRepository: UsageRepository,
     private val installedAppsProvider: InstalledAppsProvider,
     private val deviceUsageProvider: DeviceUsageProvider,
-    scheduleRepository: ScheduleRepository,
+    private val scheduleRepository: ScheduleRepository,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
@@ -72,6 +72,7 @@ class AppPickerViewModel(
                 isLoading = false,
                 sort = sort,
                 usageAccessGranted = device.dailyAverageSeconds != null,
+                notInstalled = missingApps(device.installed, monitored, query, windows),
             )
         }
     }.stateIn(
@@ -121,6 +122,17 @@ class AppPickerViewModel(
             } else {
                 usageRepository.setEnabled(item.packageName, enabled = false)
             }
+        }
+    }
+
+    /**
+     * Forgets an app that is no longer installed: its limit and the schedules scoped to it go, since
+     * neither can do anything without the app. Its screen-time history stays, like any past usage.
+     */
+    fun onRemoveMissing(app: MissingApp) {
+        viewModelScope.launch {
+            usageRepository.removeMonitoredApp(app.packageName)
+            scheduleRepository.deleteWindowsFor(app.packageName)
         }
     }
 
