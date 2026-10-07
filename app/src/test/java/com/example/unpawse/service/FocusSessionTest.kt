@@ -59,4 +59,26 @@ class FocusSessionTest {
         session.restore(null)
         assertFalse(session.isActive())
     }
+
+    @Test
+    fun `a late restore does not overwrite a session started meanwhile`() {
+        session.start(durationMinutes = 30)
+        val started = session.endTimeMillis.value
+
+        // The persisted value from the previous process: nothing was running.
+        session.restore(null)
+
+        assertEquals(started, session.endTimeMillis.value)
+        assertTrue(session.isActive())
+    }
+
+    @Test
+    fun `a late restore does not resurrect a session stopped meanwhile`() {
+        session.start(durationMinutes = 30)
+        session.stop()
+
+        session.restore(nowMillis + 10 * 60_000L)
+
+        assertNull(session.endTimeMillis.value)
+    }
 }

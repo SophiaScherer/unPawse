@@ -99,6 +99,47 @@ class UsageSeriesTest {
     }
 
     @Test
+    fun `the day the platform's history starts is partial, so it is not measured`() {
+        val edge = today.minusDays(9)
+        val series = deviceUsageSeries(
+            mapOf(edge.toString() to mapOf("a" to 3600L), today.minusDays(8).toString() to mapOf("a" to 32_400L)),
+            platformCategories = emptyMap(),
+            monitoredApps = emptyList(),
+            today = today,
+            readSince = today.minusDays(13),
+        )
+
+        assertEquals(today.minusDays(8), series.measuredSince)
+    }
+
+    @Test
+    fun `history reaching the start of the read is measured from there`() {
+        val start = today.minusDays(13)
+        val series = deviceUsageSeries(
+            mapOf(start.toString() to mapOf("a" to 3600L), today.toString() to mapOf("a" to 60L)),
+            platformCategories = emptyMap(),
+            monitoredApps = emptyList(),
+            today = today,
+            readSince = start,
+        )
+
+        assertEquals(start, series.measuredSince)
+    }
+
+    @Test
+    fun `a first day of usage today stays measured`() {
+        val series = deviceUsageSeries(
+            mapOf(today.toString() to mapOf("a" to 60L)),
+            platformCategories = emptyMap(),
+            monitoredApps = emptyList(),
+            today = today,
+            readSince = today.minusDays(13),
+        )
+
+        assertEquals(today, series.measuredSince)
+    }
+
+    @Test
     fun `a stored category beats the platform's guess`() {
         val installed = listOf(InstalledApp("com.ig", "Instagram", AppCategory.SOCIAL))
 
@@ -142,5 +183,42 @@ class UsageSeriesTest {
         val resolved = resolveCategories(mapOf("com.mystery" to null), emptyList())
 
         assertFalse(resolved.containsKey("com.mystery"))
+    }
+
+    @Test
+    fun `tracking is measured from the first row, and never later than today`() {
+        assertEquals(today.minusDays(3), firstMeasuredDay(listOf(usage("a", 0, 1), usage("a", 3, 1)), today))
+        assertEquals("nothing tracked yet still measures today", today, firstMeasuredDay(emptyList(), today))
+    }
+
+    @Test
+    fun `the platform is measured from the first day it still holds`() {
+        // An empty day it holds is a measured zero; days it no longer holds are simply absent.
+        val series = deviceUsageSeries(
+            secondsByDateAndPackage = mapOf(
+                today.minusDays(9).toString() to emptyMap(),
+                today.minusDays(8).toString() to mapOf("a" to 60L),
+                today.toString() to mapOf("a" to 60L),
+            ),
+            platformCategories = emptyMap(),
+            monitoredApps = emptyList(),
+            today = today,
+        )
+
+        assertEquals(today.minusDays(9), series.measuredSince)
+    }
+
+    @Test
+    fun `the live window overrides a stale history read`() {
+        // Read before midnight, the history holds yesterday's partial total; the window has the final one.
+        val stale = listOf(usage("a", 20, 600), usage("a", 1, 60))
+        val live = listOf(usage("a", 1, 900), usage("a", 0, 30))
+
+        val merged = mergeUsageHistory(stale, live).associate { it.date to it.usedSeconds }
+
+        assertEquals(600L, merged.getValue(today.minusDays(20).toString()))
+        assertEquals(900L, merged.getValue(today.minusDays(1).toString()))
+        assertEquals(30L, merged.getValue(today.toString()))
+        assertEquals(3, merged.size)
     }
 }

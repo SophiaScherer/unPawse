@@ -8,7 +8,6 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.unpawse.appContainer
 import kotlinx.coroutines.flow.first
-import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
@@ -29,11 +28,11 @@ class DailySummaryWorker(
         // cancel by a moment, and a recap nobody asked for is worse than a late one.
         if (!container.settingsRepository.dailySummaryEnabled.first()) return Result.success()
 
-        val zone = ZoneId.systemDefault()
-        val today = LocalDate.now(zone)
+        val zone = container.dayClock.zone()
+        val today = container.dayClock.today()
 
         val labels = container.usageRepository.monitoredApps().associate { it.packageName to it.appLabel }
-        val apps = container.usageRepository.observeTodayUsage().first().map { usage ->
+        val apps = container.usageRepository.observeUsageForDate(today).first().map { usage ->
             AppUsageSummary(
                 label = labels[usage.packageName] ?: usage.packageName,
                 minutes = usage.usedMinutes,
@@ -65,8 +64,8 @@ class DailySummaryWorker(
          * [ExistingPeriodicWorkPolicy.KEEP], so the container calling this on every process start
          * neither duplicates the work nor pushes its schedule back a day each time.
          */
-        fun schedule(context: Context, nowMillis: Long = System.currentTimeMillis()) {
-            val delay = millisUntilNextHour(nowMillis, SUMMARY_HOUR, ZoneId.systemDefault())
+        fun schedule(context: Context, nowMillis: Long, zone: ZoneId) {
+            val delay = millisUntilNextHour(nowMillis, SUMMARY_HOUR, zone)
             val request = PeriodicWorkRequestBuilder<DailySummaryWorker>(1, TimeUnit.DAYS)
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS)
                 .build()

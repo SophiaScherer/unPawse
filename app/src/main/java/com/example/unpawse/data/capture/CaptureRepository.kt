@@ -16,6 +16,7 @@ import java.util.UUID
 class CaptureRepository(
     private val dao: CaptureDao,
     private val photoStorage: PhotoStorage,
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
     /** Bumped when files change without any row changing; see [deleteAllCaptures]. */
     private val storageRevision = MutableStateFlow(0)
@@ -57,7 +58,7 @@ class CaptureRepository(
         val entity = CaptureEntity(
             id = UUID.randomUUID().toString(),
             filePath = filePath,
-            capturedAt = System.currentTimeMillis(),
+            capturedAt = now(),
             confidence = confidence,
             isBonus = isBonus,
             widthPx = widthPx,

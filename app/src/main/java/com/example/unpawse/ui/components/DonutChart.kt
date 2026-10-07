@@ -2,6 +2,7 @@ package com.example.unpawse.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,23 +27,42 @@ fun DonutChart(
     modifier: Modifier = Modifier,
     strokeWidth: Dp = 28.dp,
     gapDegrees: Float = 4f,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     content: @Composable () -> Unit,
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.matchParentSize()) {
-            val total = segments.sumOf { it.value.toDouble() }.toFloat().takeIf { it > 0f } ?: return@Canvas
-            val stroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
             val inset = strokeWidth.toPx() / 2f
             val arcSize = Size(size.width - strokeWidth.toPx(), size.height - strokeWidth.toPx())
             val topLeft = Offset(inset, inset)
+            val total = segments.sumOf { it.value.toDouble() }.toFloat()
+            if (total <= 0f) {
+                // An empty ring rather than nothing: a bare "0m" floating in a blank card read as a
+                // chart that failed to draw.
+                drawArc(trackColor, -90f, 360f, false, topLeft, arcSize, style = Stroke(width = strokeWidth.toPx()))
+                return@Canvas
+            }
+            val stroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
+
+            val drawn = segments.filter { it.value > 0f }
+            if (drawn.size == 1) {
+                // A whole ring has no ends, so no caps and no gap to leave.
+                drawArc(drawn.single().color, -90f, 360f, false, topLeft, arcSize,
+                    style = Stroke(width = strokeWidth.toPx()))
+                return@Canvas
+            }
+            // A round cap reaches half the stroke past the arc's end, which at this ring size is
+            // wider than the gap; without trimming it, each cap was drawn over its neighbor's start.
+            val capDegrees = Math.toDegrees((inset / (arcSize.width / 2f)).toDouble()).toFloat()
 
             var startAngle = -90f
-            segments.forEach { segment ->
+            drawn.forEach { segment ->
                 val fullSweep = segment.value / total * 360f
-                val sweep = (fullSweep - gapDegrees).coerceAtLeast(0f)
+                // A sliver too short for its own caps still draws as a dot rather than vanishing.
+                val sweep = (fullSweep - gapDegrees - 2 * capDegrees).coerceAtLeast(0.1f)
                 drawArc(
                     color = segment.color,
-                    startAngle = startAngle + gapDegrees / 2f,
+                    startAngle = startAngle + (fullSweep - sweep) / 2f,
                     sweepAngle = sweep,
                     useCenter = false,
                     topLeft = topLeft,

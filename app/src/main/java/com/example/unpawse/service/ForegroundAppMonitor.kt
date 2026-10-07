@@ -4,11 +4,13 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.PowerManager
+import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -45,6 +47,8 @@ class UsageStatsForegroundAppMonitor(
     context: Context,
     private val pollInterval: Duration = POLL_INTERVAL,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Monotonic and counts deep sleep, so comparing it with [now] tells a clock change from a gap. */
+    private val elapsedRealtime: () -> Long = SystemClock::elapsedRealtime,
 ) : ForegroundAppMonitor {
 
     private val appContext = context.applicationContext
@@ -54,15 +58,19 @@ class UsageStatsForegroundAppMonitor(
     override fun foregroundApp(): Flow<String?> = flow {
         var stack = emptyList<ForegroundActivity>()
         var cursor = now() - INITIAL_LOOKBACK_MILLIS
+        var cursorElapsed = elapsedRealtime() - INITIAL_LOOKBACK_MILLIS
 
         while (true) {
             val tick = now()
+            val tickElapsed = elapsedRealtime()
             val interactive = powerManager?.isInteractive != false
             if (interactive) {
-                stack = resolveForeground(stack, transitionsIn(cursor, tick))
+                val window = pollWindow(cursor, tick, elapsedMillis = tickElapsed - cursorElapsed)
+                stack = resolveForeground(stack, transitionsIn(window.beginMillis, window.endMillis))
                 // Only advanced when we actually queried, so the first waking tick still covers
                 // everything that happened in the dark rather than skipping past it.
                 cursor = tick
+                cursorElapsed = tickElapsed
             }
 
             // Screen off: nothing is in the foreground, so time must stop accruing — without this
@@ -117,6 +125,41 @@ class UsageStatsForegroundAppMonitor(
         private const val INITIAL_LOOKBACK_MILLIS = 60_000L
     }
 }
+
+/** The half-open span of event time one poll reads. */
+internal data class PollWindow(val beginMillis: Long, val endMillis: Long)
+
+/** How far before a clock change a poll re-reads, to catch events raised during the change. */
+internal const val CLOCK_CHANGE_OVERLAP_MILLIS = 2_000L
+
+/** How far the wall clock may drift from real elapsed time, either way, before it counts as moved. */
+internal const val CLOCK_JUMP_TOLERANCE_MILLIS = 10_000L
+
+/**
+ * What one poll should read, given where the last one stopped ([cursor]), the wall clock now, and the
+ * real time that passed in between ([elapsedMillis]).
+ *
+ * The cursor is wall-clock time, so a clock moved back leaves it in the future: the query would have
+ * begin after end and return nothing until real time caught up, freezing the monitor on whatever was
+ * last in front and stranding a block overlay over every app (audit UX-28). Restarting from the new
+ * time fixes that. Either way the window covers only the real time that passed, so a backward
+ * change doesn't drop a stop raised while the screen was off, and a forward one doesn't replay events
+ * stamped before an earlier change. Any other gap — however long the screen was off
+ * — is read in full: dropping part of it loses the stop that says the app left.
+ *
+ * The stack is deliberately kept across a change, because the screen did not change when the clock
+ * did — clearing it would read as the user leaving the blocked app and take the overlay down.
+ *
+ * Pure, so the rule is unit-tested without `UsageStatsManager`.
+ */
+internal fun pollWindow(cursor: Long, tick: Long, elapsedMillis: Long): PollWindow =
+    if (tick < cursor || abs(tick - cursor - elapsedMillis) > CLOCK_JUMP_TOLERANCE_MILLIS) {
+        // The platform re-stamps its history on a clock change, so what happened since the last poll
+        // now sits in the real elapsed span before the new time, whichever way the clock moved.
+        PollWindow(tick - elapsedMillis - CLOCK_CHANGE_OVERLAP_MILLIS, tick)
+    } else {
+        PollWindow(cursor, tick)
+    }
 
 /**
  * What is in front, as the platform reports it: a package *and* the activity within it.

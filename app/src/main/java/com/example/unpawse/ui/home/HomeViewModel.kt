@@ -8,13 +8,15 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.unpawse.appContainer
 import com.example.unpawse.data.capture.CaptureRepository
-import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.time.dates
+import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.FocusSession
 import com.example.unpawse.service.OverlayPermission
 import com.example.unpawse.service.UsageAccess
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,17 +24,38 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.LocalDate
+import java.time.ZonedDateTime
+import java.time.LocalTime
+import java.time.ZoneId
 
 /** Streams today's usage + captures into [HomeUiState]; all shaping lives in [toHomeUiState]. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
     usageRepository: UsageRepository,
     captureRepository: CaptureRepository,
-    settingsRepository: SettingsRepository,
+    userName: Flow<String>,
     private val focusSession: FocusSession,
     private val usageAccessGranted: () -> Boolean,
     private val overlayAccessGranted: () -> Boolean,
+    /** The container's shared clock; its date keys the usage query and its time the greeting. */
+    clockTicks: Flow<ZonedDateTime>,
+    private val nowMillis: () -> Long,
 ) : ViewModel() {
+
+    /** One day's usage, carried with the date it was queried for so the mapper can't use another. */
+    private data class HomeDay(val time: LocalTime, val zone: ZoneId, val date: LocalDate, val usage: List<DailyUsage>)
+
+    // Switches the query at each local midnight. Binding it once, as this used to, left Home on
+    // yesterday's figures for the life of the ViewModel while enforcement had already rolled over.
+    private val day: Flow<HomeDay> = combine(
+        clockTicks,
+        clockTicks.dates().flatMapLatest { date ->
+            usageRepository.observeUsageForDate(date).map { date to it }
+        },
+    ) { now, (date, usage) -> HomeDay(now.toLocalTime(), now.zone, date, usage) }
 
     /**
      * Neither special permission is observable — both are system-Settings toggles with no runtime
@@ -43,14 +66,23 @@ class HomeViewModel(
 
     val uiState: StateFlow<HomeUiState> = combine(
         usageRepository.observeMonitoredApps(),
-        usageRepository.observeTodayUsage(),
+        day,
         captureRepository.observeCaptures(),
-        settingsRepository.userName,
+        userName,
         // The fifth and last top-level slot; a sixth flow goes into a holder rather than here, the
         // arity rule `SettingsViewModel` already lives under.
         permissions,
-    ) { monitoredApps, todayUsage, captures, userName, protection ->
-        toHomeUiState(monitoredApps, todayUsage, captures, userName, protection)
+    ) { monitoredApps, day, captures, userName, protection ->
+        toHomeUiState(
+            monitoredApps = monitoredApps,
+            todayUsage = day.usage,
+            captures = captures,
+            userName = userName,
+            protection = protection,
+            today = day.date,
+            zone = day.zone,
+            time = day.time,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
@@ -72,14 +104,13 @@ class HomeViewModel(
      * Live focus-card state. While a session runs, an inner ticker re-emits every second so the
      * countdown updates; `flatMapLatest` cancels it the moment the session ends or restarts.
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
     val focus: StateFlow<FocusCardState> = focusSession.endTimeMillis.flatMapLatest { end ->
         if (end == null) {
             flowOf(FocusCardState.Inactive)
         } else {
             flow {
                 while (true) {
-                    val remaining = end - System.currentTimeMillis()
+                    val remaining = end - nowMillis()
                     if (remaining <= 0) {
                         emit(FocusCardState.Inactive)
                         break
@@ -110,11 +141,13 @@ class HomeViewModel(
                 HomeViewModel(
                     container.usageRepository,
                     container.captureRepository,
-                    container.settingsRepository,
+                    container.settingsRepository.userName,
                     container.focusSession,
                     // Lambdas rather than a Context, so the ViewModel body stays JVM-testable.
                     usageAccessGranted = { UsageAccess.isGranted(appContext) },
                     overlayAccessGranted = { OverlayPermission.isGranted(appContext) },
+                    clockTicks = container.clockTicks,
+                    nowMillis = container.dayClock::nowMillis,
                 )
             }
         }

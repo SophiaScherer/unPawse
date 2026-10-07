@@ -13,6 +13,10 @@ data class StatsUiState(
     val avatarInitial: Char = DEFAULT_AVATAR_INITIAL,
     val dailyTotal: String,
     val deltaText: String,
+    /**
+     * Whether today has already passed yesterday's total — the only direction that is settled while
+     * the day is still running, and so the only one the screen draws an arrow for.
+     */
     val deltaIsPositive: Boolean,
     /**
      * Whether [deltaText] is a real comparison. False on a first day, when there is no yesterday to
@@ -22,8 +26,8 @@ data class StatsUiState(
      */
     val deltaHasBaseline: Boolean,
     /**
-     * Hours per day across the Mon–Sun week, `null` for a day still to come. A past day with no
-     * usage is a real `0f`; one numeric slot cannot say both that and "this day hasn't happened",
+     * Hours per day across the Mon–Sun week, `null` for a day still to come or one from before the
+     * series began measuring. A measured day with no usage is a real `0f`; one numeric slot cannot say both that and "this day hasn't happened",
      * which is the same reason [deltaHasBaseline] exists.
      */
     val weeklyPoints: List<Float?>,
@@ -33,6 +37,8 @@ data class StatsUiState(
     val trendLabel: String,
     /** Whether week-over-week usage rose. Drives the arrow direction, which used to be hardcoded. */
     val trendIsUp: Boolean,
+    /** Whether the change rounds to nothing; the screen then draws no arrow, as for vs-yesterday. */
+    val trendIsLevel: Boolean = false,
     /**
      * Whether [trendLabel] is a real comparison. False until there is a last week to measure
      * against — a fresh install summed zero for it and rendered "+0.5h" beside an upward arrow, a
@@ -41,7 +47,10 @@ data class StatsUiState(
     val trendHasBaseline: Boolean,
     /** The trend's period, stated on the card's face because week-to-date isn't guessable. */
     val trendCaption: String,
-    /** One per day of the same week [trendLabel] compares; `null` for a day still to come. */
+    /**
+     * One per day of the week; drawn only for the completed days [trendLabel] compares, `null` for
+     * today, the days still to come and any from before measuring began.
+     */
     val trendBars: List<Float?>,
     /**
      * The figure in the middle of the donut: the total of [breakdown], formatted.
@@ -82,6 +91,12 @@ data class StatsUiState(
      * limits and captures, and neither depends on the platform's figures.
      */
     val scopeUnavailable: Boolean = false,
+    /**
+     * Whether the scope's figures are still being read — the first open of all-apps, a scope switch,
+     * or a new day. Blank like [scopeUnavailable], but never claims usage access is missing, which
+     * it used to for a moment every midnight.
+     */
+    val scopeLoading: Boolean = false,
 ) {
     companion object {
         /**
@@ -124,7 +139,7 @@ data class StatsUiState(
         fun sample() = StatsUiState(
             avatarInitial = 'S',
             dailyTotal = "3h 24m",
-            deltaText = "12% from yesterday",
+            deltaText = "88% of yesterday's total so far",
             deltaIsPositive = false,
             deltaHasBaseline = true,
             weeklyPoints = listOf(2.1f, 2.6f, 2.9f, 3.4f, 3.8f, null, null),
@@ -134,9 +149,9 @@ data class StatsUiState(
             trendLabel = "-5.2h",
             trendIsUp = false,
             trendHasBaseline = true,
-            trendCaption = "VS LAST WEEK, SAME DAYS",
+            trendCaption = "VS LAST MON–THU",
             // highlightDayIndex is Friday, so the weekend has not happened yet.
-            trendBars = listOf(0.6f, 0.4f, 0.8f, 0.5f, 1f, null, null),
+            trendBars = listOf(0.6f, 0.4f, 0.8f, 1f, null, null, null),
             breakdownTotal = "2h 37m",
             breakdown = listOf(
                 UsageCategory("Social", "1h 12m", 72 * 60L, UsageColor.SOCIAL),

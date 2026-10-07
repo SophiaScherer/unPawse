@@ -8,6 +8,7 @@ import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.data.usage.UsageSeries
 import com.example.unpawse.data.usage.dailyBudget
+import com.example.unpawse.data.usage.firstMeasuredDay
 import com.example.unpawse.data.usage.trackedUsageSeries
 import com.example.unpawse.ui.format.avatarInitialFor
 import com.example.unpawse.ui.format.NO_DATA
@@ -30,9 +31,12 @@ private const val SECONDS_PER_HOUR = 3600f
 /** The chart's fixed axis. Monday-first, matching the Mon–Sun week the chart and trend both use. */
 internal val WEEKDAY_LABELS = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
-/** The trend's period, on the card's face — the rule the "THIS WEEK" line on Prevented follows. */
-private const val TREND_CAPTION = "VS LAST WEEK, SAME DAYS"
-private const val TREND_NO_BASELINE_CAPTION = "NO DATA FOR LAST WEEK"
+/**
+ * The trend's captions when there is nothing to compare: no complete day yet (every Monday), or no
+ * measured last week. Short enough to stay on one line in the half-width card.
+ */
+private const val TREND_NO_FULL_DAY_CAPTION = "NO FULL DAY YET"
+private const val TREND_NO_BASELINE_CAPTION = "NO LAST WEEK DATA"
 
 /** Not [NO_DATA]: a library with nothing in it is a known fact, not a missing measurement. */
 private const val NO_PHOTOS_LABEL = "No photos yet"
@@ -67,10 +71,17 @@ internal fun toStatsUiState(
     allUsage: List<DailyUsage> = recentUsage,
     /** Blank is the stored "not set" state, so the header falls back like everywhere else. */
     userName: String = "",
-    today: LocalDate = LocalDate.now(),
-    zone: ZoneId = ZoneId.systemDefault(),
+    today: LocalDate,
+    zone: ZoneId,
     scope: UsageScope = UsageScope.TRACKED,
-    series: UsageSeries? = trackedUsageSeries(recentUsage, monitoredApps, today),
+    series: UsageSeries? = trackedUsageSeries(
+        recentUsage,
+        monitoredApps,
+        today,
+        measuredSince = firstMeasuredDay(allUsage + recentUsage, today),
+    ),
+    /** The scope's figures are still being read; blank, but not "unavailable". */
+    scopeLoading: Boolean = false,
 ): StatsUiState {
     // Null is the scope having no figures at all, not a quiet phone: all-apps without usage access.
     // Every scoped metric blanks, and the tracked-only tiles below carry on reporting.
@@ -79,6 +90,10 @@ internal fun toStatsUiState(
 
     fun usedOn(date: LocalDate): Long = usedByDate[date.toString()] ?: 0L
 
+    // Before the series began, a day is unknown rather than zero: no mark on the chart, and no
+    // comparison may lean on it.
+    fun measuredOn(date: LocalDate): Boolean = series != null && !date.isBefore(series.measuredSince)
+
     // Monday-to-Sunday of the current week, matching the fixed MON..SUN axis labels.
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
     val week = (0 until DAYS_IN_WEEK).map { monday.plusDays(it.toLong()) }
@@ -86,22 +101,24 @@ internal fun toStatsUiState(
     val todaySeconds = usedOn(today)
     val yesterdaySeconds = usedOn(today.minusDays(1))
 
-    // Calendar weeks, deliberately the *same* Mon–Sun week the chart draws. These used to be
-    // rolling 7-day windows, so on a Monday the trend counted days that the chart didn't show at
-    // all — "usage up 0.6h this week" sat next to a chart that was flat all week.
+    // Calendar weeks, deliberately the *same* Mon–Sun week the chart draws, and both sides cover
+    // the same weekdays. Rolling windows and a whole last week against a partial this week each
+    // produced a figure that moved with the calendar rather than with the user.
     //
-    // Both sides stop at the same weekday. Last week used to be summed whole against a
-    // Monday-to-today this week, so on a Wednesday it was 3 days measured against 7 — hugely
-    // negative every Monday and drifting upward all week whatever the user actually did.
-    val elapsedThisWeek = week.take(today.dayOfWeek.value)
-    val thisWeekSeconds = elapsedThisWeek.sumOf(::usedOn)
-    val lastWeekSeconds = elapsedThisWeek.sumOf { usedOn(it.minusDays(DAYS_IN_WEEK.toLong())) }
+    // Completed days only: today against a whole day last week read as a big drop every morning,
+    // shrinking as the day went on — worst on a Monday, when today was the entire comparison.
+    val completedThisWeek = week.take(today.dayOfWeek.value - 1)
+    val thisWeekSeconds = completedThisWeek.sumOf(::usedOn)
+    val lastWeekSeconds = completedThisWeek.sumOf { usedOn(it.minusDays(DAYS_IN_WEEK.toLong())) }
     val trendDeltaSeconds = thisWeekSeconds - lastWeekSeconds
     // No last week means nothing to compare against, so neither a figure nor an arrow is drawn —
-    // the same rule deltaHasBaseline carries one card over. In all-apps scope this is the usual
-    // case rather than the edge one: the platform keeps daily buckets for about a week, so last
-    // week is generally unmeasurable and the card says so instead of inventing an improvement.
-    val trendHasBaseline = measured && lastWeekSeconds > 0L
+    // the same rule deltaHasBaseline carries one card over. Every compared day must also have been
+    // measured: in the first week after install, or past the platform's retention in all-apps
+    // scope, last week is partly unknown, and summing what is left compared four days against two.
+    val trendHasBaseline = measured &&
+        completedThisWeek.isNotEmpty() &&
+        measuredOn(completedThisWeek.first().minusDays(DAYS_IN_WEEK.toLong())) &&
+        lastWeekSeconds > 0L
 
     // Blocks over the same Mon–Sun week the chart draws and the trend compares — the card says
     // "THIS WEEK" on its face, and all three must agree on which week that is.
@@ -133,14 +150,15 @@ internal fun toStatsUiState(
         // `deltaHasBaseline` and `ProtectionStatus.OFF`: one numeric slot cannot also say "unknown".
         dailyTotal = if (measured) formatSeconds(todaySeconds) else NO_DATA,
         deltaText = if (measured) deltaText(todaySeconds, yesterdaySeconds) else "",
-        // "Positive" means usage went *up* — the screen renders it as the unwelcome direction.
-        deltaIsPositive = todaySeconds > yesterdaySeconds,
+        // "Positive" means usage went *up* — the screen renders it as the unwelcome direction. Only
+        // a rise is a settled fact mid-day; being under yesterday so far is not yet an improvement.
+        deltaIsPositive = yesterdaySeconds > 0L && percentChange(todaySeconds, yesterdaySeconds) >= 1,
         deltaHasBaseline = measured && yesterdaySeconds > 0L,
         // Null after today: the chart draws no mark for a day that hasn't happened. Plotting it as
         // zero put Thu–Sun on the floor, and the smoothed curve dived off a cliff after today —
         // four days of abstinence, drawn from four days that don't exist yet.
         weeklyPoints = if (measured) {
-            week.map { if (it.isAfter(today)) null else usedOn(it) / SECONDS_PER_HOUR }
+            week.map { if (it.isAfter(today) || !measuredOn(it)) null else usedOn(it) / SECONDS_PER_HOUR }
         } else {
             emptyList()
         },
@@ -148,19 +166,24 @@ internal fun toStatsUiState(
         highlightDayIndex = today.dayOfWeek.value - 1,
         trendLabel = if (trendHasBaseline) trendLabel(trendDeltaSeconds) else NO_DATA,
         // Usage going *up* is the unwelcome direction, same convention as deltaIsPositive.
-        trendIsUp = trendDeltaSeconds > 0,
+        // A change that rounds to "0.0h" is level, as on vs-yesterday: an arrow beside it would
+        // claim a direction the figure itself doesn't show.
+        trendIsUp = trendDeltaSeconds > 0 && !trendIsLevel(trendDeltaSeconds),
+        trendIsLevel = trendIsLevel(trendDeltaSeconds),
         trendHasBaseline = trendHasBaseline,
         trendCaption = when {
             !measured -> ""
-            trendHasBaseline -> TREND_CAPTION
+            completedThisWeek.isEmpty() -> TREND_NO_FULL_DAY_CAPTION
+            trendHasBaseline -> trendCaption(completedThisWeek)
             else -> TREND_NO_BASELINE_CAPTION
         },
-        trendBars = if (measured) weekBars(week, today, ::usedOn) else emptyList(),
+        trendBars = if (measured) weekBars(week, today, ::usedOn, ::measuredOn) else emptyList(),
         breakdownTotal = if (measured) formatSeconds(breakdown.sumOf { it.seconds }) else NO_DATA,
         breakdown = breakdown,
         usageScope = scope,
         scopeCaption = SCOPE_CAPTIONS.getValue(scope),
-        scopeUnavailable = !measured,
+        scopeUnavailable = !measured && !scopeLoading,
+        scopeLoading = !measured && scopeLoading,
         budgetLeftLabel = budgetLeftLabel(enabled, todayByPackage, today),
         longestStreak = countLabel(longestStreakDays(captureDates), "Day"),
         // "0 Photos" under a party popper celebrates nothing; the card goes neutral and asks
@@ -209,13 +232,37 @@ private fun unlocksLabel(unlocks: List<DailyUnlocks>, today: LocalDate): String 
     return unlocks.filter { it.date == today.toString() }.sumOf { it.unlockCount }.toString()
 }
 
-private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String = when {
-    yesterdaySeconds == 0L -> "No data for yesterday"
-    else -> {
-        val percent = ((todaySeconds - yesterdaySeconds) * 100f / yesterdaySeconds).roundToInt()
-        "${abs(percent)}% from yesterday"
+/**
+ * Today so far against the whole of yesterday. A rise is a fact the moment it happens, but being
+ * under yesterday is only true *so far*, so that case reports progress toward yesterday's total
+ * rather than a shortfall, which read as "100% below" just after midnight.
+ */
+private fun deltaText(todaySeconds: Long, yesterdaySeconds: Long): String {
+    if (yesterdaySeconds == 0L) return "No data for yesterday"
+    val percent = percentChange(todaySeconds, yesterdaySeconds)
+    return when {
+        percent > 0 -> "$percent% more than yesterday"
+        percent == 0 -> "Level with yesterday"
+        else -> "${100 + percent}% of yesterday's total so far"
     }
 }
+
+private fun percentChange(todaySeconds: Long, yesterdaySeconds: Long): Int =
+    ((todaySeconds - yesterdaySeconds) * 100f / yesterdaySeconds).roundToInt()
+
+/**
+ * Names the compared days ("VS LAST MON–WED"), since week-to-date isn't guessable. Short enough to
+ * stay on one line in the half-width card, where "MON–SAT VS LAST WEEK" broke after "LAST".
+ */
+private fun trendCaption(days: List<LocalDate>): String {
+    val first = WEEKDAY_LABELS[days.first().dayOfWeek.value - 1]
+    val last = WEEKDAY_LABELS[days.last().dayOfWeek.value - 1]
+    val span = if (days.size == 1) first else "$first–$last"
+    return "VS LAST $span"
+}
+
+/** Whether a week-over-week change is too small to show as anything but "0.0h". */
+internal fun trendIsLevel(deltaSeconds: Long): Boolean = trendLabel(deltaSeconds) == "0.0h"
 
 /**
  * Week-over-week change, signed. Zero is written without a sign: `-0.0h` was reachable whenever
@@ -235,22 +282,24 @@ internal fun trendLabel(deltaSeconds: Long): String {
 /**
  * The Trend card's sparkline, normalised against the busiest day of the week.
  *
- * Drawn over the **same Mon–Sun week the headline compares**. It used to be a rolling five days,
- * so one small card held two different windows with nothing to tell them apart.
+ * Drawn over the **same completed days the headline compares**: Monday to yesterday. It used to be
+ * a rolling five days, and then the whole week to date — on a Monday that was one full-height bar
+ * for today beside "NO FULL DAY YET".
  *
- * A day still to come is `null`, not `0f`: it has no value to draw, and a zero would claim a day
- * spent off the phone. Same distinction [StatsUiState.weeklyPoints] makes.
+ * Today and the days still to come are `null`, not `0f`: they have no complete value to draw, and a
+ * zero would claim a day spent off the phone. Same distinction [StatsUiState.weeklyPoints] makes.
  */
 private fun weekBars(
     week: List<LocalDate>,
     today: LocalDate,
     usedOn: (LocalDate) -> Long,
+    measuredOn: (LocalDate) -> Boolean,
 ): List<Float?> {
-    val elapsed = week.filterNot { it.isAfter(today) }
-    val peak = elapsed.maxOfOrNull(usedOn) ?: 0L
+    val completed = week.filter { it.isBefore(today) && measuredOn(it) }
+    val peak = completed.maxOfOrNull(usedOn) ?: 0L
     return week.map { day ->
         when {
-            day.isAfter(today) -> null
+            !day.isBefore(today) || !measuredOn(day) -> null
             peak == 0L -> 0f
             else -> usedOn(day).toFloat() / peak
         }

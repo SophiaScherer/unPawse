@@ -6,8 +6,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Celebration
@@ -86,10 +87,15 @@ fun StatsScreen(
         // that card's figure alone.
         item { ScopeToggle(state.usageScope, onScopeChange) }
         item { DailyScreenTimeCard(state, onGrantUsageAccess) }
+        // Paired cards share a height, so neither row ends in a ragged edge however their captions
+        // wrap (audit VIS-03).
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
-                PreventedCard(state.preventedCount, Modifier.weight(1f))
-                TrendCard(state, Modifier.weight(1f))
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+            ) {
+                PreventedCard(state.preventedCount, Modifier.weight(1f).fillMaxHeight())
+                TrendCard(state, Modifier.weight(1f).fillMaxHeight())
             }
         }
         item { UsageBreakdownCard(state, onDetails) }
@@ -101,13 +107,16 @@ fun StatsScreen(
                 caption = "TODAY, ACROSS CAPPED APPS")
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter)) {
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.Gutter),
+            ) {
                 MiniStatCard("Longest Streak", state.longestStreak, Icons.Filled.LocalFireDepartment,
-                    MaterialTheme.colorScheme.surfaceContainerHigh, Modifier.weight(1f))
+                    MaterialTheme.colorScheme.surfaceContainerHigh, Modifier.weight(1f).fillMaxHeight())
                 // The caption is part of the claim: unlocks are only seen while the monitor service
                 // is alive, so an uncaptioned number would imply a complete tally it isn't.
                 MiniStatCard("Unlocks", state.unlocks, Icons.Filled.PhoneAndroid,
-                    MaterialTheme.unPawseColors.cardSurface, Modifier.weight(1f),
+                    MaterialTheme.unPawseColors.cardSurface, Modifier.weight(1f).fillMaxHeight(),
                     caption = "TODAY, WHILE MONITORING")
             }
         }
@@ -170,15 +179,20 @@ private fun DailyScreenTimeCard(
                     // With no yesterday to compare against there is no direction to report, so the
                     // arrow is omitted entirely rather than defaulted: any usage at all beats zero,
                     // so a default would put a red "went up" arrow beside "No data for yesterday".
-                    val deltaTint = when {
-                        !state.deltaHasBaseline -> MaterialTheme.colorScheme.onSurfaceVariant
-                        state.deltaIsPositive -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.unPawseColors.success
+                    //
+                    // Only a rise gets an arrow. Today is still running, so being under yesterday
+                    // is "so far" rather than an improvement, and a green down arrow claimed one
+                    // every morning.
+                    val rose = state.deltaHasBaseline && state.deltaIsPositive
+                    val deltaTint = if (rose) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     }
-                    if (state.deltaHasBaseline) {
+                    if (rose) {
                         Icon(
-                            if (state.deltaIsPositive) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-                            contentDescription = if (state.deltaIsPositive) "Up from yesterday" else "Down from yesterday",
+                            Icons.Filled.ArrowUpward,
+                            contentDescription = "Up from yesterday",
                             tint = deltaTint,
                             modifier = Modifier.size(16.dp),
                         )
@@ -233,8 +247,13 @@ private fun UsageAccessNotice(onClick: () -> Unit) {
 @Composable
 private fun PreventedCard(count: Int, modifier: Modifier = Modifier) {
     PawCard(modifier = modifier) {
-        Text("Prevented", style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Mirrors the Trend card's header beside it, so the paired cards read as a set.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Prevented", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Icon(Icons.Filled.Shield, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        }
         Text(count.toString(), style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         // The period is part of the claim: the mockup's bare "42" said nothing about what it
@@ -256,7 +275,7 @@ private fun TrendCard(state: StatsUiState, modifier: Modifier = Modifier) {
             // rose showed "+0.6h" beside a downward arrow. With no last week behind it there is no
             // direction to report, so the arrow goes rather than defaulting — same rule as the
             // vs-yesterday arrow above.
-            if (state.trendHasBaseline) {
+            if (state.trendHasBaseline && !state.trendIsLevel) {
                 Icon(
                     if (state.trendIsUp) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                     contentDescription = if (state.trendIsUp) "Usage up week over week" else "Usage down week over week",

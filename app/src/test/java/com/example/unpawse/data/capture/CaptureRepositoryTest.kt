@@ -41,6 +41,13 @@ class CaptureRepositoryTest {
     }
 
     @Test
+    fun `a capture is stamped by the injected clock, not the system's`() = runBlocking {
+        val clocked = CaptureRepository(dao, storage, now = { 1_234_567L })
+
+        assertEquals(1_234_567L, clocked.saveCapture(byteArrayOf(1), confidence = 0.9f).capturedAt)
+    }
+
+    @Test
     fun `a fresh capture is recorded as having earned nothing`() = runBlocking {
         val capture = repo.saveCapture(byteArrayOf(1, 2, 3), confidence = 0.9f)
 

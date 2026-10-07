@@ -24,7 +24,25 @@ data class UsageSeries(
      * row drops out; all-apps scope populates it for everything it saw.
      */
     val categories: Map<String, AppCategory>,
+    /**
+     * The first day this source measured anything. Earlier days are unknown rather than idle: before
+     * install for the tracked rows, past the platform's retention for all apps. A comparison that
+     * reaches back before it has no baseline, and a chart draws no mark there.
+     */
+    val measuredSince: LocalDate,
 )
+
+/** The first day [usage] has a row for, or [today] when it has none — today is always being measured. */
+fun firstMeasuredDay(usage: List<DailyUsage>, today: LocalDate): LocalDate =
+    usage.minOfOrNull { it.date }?.let(LocalDate::parse)?.coerceAtMost(today) ?: today
+
+/**
+ * The whole history with [recent] laid over it, so the rows inside the live window are current even
+ * though [all] was read once. A one-shot history read before midnight would otherwise judge
+ * yesterday on a partial total.
+ */
+fun mergeUsageHistory(all: List<DailyUsage>, recent: List<DailyUsage>): List<DailyUsage> =
+    (recent + all).distinctBy { it.packageName to it.date }
 
 /**
  * What unPawse measured itself: the `daily_usage` rows, which only ever cover monitored apps.
@@ -38,6 +56,8 @@ fun trackedUsageSeries(
     recentUsage: List<DailyUsage>,
     monitoredApps: List<MonitoredApp>,
     today: LocalDate,
+    /** Pass the first day of the *whole* history; a window alone can't say when tracking began. */
+    measuredSince: LocalDate = firstMeasuredDay(recentUsage, today),
 ): UsageSeries {
     val todayKey = today.toString()
     return UsageSeries(
@@ -46,6 +66,7 @@ fun trackedUsageSeries(
         todaySecondsByPackage = recentUsage.filter { it.date == todayKey }
             .associate { it.packageName to it.usedSeconds },
         categories = monitoredApps.filter { it.enabled }.associate { it.packageName to it.category },
+        measuredSince = measuredSince,
     )
 }
 
@@ -53,9 +74,13 @@ fun trackedUsageSeries(
  * What the platform measured: every app on the phone, from
  * [com.example.unpawse.data.apps.DeviceUsageProvider.dailySecondsByDate].
  *
- * A date the platform could not report is **absent** rather than zero — its daily buckets only go
- * back about a week — so the chart draws no mark for it and the trend finds no baseline, instead of
- * claiming a day spent off the phone.
+ * A date the platform no longer holds events for is absent from the map, so
+ * [UsageSeries.measuredSince] starts after it: the chart draws no mark for it and the trend finds no
+ * baseline, instead of claiming a day spent off the phone. A present but empty day is a real zero.
+ *
+ * When the earliest present date is later than [readSince], it is where the platform's history
+ * starts, and the platform prunes whole files that don't begin at local midnight — so that day holds
+ * only part of its usage and counts as unmeasured too.
  *
  * [platformCategories] is each package's own declaration, `null` where it made none; see
  * [categoryFromPlatform] for why that map is deliberately sparse.
@@ -65,6 +90,7 @@ fun deviceUsageSeries(
     platformCategories: Map<String, AppCategory?>,
     monitoredApps: List<MonitoredApp>,
     today: LocalDate,
+    readSince: LocalDate? = null,
 ): UsageSeries {
     val todayByPackage = secondsByDateAndPackage[today.toString()].orEmpty()
     val resolved = resolveCategories(platformCategories, monitoredApps)
@@ -74,7 +100,14 @@ fun deviceUsageSeries(
         // Everything the platform reported gets a bucket, so nothing silently vanishes from the
         // donut — an app we can't classify is exactly what OTHER means.
         categories = todayByPackage.keys.associateWith { resolved[it] ?: AppCategory.OTHER },
+        measuredSince = deviceMeasuredSince(secondsByDateAndPackage.keys, today, readSince),
     )
+}
+
+private fun deviceMeasuredSince(dates: Set<String>, today: LocalDate, readSince: LocalDate?): LocalDate {
+    val earliest = dates.minOfOrNull(LocalDate::parse)?.coerceAtMost(today) ?: return today
+    val retentionEdge = readSince != null && earliest > readSince && earliest < today
+    return if (retentionEdge) earliest.plusDays(1) else earliest
 }
 
 /**

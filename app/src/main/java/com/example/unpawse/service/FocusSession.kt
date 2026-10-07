@@ -21,19 +21,31 @@ class FocusSession(private val now: () -> Long = System::currentTimeMillis) {
     /** The active session's end time in epoch millis, or null when nothing is running. */
     val endTimeMillis: StateFlow<Long?> = _endTimeMillis.asStateFlow()
 
+    /** Set by any start or stop, so a restore landing late can't undo what the user just did. */
+    @Volatile
+    private var userActed = false
+
     /** Starts a session lasting [durationMinutes] from now. */
     fun start(durationMinutes: Int) {
+        userActed = true
         _endTimeMillis.value = now() + durationMinutes * MILLIS_PER_MINUTE
     }
 
     /** Ends the session immediately. */
     fun stop() {
+        userActed = true
         _endTimeMillis.value = null
     }
 
-    /** Re-arm from a persisted end time; an absent or already-past time counts as no session. */
+    /**
+     * Re-arm from a persisted end time; an absent or already-past time counts as no session.
+     *
+     * Runs asynchronously at process start, after a DataStore read, so the user may have started or
+     * stopped a session in the meantime; their action wins over the stale persisted value.
+     */
     fun restore(endMillis: Long?) {
-        _endTimeMillis.value = endMillis?.takeIf { it > now() }
+        if (userActed) return
+        _endTimeMillis.compareAndSet(null, endMillis?.takeIf { it > now() })
     }
 
     /** Whether a session is running right now (its end time is still in the future). */

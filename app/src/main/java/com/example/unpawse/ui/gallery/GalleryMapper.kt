@@ -56,8 +56,8 @@ internal fun List<Capture>.matchingFilter(
  */
 internal fun List<Capture>.matchingSearch(
     query: String,
-    today: LocalDate = LocalDate.now(),
-    zone: ZoneId = ZoneId.systemDefault(),
+    today: LocalDate,
+    zone: ZoneId,
 ): List<Capture> {
     val trimmed = query.trim()
     if (trimmed.isEmpty()) return this
@@ -143,8 +143,8 @@ internal fun captureAspectRatio(widthPx: Int, heightPx: Int): Float {
  * parameterized on [today]/[zone] so it's unit-testable without touching the real clock.
  */
 internal fun List<Capture>.toGallerySections(
-    today: LocalDate = LocalDate.now(),
-    zone: ZoneId = ZoneId.systemDefault(),
+    today: LocalDate,
+    zone: ZoneId,
 ): List<GallerySection> =
     groupBy { Instant.ofEpochMilli(it.capturedAt).atZone(zone).toLocalDate() }
         .toSortedMap(reverseOrder())

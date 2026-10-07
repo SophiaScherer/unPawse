@@ -1,7 +1,6 @@
 package com.example.unpawse.ui.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,11 +20,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Smooth weekly line chart (Daily Screen Time card). Normalizes [points] to the canvas height and
- * connects them with cubic segments (control points at horizontal midpoints) for the soft curve in
- * the mockup. Optionally highlights a single point with a filled dot.
+ * Smooth weekly line chart (Daily Screen Time card). Scales [points] from zero to the busiest one
+ * and connects them with cubic segments (control points at horizontal midpoints) for the soft curve
+ * in the mockup. Optionally highlights a single point with a filled dot.
  *
- * [labels] are drawn as an evenly-spaced row below the curve (e.g. MON..SUN).
+ * [labels] are drawn one per slot below the curve (e.g. MON..SUN), each centred under its point.
  *
  * A `null` point is a slot with nothing to measure — a day that hasn't happened yet. It keeps its
  * place on the x axis, so the labels stay under the days they name, but the line stops rather than
@@ -49,18 +48,19 @@ fun LineChart(
             val plotted = points.filterNotNull()
             if (plotted.isEmpty()) return@Canvas
 
-            val maxV = plotted.max()
-            val minV = plotted.min()
-            val range = (maxV - minV).takeIf { it > 0f } ?: 1f
+            // From zero, not from the quietest day: with no axis to read, a min-to-max scale drew a
+            // week of 3h and 3h 10m days as a swing from the floor to the ceiling.
+            val maxV = plotted.max().takeIf { it > 0f } ?: 1f
             val vPad = size.height * 0.12f
             val usableH = size.height - vPad * 2
-            // Spans every slot, plotted or not, so the axis doesn't stretch as the week fills in.
-            val spans = (points.size - 1).coerceAtLeast(1)
+            // One slot per point, plotted or not, so the axis doesn't stretch as the week fills in,
+            // and each point sits at its slot's centre — directly above its label.
+            val slot = size.width / points.size.coerceAtLeast(1)
 
             val coords = points.mapIndexed { i, v ->
                 v?.let {
-                    val x = size.width * (i / spans.toFloat())
-                    Offset(x, vPad + usableH * (1f - (it - minV) / range))
+                    val x = slot * (i + 0.5f)
+                    Offset(x, vPad + usableH * (1f - it / maxV))
                 }
             }
 
@@ -99,7 +99,6 @@ fun LineChart(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 labels.forEach { label ->
                     Text(
@@ -107,6 +106,8 @@ fun LineChart(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }

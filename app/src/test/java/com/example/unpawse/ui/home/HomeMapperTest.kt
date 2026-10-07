@@ -198,7 +198,9 @@ class HomeMapperTest {
         assertEquals("Good morning,", greetingFor(LocalTime.of(6, 0)))
         assertEquals("Good afternoon,", greetingFor(LocalTime.of(13, 0)))
         assertEquals("Good evening,", greetingFor(LocalTime.of(20, 0)))
-        assertEquals("Good evening,", greetingFor(LocalTime.of(2, 0)))
+        assertEquals("Up late,", greetingFor(LocalTime.of(2, 0)))
+        assertEquals("Good evening,", greetingFor(LocalTime.of(23, 59)))
+        assertEquals("Good morning,", greetingFor(LocalTime.of(5, 0)))
     }
 
     @Test

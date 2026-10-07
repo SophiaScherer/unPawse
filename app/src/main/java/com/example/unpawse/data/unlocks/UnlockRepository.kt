@@ -20,13 +20,12 @@ class UnlockRepository(
     suspend fun recordUnlock() = dao.addUnlock(today().toString())
 
     /**
-     * Unlocks over the last [days] days, today inclusive. Days with no unlocks simply have no row;
-     * callers fill the gaps with zero — same contract as `observeRecentUsage`.
+     * Unlocks over the [days] days ending on [endingOn] inclusive. Days with no unlocks simply have no
+     * row; callers fill the gaps with zero — same contract as `observeRecentUsage`.
      */
-    fun observeRecentUnlocks(days: Long): Flow<List<DailyUnlocks>> {
-        val end = today()
-        val start = end.minusDays(days - 1)
-        return dao.observeUnlocksBetween(start.toString(), end.toString())
+    fun observeRecentUnlocks(days: Long, endingOn: LocalDate): Flow<List<DailyUnlocks>> {
+        val start = endingOn.minusDays(days - 1)
+        return dao.observeUnlocksBetween(start.toString(), endingOn.toString())
             .map { rows -> rows.map(DailyUnlocksEntity::toDomain) }
     }
 

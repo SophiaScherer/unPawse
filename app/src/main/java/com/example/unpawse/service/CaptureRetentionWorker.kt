@@ -33,7 +33,7 @@ class CaptureRetentionWorker(
         // Read the window per run rather than at schedule time, so changing it in Photo storage
         // takes effect on the next purge instead of needing the job rescheduled.
         val windowDays = container.settingsRepository.retentionDays.first()
-        val cutoff = CaptureRetention.cutoff(System.currentTimeMillis(), windowDays)
+        val cutoff = CaptureRetention.cutoff(container.dayClock.nowMillis(), windowDays)
         container.captureRepository.purgeExpired(cutoff)
         return Result.success()
     }

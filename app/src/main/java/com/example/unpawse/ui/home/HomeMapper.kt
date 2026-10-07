@@ -28,6 +28,8 @@ private const val LOW_REMAINING_SECONDS = 15 * 60L
 
 /** Time-of-day greeting for the Home header. Pure, so it's unit-testable without a clock. */
 internal fun greetingFor(time: LocalTime): String = when (time.hour) {
+    // "Good evening" at 2am reads as a clock bug, and "good night" is a farewell.
+    in 0..4 -> "Up late,"
     in 5..11 -> "Good morning,"
     in 12..16 -> "Good afternoon,"
     else -> "Good evening,"
@@ -62,9 +64,9 @@ internal fun toHomeUiState(
     captures: List<Capture>,
     userName: String,
     protection: ProtectionStatus,
-    today: LocalDate = LocalDate.now(),
-    zone: ZoneId = ZoneId.systemDefault(),
-    time: LocalTime = LocalTime.now(zone),
+    today: LocalDate,
+    zone: ZoneId,
+    time: LocalTime,
 ): HomeUiState {
     val displayName = displayNameOf(userName)
     // Without usage access nothing accrues, so every usage figure below is a claim the app can't

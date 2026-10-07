@@ -8,6 +8,7 @@ import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UNLIMITED_MINUTES
 import com.example.unpawse.data.usage.UsageScope
 import com.example.unpawse.data.usage.deviceUsageSeries
+import com.example.unpawse.data.usage.trackedUsageSeries
 import com.example.unpawse.ui.format.NO_DATA
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,6 +56,8 @@ class StatsMapperTest {
         unlocks: List<DailyUnlocks> = emptyList(),
         allUsage: List<DailyUsage> = recentUsage,
         on: LocalDate = today,
+        // A long-standing user unless a test says otherwise, so an absent row reads as a real zero.
+        measuredSince: LocalDate = on.minusDays(30),
     ) = toStatsUiState(
         monitoredApps = apps,
         recentUsage = recentUsage,
@@ -63,6 +66,7 @@ class StatsMapperTest {
         allUsage = allUsage,
         today = on,
         zone = zone,
+        series = trackedUsageSeries(recentUsage, apps, on, measuredSince),
     )
 
     private fun millis(daysAgo: Long): Long =
@@ -82,15 +86,34 @@ class StatsMapperTest {
     fun `delta compares against yesterday and flags an increase`() {
         val state = map(recentUsage = listOf(usage("a", 0, 120), usage("a", 1, 60)))
 
-        assertEquals("100% from yesterday", state.deltaText)
+        assertEquals("100% more than yesterday", state.deltaText)
         assertTrue(state.deltaIsPositive)
     }
 
     @Test
-    fun `a decrease is not flagged positive`() {
+    fun `being under yesterday is only so far, not an improvement`() {
+        // Today is still running, so half of yesterday by now says nothing about how today ends.
         val state = map(recentUsage = listOf(usage("a", 0, 30), usage("a", 1, 60)))
 
-        assertEquals("50% from yesterday", state.deltaText)
+        assertEquals("50% of yesterday's total so far", state.deltaText)
+        assertFalse(state.deltaIsPositive)
+        assertTrue(state.deltaHasBaseline)
+    }
+
+    @Test
+    fun `matching yesterday reads as level with no direction`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 1, 60)))
+
+        assertEquals("Level with yesterday", state.deltaText)
+        assertFalse(state.deltaIsPositive)
+    }
+
+    @Test
+    fun `a rise that rounds to nothing is not flagged`() {
+        // 0.2% more would otherwise read "0% more than yesterday" under a red arrow.
+        val state = map(recentUsage = listOf(usage("a", 0, 601), usage("a", 1, 600)))
+
+        assertEquals("Level with yesterday", state.deltaText)
         assertFalse(state.deltaIsPositive)
     }
 
@@ -394,8 +417,8 @@ class StatsMapperTest {
 
     @Test
     fun `trend compares this week against last week`() {
-        // 2h this week, 1h last week -> +1.0h.
-        val state = map(recentUsage = listOf(usage("a", 0, 120), usage("a", 8, 60)))
+        // 2h on Wednesday, 1h the Wednesday before -> +1.0h.
+        val state = map(recentUsage = listOf(usage("a", 1, 120), usage("a", 8, 60)))
 
         assertEquals("+1.0h", state.trendLabel)
     }
@@ -576,7 +599,7 @@ class StatsMapperTest {
 
     @Test
     fun `a heavier week is flagged as trending up`() {
-        val state = map(recentUsage = listOf(usage("a", 0, 120), usage("a", 8, 60)))
+        val state = map(recentUsage = listOf(usage("a", 1, 120), usage("a", 8, 60)))
 
         assertEquals("+1.0h", state.trendLabel)
         assertTrue(state.trendIsUp)
@@ -584,7 +607,7 @@ class StatsMapperTest {
 
     @Test
     fun `a lighter week is flagged as trending down`() {
-        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 8, 120)))
+        val state = map(recentUsage = listOf(usage("a", 1, 60), usage("a", 8, 120)))
 
         assertEquals("-1.0h", state.trendLabel)
         assertFalse(state.trendIsUp)
@@ -592,7 +615,7 @@ class StatsMapperTest {
 
     @Test
     fun `two identical weeks are neither up nor signed`() {
-        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 8, 60)))
+        val state = map(recentUsage = listOf(usage("a", 1, 60), usage("a", 8, 60)))
 
         assertEquals("0.0h", state.trendLabel)
         assertFalse(state.trendIsUp)
@@ -609,11 +632,12 @@ class StatsMapperTest {
      */
     @Test
     fun `the trend uses the same calendar week the chart draws`() {
-        // today is Thursday 2026-07-16; Monday of this week is the 13th, so 7 days ago (Thursday
-        // the 9th) is last week and must not count toward this week.
-        val state = map(recentUsage = listOf(usage("a", 7, 60)))
+        // today is Thursday 2026-07-16; Monday of this week is the 13th, so 6 days ago (Friday the
+        // 10th) is last week and must not count toward this week — and, being past the compared
+        // Mon–Wed, not toward last week either. Tuesday the 7th is compared.
+        val state = map(recentUsage = listOf(usage("a", 6, 60), usage("a", 9, 60)))
 
-        assertEquals("this week saw no usage, last week saw an hour", "-1.0h", state.trendLabel)
+        assertEquals("this week saw no usage, last Tuesday saw an hour", "-1.0h", state.trendLabel)
         assertFalse(state.trendIsUp)
     }
 
@@ -631,7 +655,7 @@ class StatsMapperTest {
 
         assertFalse(state.trendHasBaseline)
         assertEquals("—", state.trendLabel)
-        assertEquals("NO DATA FOR LAST WEEK", state.trendCaption)
+        assertEquals("NO LAST WEEK DATA", state.trendCaption)
     }
 
     @Test
@@ -646,11 +670,103 @@ class StatsMapperTest {
 
     @Test
     fun `the same weekday last week is the baseline`() {
-        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 7, 60)))
+        val state = map(recentUsage = listOf(usage("a", 1, 60), usage("a", 8, 60)))
 
         assertTrue(state.trendHasBaseline)
-        assertEquals("an equal Thursday is no change", "0.0h", state.trendLabel)
-        assertEquals("VS LAST WEEK, SAME DAYS", state.trendCaption)
+        assertEquals("an equal Wednesday is no change", "0.0h", state.trendLabel)
+        assertEquals("VS LAST MON–WED", state.trendCaption)
+    }
+
+    /**
+     * Today against a whole day last week read as a drop every morning that shrank as the day went
+     * on. Only completed days are compared, so today's usage cannot move the headline.
+     */
+    @Test
+    fun `today's partial day is left out of the trend`() {
+        val state = map(recentUsage = listOf(usage("a", 0, 600), usage("a", 1, 60), usage("a", 7, 0), usage("a", 8, 60)))
+
+        assertEquals("0.0h", state.trendLabel)
+    }
+
+    @Test
+    fun `a monday has no complete day to compare yet`() {
+        val monday = LocalDate.of(2026, 7, 13)
+        val state = map(
+            recentUsage = listOf(usage("a", 0, 60, from = monday), usage("a", 7, 60, from = monday)),
+            on = monday,
+        )
+
+        assertFalse(state.trendHasBaseline)
+        assertEquals(NO_DATA, state.trendLabel)
+        assertEquals("NO FULL DAY YET", state.trendCaption)
+    }
+
+    @Test
+    fun `a tuesday names its one compared day`() {
+        val tuesday = LocalDate.of(2026, 7, 14)
+        val state = map(
+            recentUsage = listOf(usage("a", 1, 90, from = tuesday), usage("a", 8, 60, from = tuesday)),
+            on = tuesday,
+        )
+
+        assertEquals("+0.5h", state.trendLabel)
+        assertEquals("VS LAST MON", state.trendCaption)
+    }
+
+    @Test
+    fun `a sunday compares the six days before it`() {
+        // Last Monday is 13 days back, the oldest day the 14-day window holds.
+        val sunday = LocalDate.of(2026, 7, 19)
+        val state = map(
+            recentUsage = listOf(usage("a", 6, 60, from = sunday), usage("a", 13, 120, from = sunday)),
+            on = sunday,
+        )
+
+        assertEquals("-1.0h", state.trendLabel)
+        assertEquals("VS LAST MON–SAT", state.trendCaption)
+    }
+
+    /**
+     * Installed last Wednesday: last week's Monday and Tuesday were never measured, so summing what
+     * is left compared three days against one and reported a rise the user never made.
+     */
+    @Test
+    fun `a partly measured last week is no baseline`() {
+        val state = map(
+            recentUsage = listOf(usage("a", 1, 120), usage("a", 2, 120), usage("a", 3, 120), usage("a", 8, 60)),
+            measuredSince = today.minusDays(8),
+        )
+
+        assertFalse(state.trendHasBaseline)
+        assertEquals(NO_DATA, state.trendLabel)
+        assertEquals("NO LAST WEEK DATA", state.trendCaption)
+    }
+
+    @Test
+    fun `days before tracking began are not drawn as zero`() {
+        // Installed on Tuesday: Monday is unknown, not a day off the phone.
+        val state = map(recentUsage = listOf(usage("a", 2, 60)), measuredSince = today.minusDays(2))
+
+        assertEquals(null, state.weeklyPoints[0])
+        assertEquals(1f, state.weeklyPoints[1]!!, 0.001f)
+        assertEquals(null, state.trendBars[0])
+        assertEquals(1f, state.trendBars[1]!!, 0.001f)
+        assertEquals("today is not a complete day", null, state.trendBars[3])
+    }
+
+    @Test
+    fun `tracking begins at the first row in the whole history`() {
+        // The default series reads the start from allUsage, not from the 14-day window.
+        val state = toStatsUiState(
+            monitoredApps = emptyList(),
+            recentUsage = listOf(usage("a", 1, 120)),
+            captures = emptyList(),
+            allUsage = listOf(usage("a", 40, 10), usage("a", 1, 120)),
+            today = today,
+            zone = zone,
+        )
+
+        assertEquals("a long-tracked Monday is a real zero", 0f, state.weeklyPoints[0]!!, 0.001f)
     }
 
     // --- Trend sparkline ------------------------------------------------------------------------
@@ -658,30 +774,59 @@ class StatsMapperTest {
     // weeks: two windows in one card, with nothing to tell them apart.
 
     @Test
-    fun `the sparkline covers the same week as the headline`() {
-        // today is Thursday; Tuesday saw half of today's usage.
-        val state = map(recentUsage = listOf(usage("a", 0, 60), usage("a", 2, 30)))
+    fun `the sparkline covers the same days as the headline`() {
+        // today is Thursday; Tuesday saw half of Wednesday's usage, and today's doesn't count.
+        val state = map(recentUsage = listOf(usage("a", 0, 600), usage("a", 1, 60), usage("a", 2, 30)))
 
         assertEquals(7, state.trendBars.size)
         assertEquals(state.weekdayLabels.size, state.trendBars.size)
-        assertEquals(1f, state.trendBars[3]!!, 0.001f)
+        assertEquals(1f, state.trendBars[2]!!, 0.001f)
         assertEquals(0.5f, state.trendBars[1]!!, 0.001f)
         assertEquals("Monday saw nothing, which is a real zero", 0f, state.trendBars[0]!!, 0.001f)
     }
 
     @Test
-    fun `days still to come have no bar`() {
+    fun `today and the days still to come have no bar`() {
         val state = map(recentUsage = listOf(usage("a", 0, 60)))
 
-        assertTrue("Fri-Sun have not happened", state.trendBars.takeLast(3).all { it == null })
-        assertTrue("Mon-Thu have", state.trendBars.take(4).none { it == null })
+        assertTrue("Thu-Sun are not complete", state.trendBars.takeLast(4).all { it == null })
+        assertTrue("Mon-Wed are", state.trendBars.take(3).none { it == null })
+    }
+
+    /** It drew one full bar for today beside "NO FULL DAY YET". */
+    @Test
+    fun `a monday's sparkline is empty, matching its caption`() {
+        val monday = LocalDate.of(2026, 7, 13)
+        val state = map(recentUsage = listOf(usage("a", 0, 60, from = monday)), on = monday)
+
+        assertEquals("NO FULL DAY YET", state.trendCaption)
+        assertTrue(state.trendBars.all { it == null })
     }
 
     @Test
-    fun `a week with no usage still has a bar per elapsed day`() {
+    fun `a week with no usage still has a bar per completed day`() {
         val state = map()
 
-        assertEquals(listOf(0f, 0f, 0f, 0f), state.trendBars.take(4))
+        assertEquals(listOf(0f, 0f, 0f), state.trendBars.take(3))
+    }
+
+    @Test
+    fun `a change that rounds to nothing is level, with no direction`() {
+        // Two minutes more than last Wednesday reads "0.0h"; an up arrow beside it would be a claim.
+        val state = map(recentUsage = listOf(usage("a", 1, 62), usage("a", 8, 60)))
+
+        assertEquals("0.0h", state.trendLabel)
+        assertTrue(state.trendIsLevel)
+        assertFalse(state.trendIsUp)
+    }
+
+    @Test
+    fun `a change that shows as a figure is not level`() {
+        val state = map(recentUsage = listOf(usage("a", 1, 66), usage("a", 8, 60)))
+
+        assertEquals("+0.1h", state.trendLabel)
+        assertFalse(state.trendIsLevel)
+        assertTrue(state.trendIsUp)
     }
 
     // --- Streak label ---------------------------------------------------------------------------
@@ -778,6 +923,25 @@ class StatsMapperTest {
     }
 
     @Test
+    fun `a scope still loading blanks without claiming access is missing`() {
+        val state = toStatsUiState(
+            monitoredApps = emptyList(),
+            recentUsage = emptyList(),
+            captures = emptyList(),
+            today = today,
+            zone = zone,
+            scope = UsageScope.ALL,
+            series = null,
+            scopeLoading = true,
+        )
+
+        assertTrue(state.scopeLoading)
+        assertFalse(state.scopeUnavailable)
+        assertEquals(NO_DATA, state.dailyTotal)
+        assertEquals(emptyList<Float?>(), state.weeklyPoints)
+    }
+
+    @Test
     fun `a scope with no figures blanks rather than reporting zeroes`() {
         // All-apps without usage access. A null series is "nothing can be measured", which is not
         // the same as a device nobody touched.
@@ -792,6 +956,7 @@ class StatsMapperTest {
         )
 
         assertTrue(state.scopeUnavailable)
+        assertFalse(state.scopeLoading)
         assertEquals(NO_DATA, state.dailyTotal)
         assertEquals("", state.deltaText)
         assertFalse(state.deltaHasBaseline)
@@ -822,6 +987,22 @@ class StatsMapperTest {
     }
 
     @Test
+    fun `a platform that kept only part of last week gives no baseline`() {
+        // Retention reached back to last Wednesday only: Mon and Tue are absent, not idle.
+        val state = mapAll(
+            device = deviceUsage(
+                1L to mapOf("a" to 7200L),
+                2L to mapOf("a" to 7200L),
+                3L to mapOf("a" to 7200L),
+                8L to mapOf("a" to 3600L),
+            ),
+        )
+
+        assertFalse(state.trendHasBaseline)
+        assertEquals(NO_DATA, state.trendLabel)
+    }
+
+    @Test
     fun `an unmeasurable last week leaves the trend without a baseline`() {
         // The everyday case in all-apps scope: the platform keeps daily buckets for about a week, so
         // last week is absent rather than zero, and the card must not read it as an improvement.
@@ -829,6 +1010,6 @@ class StatsMapperTest {
 
         assertFalse(state.trendHasBaseline)
         assertEquals(NO_DATA, state.trendLabel)
-        assertEquals("NO DATA FOR LAST WEEK", state.trendCaption)
+        assertEquals("NO LAST WEEK DATA", state.trendCaption)
     }
 }
