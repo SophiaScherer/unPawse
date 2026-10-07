@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.example.unpawse.data.apps.RECENT_DAYS
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.ui.components.BackHeader
+import com.example.unpawse.ui.components.ConfirmDialog
 import com.example.unpawse.ui.components.EmptyStateCard
 import com.example.unpawse.ui.components.FilterChip
 import com.example.unpawse.ui.components.clearFocusOnScroll
@@ -65,8 +68,24 @@ fun AppPickerScreen(
     onWeekendLimitChange: (AppLimitItem, Int?) -> Unit = { _, _ -> },
     onCategoryChange: (AppLimitItem, AppCategory) -> Unit = { _, _ -> },
     onOpenSchedules: () -> Unit = {},
+    onRemoveMissing: (MissingApp) -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
+    var confirmRemove by remember { mutableStateOf<MissingApp?>(null) }
+
+    confirmRemove?.let { app ->
+        ConfirmDialog(
+            title = "Remove ${app.label}?",
+            message = removeMissingMessage(app),
+            confirmLabel = "Remove",
+            destructive = true,
+            onConfirm = {
+                onRemoveMissing(app)
+                confirmRemove = null
+            },
+            onDismiss = { confirmRemove = null },
+        )
+    }
     // Reaching for any row control means the user is done typing, and the keyboard is sitting over
     // the rows they are aiming at — so every one of them dismisses it before doing its own job.
     val dismissKeyboard = { focusManager.clearFocus() }
@@ -103,7 +122,8 @@ fun AppPickerScreen(
 
         when {
             state.isLoading -> LoadingState()
-            state.apps.isEmpty() -> EmptyState(hasQuery = state.searchQuery.isNotBlank())
+            state.apps.isEmpty() && state.notInstalled.isEmpty() ->
+                EmptyState(hasQuery = state.searchQuery.isNotBlank())
             else -> LazyColumn(
                 modifier = Modifier.clearFocusOnScroll(),
                 contentPadding = PaddingValues(
@@ -113,6 +133,12 @@ fun AppPickerScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
             ) {
+                if (state.notInstalled.isNotEmpty()) {
+                    item(key = "not-installed-header") { NotInstalledHeader() }
+                    items(state.notInstalled, key = { "missing:" + it.packageName }) { app ->
+                        MissingAppRow(app = app, onRemove = { dismissKeyboard(); confirmRemove = app })
+                    }
+                }
                 items(state.apps, key = { it.packageName }) { app ->
                     AppLimitRow(
                         item = app,
@@ -249,6 +275,40 @@ private fun AppLimitRow(
     }
 }
 
+@Composable
+private fun NotInstalledHeader() {
+    Column(Modifier.padding(horizontal = 4.dp)) {
+        Text(
+            text = "Not on this phone",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = "These were uninstalled or can't be opened any more. Their limits still count until you remove them.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun MissingAppRow(app: MissingApp, onRemove: () -> Unit) {
+    PawCard(contentPadding = 12.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = app.label,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onRemove) {
+                Text("Remove", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
 /**
  * The "when" half of this app's limit, surfaced here so windows are discoverable from where budgets
  * are set. Tapping it hands over to the Schedules screen, which owns the editing.
@@ -258,6 +318,7 @@ private fun ScheduleSummaryRow(summary: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),

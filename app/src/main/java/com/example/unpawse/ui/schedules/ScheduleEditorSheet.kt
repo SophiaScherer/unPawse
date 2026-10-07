@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.Button
@@ -111,8 +114,11 @@ fun ScheduleEditorSheet(
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        // Scrolls so Save stays reachable with the keyboard up or at a large font on a small phone.
         Column(
             Modifier
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(horizontal = Dimens.ScreenHMargin)
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -167,6 +173,13 @@ fun ScheduleEditorSheet(
                 daysMask = draft.daysMask,
                 onMaskChange = { draft = draft.copy(daysMask = it) },
             )
+            if (!draft.canSave) {
+                Text(
+                    text = "Pick at least one day.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
             SectionLabel(text = "Applies to", uppercase = true)
             ScopeField(
@@ -181,6 +194,7 @@ fun ScheduleEditorSheet(
                     onSave(draft)
                     onDismiss()
                 },
+                enabled = draft.canSave,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(50),
             ) {
