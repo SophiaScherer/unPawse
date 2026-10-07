@@ -3,6 +3,8 @@ package com.example.unpawse.data.apps
 import com.example.unpawse.data.apps.ForegroundEvent.Kind.DEVICE_BOUNDARY
 import com.example.unpawse.data.apps.ForegroundEvent.Kind.LEFT
 import com.example.unpawse.data.apps.ForegroundEvent.Kind.RESUMED
+import com.example.unpawse.data.apps.ForegroundEvent.Kind.SCREEN_OFF
+import com.example.unpawse.data.apps.ForegroundEvent.Kind.SCREEN_ON
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -196,5 +198,48 @@ class ForegroundSessionsTest {
         val spans = foregroundIntervals(listOf(event("chrome", begin - hour, RESUMED)), begin, begin + hour)
 
         assertEquals(listOf(ForegroundInterval("chrome", begin, begin + hour)), spans)
+    }
+
+    @Test
+    fun `screen-off time credits nobody, and waking resumes the app still on top`() {
+        // Chrome stays on top through a 2h screen-off; no resume is logged on waking.
+        val events = listOf(
+            event("chrome", at(0, 9), RESUMED),
+            event("android", at(0, 9, 20), SCREEN_OFF, activity = ""),
+            event("android", at(0, 11, 20), SCREEN_ON, activity = ""),
+            event("chrome", at(0, 11, 30), LEFT),
+        )
+
+        assertEquals(30 * 60L, byDay(events).getValue(today.toString()).getValue("chrome"))
+    }
+
+    @Test
+    fun `an app left on top with the screen off is not counted up to the end of the read`() {
+        val events = listOf(event("yt", at(0, 22), RESUMED), event("android", at(0, 22, 10), SCREEN_OFF, activity = ""))
+
+        assertEquals(10 * 60L, byDay(events, end = at(0, 23, 59)).getValue(today.toString()).getValue("yt"))
+    }
+
+    @Test
+    fun `a screen-on with no screen-off before it credits nothing twice`() {
+        val events = listOf(
+            event("chrome", at(0, 9), RESUMED),
+            event("android", at(0, 9, 10), SCREEN_ON, activity = ""),
+            event("chrome", at(0, 9, 30), LEFT),
+        )
+
+        assertEquals(30 * 60L, byDay(events).getValue(today.toString()).getValue("chrome"))
+    }
+
+    @Test
+    fun `an app resumed while the screen is off starts counting at screen-on`() {
+        val events = listOf(
+            event("android", at(0, 7), SCREEN_OFF, activity = ""),
+            event("alarm", at(0, 7, 5), RESUMED),
+            event("android", at(0, 7, 10), SCREEN_ON, activity = ""),
+            event("alarm", at(0, 7, 12), LEFT),
+        )
+
+        assertEquals(2 * 60L, byDay(events).getValue(today.toString()).getValue("alarm"))
     }
 }

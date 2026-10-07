@@ -107,8 +107,8 @@ class UsageStatsDeviceUsageProvider(
 @Suppress(
     // MOVE_TO_FOREGROUND/BACKGROUND are ACTIVITY_RESUMED/PAUSED under their minSdk-26 names.
     "DEPRECATION",
-    // ACTIVITY_STOPPED and the device events are API 29 compile-time constants, so they inline;
-    // older levels simply never emit them.
+    // ACTIVITY_STOPPED, the device events (29) and the screen events (28) are compile-time
+    // constants, so they inline; older levels simply never emit them.
     "InlinedApi",
 )
 private fun UsageStatsManager.foregroundEvents(begin: Long, end: Long): List<ForegroundEvent> {
@@ -123,6 +123,8 @@ private fun UsageStatsManager.foregroundEvents(begin: Long, end: Long): List<For
             UsageEvents.Event.ACTIVITY_STOPPED -> ForegroundEvent.Kind.LEFT
             UsageEvents.Event.DEVICE_SHUTDOWN,
             UsageEvents.Event.DEVICE_STARTUP -> ForegroundEvent.Kind.DEVICE_BOUNDARY
+            UsageEvents.Event.SCREEN_NON_INTERACTIVE -> ForegroundEvent.Kind.SCREEN_OFF
+            UsageEvents.Event.SCREEN_INTERACTIVE -> ForegroundEvent.Kind.SCREEN_ON
             else -> continue
         }
         result += ForegroundEvent(event.packageName ?: continue, event.className, event.timeStamp, kind)

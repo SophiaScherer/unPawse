@@ -19,6 +19,12 @@ internal data class ForegroundEvent(
 
         /** The device shut down or started up; nothing can still be in front across it. */
         DEVICE_BOUNDARY,
+
+        /** The screen went off. The app stays on top, but nobody is using it. */
+        SCREEN_OFF,
+
+        /** The screen came back on; whatever is on top is being used again. */
+        SCREEN_ON,
     }
 }
 
@@ -42,6 +48,8 @@ internal data class ForegroundInterval(val packageName: String, val beginMillis:
  * - Whatever is on top at the end is counted up to [endMillis].
  * - A device boundary empties the stack at the last event seen before it: nothing survives a reboot,
  *   and the shutdown itself may not have been logged.
+ * - Screen-off time credits nobody, but the stack is kept: waking resumes nothing, so the app left
+ *   on top really is still there. Same rule as the tracker's `isInteractive` gate.
  */
 internal fun foregroundIntervals(
     events: List<ForegroundEvent>,
@@ -52,10 +60,11 @@ internal fun foregroundIntervals(
     val spans = mutableListOf<ForegroundInterval>()
     var since = beginMillis
     var lastTime = beginMillis
+    var screenOn = true
 
     fun creditTop(until: Long) {
         val top = stack.lastOrNull()
-        if (top != null && until > since) spans += ForegroundInterval(top.first, since, until)
+        if (screenOn && top != null && until > since) spans += ForegroundInterval(top.first, since, until)
         // Never step back: an out-of-order event would otherwise credit the same time twice.
         since = maxOf(since, until)
     }
@@ -76,6 +85,15 @@ internal fun foregroundIntervals(
                 creditTop(lastTime)
                 stack = emptyList()
                 since = time
+                screenOn = true
+            }
+            ForegroundEvent.Kind.SCREEN_OFF -> {
+                creditTop(time)
+                screenOn = false
+            }
+            ForegroundEvent.Kind.SCREEN_ON -> {
+                if (!screenOn) since = maxOf(since, time)
+                screenOn = true
             }
         }
         lastTime = time
