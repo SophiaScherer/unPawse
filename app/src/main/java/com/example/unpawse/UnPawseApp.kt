@@ -21,12 +21,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.unpawse.service.UsageMonitorController
-import com.example.unpawse.ui.navigation.TopLevelDestination
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.example.unpawse.ui.navigation.UnPawseBottomBar
 import com.example.unpawse.ui.navigation.UnPawseNavHost
 import com.example.unpawse.ui.navigation.navigateToTab
+import com.example.unpawse.ui.navigation.openDeepLink
 import com.example.unpawse.ui.navigation.owningTab
 import com.example.unpawse.ui.navigation.showsBottomBar
 import com.example.unpawse.ui.navigation.startDestinationFor
@@ -39,11 +39,11 @@ import com.example.unpawse.ui.theme.themeModeFrom
  * Root composable: owns the theme, the persisted dark-mode override, and the app scaffold
  * (bottom navigation + nav host).
  *
- * [initialRoute] lets a launch intent deep-link somewhere other than Home (the block overlay uses
- * it to open the camera); null keeps the normal Home start.
+ * [deepLink] is a route a launch or new intent asked for (the block overlay's "Open Camera"); it is
+ * navigated to once and then reported through [onDeepLinkHandled]. Null keeps the normal start.
  */
 @Composable
-fun UnPawseApp(initialRoute: String? = null) {
+fun UnPawseApp(deepLink: String? = null, onDeepLinkHandled: () -> Unit = {}) {
     // Dark mode is a persisted override: null = follow the system, an explicit value = user choice.
     // Stored in DataStore via the SettingsRepository so it survives process death.
     val context = LocalContext.current
@@ -68,7 +68,7 @@ fun UnPawseApp(initialRoute: String? = null) {
     // the tour had just performed.
     var startDestination by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(settings) {
-        startDestination = startDestinationFor(settings.onboardingComplete.first(), initialRoute)
+        startDestination = startDestinationFor(settings.onboardingComplete.first(), deepLink)
     }
 
     UnPawseTheme(darkTheme = darkMode) {
@@ -84,17 +84,11 @@ fun UnPawseApp(initialRoute: String? = null) {
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route
 
-        // Honour a deep-link once per launch intent; keyed so a recomposition doesn't re-navigate.
-        // A top-level destination (e.g. the block's "Open Camera" → Camera tab) must go through the
-        // same tab semantics as the bottom bar: a plain navigate() would push it *onto* Home, and the
-        // bottom bar's saveState/restoreState would then save that pushed entry under Home's slot —
-        // leaving a later "Home" tap restoring the deep-linked screen instead of Home.
-        // A deep link always starts the graph on Home (see startDestinationFor), so this never
-        // pushes on top of the tour.
-        LaunchedEffect(initialRoute) {
-            if (initialRoute == null) return@LaunchedEffect
-            val tab = TopLevelDestination.entries.firstOrNull { it.route == initialRoute }
-            if (tab != null) navController.navigateToTab(tab) else navController.navigate(initialRoute)
+        // Cleared once handled, so neither a recomposition nor a later rotation navigates again.
+        LaunchedEffect(deepLink) {
+            val route = deepLink ?: return@LaunchedEffect
+            navController.openDeepLink(route)
+            onDeepLinkHandled()
         }
 
         val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE

@@ -72,5 +72,32 @@ fun NavHostController.navigateWithinTab(route: String) {
     navigate(route) { launchSingleTop = true }
 }
 
+/**
+ * Open a route a launch or new intent asked for. An open tour steps aside first, as it would never
+ * have started under a cold deep link (see [startDestinationFor]); its flag is untouched, so it
+ * returns on the next plain launch.
+ */
+fun NavHostController.openDeepLink(route: String) {
+    if (currentDestination?.route == Routes.ONBOARDING) leaveOnboarding()
+    val tab = TopLevelDestination.entries.firstOrNull { it.route == route }
+    if (tab != null) navigateToTab(tab) else navigateWithinTab(route)
+}
+
+/**
+ * Leave the tour. Decided by the back stack, not the start destination: that is latched once per
+ * composition, so a replay finished in the same session as the first run would otherwise push a
+ * second Home over Settings.
+ */
+fun NavHostController.leaveOnboarding() {
+    if (previousBackStackEntry == null) {
+        // Nothing underneath (first run): Home replaces the tour outright, so a back press from
+        // Home leaves the app rather than replaying it.
+        navigate(Routes.HOME) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
+    } else {
+        // Pushed over Settings (replay) or Home (after a reset); return there.
+        popBackStack()
+    }
+}
+
 private fun NavHostController.hasOnBackStack(route: String): Boolean =
     runCatching { getBackStackEntry(route) }.isSuccess
