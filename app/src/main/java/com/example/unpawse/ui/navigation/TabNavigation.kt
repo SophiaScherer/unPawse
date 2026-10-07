@@ -21,6 +21,17 @@ fun owningTab(route: String?): TopLevelDestination? = when (route) {
     else -> null
 }
 
+/**
+ * Whether [route] shows the bottom bar. Takeovers hide it, and so does the camera in landscape,
+ * where the bar ate about a quarter of the viewfinder; the camera's own X and system back still
+ * leave it.
+ */
+fun showsBottomBar(route: String?, landscape: Boolean): Boolean = when (route) {
+    Routes.BLOCK, Routes.CAPTURE_VIEWER, Routes.ONBOARDING -> false
+    Routes.CAMERA -> !landscape
+    else -> true
+}
+
 /** The tab owning whatever is on screen now. */
 val NavHostController.currentTab: TopLevelDestination?
     get() = owningTab(currentDestination?.route)

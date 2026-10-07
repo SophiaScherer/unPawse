@@ -1,5 +1,6 @@
 package com.example.unpawse
 
+import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -13,13 +14,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.unpawse.service.UsageMonitorController
-import com.example.unpawse.ui.navigation.Routes
 import com.example.unpawse.ui.navigation.TopLevelDestination
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -27,6 +28,7 @@ import com.example.unpawse.ui.navigation.UnPawseBottomBar
 import com.example.unpawse.ui.navigation.UnPawseNavHost
 import com.example.unpawse.ui.navigation.navigateToTab
 import com.example.unpawse.ui.navigation.owningTab
+import com.example.unpawse.ui.navigation.showsBottomBar
 import com.example.unpawse.ui.navigation.startDestinationFor
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.isDark
@@ -95,10 +97,8 @@ fun UnPawseApp(initialRoute: String? = null) {
             if (tab != null) navController.navigateToTab(tab) else navController.navigate(initialRoute)
         }
 
-        // The Block Overlay, the photo viewer and the first-run tour are full-screen takeovers — no bottom bar.
-        val showBottomBar = currentRoute != Routes.BLOCK &&
-            currentRoute != Routes.CAPTURE_VIEWER &&
-            currentRoute != Routes.ONBOARDING
+        val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val showBottomBar = showsBottomBar(currentRoute, landscape)
 
         Scaffold(
             bottomBar = {

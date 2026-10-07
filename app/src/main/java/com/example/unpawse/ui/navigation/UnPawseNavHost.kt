@@ -60,7 +60,6 @@ fun UnPawseNavHost(
             CameraRoute(
                 onClose = { navController.navigateToTab(TopLevelDestination.HOME) },
                 onOpenGallery = { navController.navigateToTab(TopLevelDestination.GALLERY) },
-                onOpenSettings = { navController.navigateToTab(TopLevelDestination.SETTINGS) },
             )
         }
 
