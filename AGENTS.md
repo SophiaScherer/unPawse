@@ -60,6 +60,7 @@ app; this one describes the process, and it is the part a fresh agent has no oth
 - **DataStore** `datastore-preferences 1.1.7` — persists scalar settings toggles
 - Testing: JUnit4, AndroidX Test (`ext.junit`), Espresso, Compose UI test, plus **`org.json` as `testImplementation` only** — the platform ships the package, but `android.jar`'s stubs throw `Stub!` in JVM unit tests. Never promote it to `implementation`; it would shadow the platform's copy.
 - `buildFeatures { buildConfig = true }` — the Settings version row reads `BuildConfig`, so the shipped version can't drift from `defaultConfig`.
+- **Release is shrunk by R8** (`isMinifyEnabled` + `isShrinkResources`, the classic DSL: AGP 9's `optimization { enable = true }` refuses to configure without the experimental `android.r8.gradual.support` flag). Library consumer rules cover everything **except ML Kit**: under full mode its Firebase-components registry resolved to null and the camera crashed on open, so `app/proguard-rules.pro` keeps `com.google.mlkit.**` and `com.google.firebase.components.**`. Verified on an API-36 emulator with a locally debug-signed release APK (signing config untouched): Home, App Picker, a focus block over Chrome, Stats, Gallery, the camera's ML Kit verdict, Settings, schedules, a ZIP export (enum names intact) and its re-import. **Any new reflection or ML dependency needs a release-build walk, not just the debug gate.**
 
 > Removed from the original scaffold: appcompat, Material Components (Views), constraintlayout, activity-ktx.
 
