@@ -48,7 +48,7 @@ data class BlockUiState(
     val showCamera: Boolean = true,
     /**
      * What a cat is worth here and how much of today's allowance is left. Null for the escape-less
-     * blocks and the debug route, which have no reward to describe.
+     * blocks, which have no reward to describe.
      */
     val reward: RewardTerms? = null,
     /**
@@ -64,7 +64,7 @@ data class BlockUiState(
         /**
          * The real thing: names the app whose limit was actually hit, and states what a cat buys.
          *
-         * [reward] defaults to null so the debug route and the tests that only care about
+         * [reward] defaults to null so the tests that only care about
          * [showCamera] stay unchanged; the service always passes real terms.
          */
         fun forApp(appName: String, reward: RewardTerms? = null) = BlockUiState(
@@ -116,9 +116,8 @@ data class BlockUiState(
 }
 
 /**
- * Full-screen "limit reached" takeover. In production this would be drawn over the blocked app;
- * here it is a normal nav destination (reachable from Home) so the design can be reviewed. No
- * bottom bar — the hosting scaffold hides it on this route.
+ * Full-screen "limit reached" takeover, drawn by the service in an overlay window over the blocked
+ * app (see `BlockOverlayHost`).
  */
 @Composable
 fun BlockOverlayScreen(
@@ -130,8 +129,7 @@ fun BlockOverlayScreen(
     interceptBack: Boolean = false,
 ) {
     // Guarded with `if` rather than BackHandler(enabled = …): BackHandler resolves and null-checks
-    // LocalOnBackPressedDispatcherOwner regardless of `enabled`, and neither the in-app debug route
-    // nor the @Preview has one. Swallowing back there would also trap the user with no way out.
+    // LocalOnBackPressedDispatcherOwner regardless of `enabled`, and the @Preview has none.
     if (interceptBack) BackHandler { /* back is exactly what this window exists to refuse */ }
 
     Box(

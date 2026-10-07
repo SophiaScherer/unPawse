@@ -41,7 +41,7 @@ class TabOwnershipTest {
     /** A new sub-screen without an owner would highlight no tab and could land on any stack. */
     @Test
     fun `every route but the takeovers has an owner`() {
-        val takeovers = setOf(Routes.ONBOARDING, Routes.BLOCK)
+        val takeovers = setOf(Routes.ONBOARDING)
         val routes = Routes::class.java.declaredFields
             .filter { it.type == String::class.java && it.name != "ARG_CAPTURE_ID" }
             .map { it.get(null) as String }

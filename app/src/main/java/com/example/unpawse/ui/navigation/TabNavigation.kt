@@ -27,7 +27,7 @@ fun owningTab(route: String?): TopLevelDestination? = when (route) {
  * leave it.
  */
 fun showsBottomBar(route: String?, landscape: Boolean): Boolean = when (route) {
-    Routes.BLOCK, Routes.CAPTURE_VIEWER, Routes.ONBOARDING -> false
+    Routes.CAPTURE_VIEWER, Routes.ONBOARDING -> false
     Routes.CAMERA -> !landscape
     else -> true
 }

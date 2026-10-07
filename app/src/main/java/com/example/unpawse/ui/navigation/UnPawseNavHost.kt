@@ -6,10 +6,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.unpawse.data.SampleData
 import com.example.unpawse.ui.about.PrivacyPolicyScreen
 import com.example.unpawse.ui.apppicker.AppPickerRoute
-import com.example.unpawse.ui.block.BlockOverlayScreen
 import com.example.unpawse.ui.camera.CameraRoute
 import com.example.unpawse.ui.gallery.CaptureViewerRoute
 import com.example.unpawse.ui.gallery.GalleryRoute
@@ -22,9 +20,8 @@ import com.example.unpawse.ui.stats.StatsRoute
 import com.example.unpawse.ui.theme.ThemeMode
 
 /**
- * Central navigation graph. Every destination renders from a real ViewModel via its `XxxRoute`,
- * except the Block Overlay — which is only reachable here as a design/debug entry (in production the
- * service draws it over the offending app), so it still uses [SampleData].
+ * Central navigation graph. Every destination renders from a real ViewModel via its `XxxRoute`; the
+ * block overlay is not here at all, since the service draws it over the offending app.
  *
  * [themeMode] / [onThemeModeChange] are threaded down from [com.example.unpawse.UnPawseApp] so the
  * Settings appearance picker actually flips the app theme.
@@ -126,14 +123,6 @@ fun UnPawseNavHost(
                     if (navController.currentDestination?.route != Routes.ONBOARDING) return@finish
                     navController.leaveOnboarding()
                 },
-            )
-        }
-
-        composable(Routes.BLOCK) {
-            BlockOverlayScreen(
-                state = SampleData.blockState,
-                onOpenCamera = { navController.navigateToTab(TopLevelDestination.CAMERA) },
-                onExit = { navController.popBackStack() },
             )
         }
     }
