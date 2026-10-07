@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.FlipCameraAndroid
-import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.AutoAwesomeMosaic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -119,7 +119,7 @@ fun CameraScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TranslucentCircleButton(Icons.Outlined.GridView, "Gallery", onOpenGallery)
+            TranslucentCircleButton(Icons.Outlined.AutoAwesomeMosaic, "Gallery", onOpenGallery)
             ShutterButton(onCapture)
             TranslucentCircleButton(Icons.Filled.FlipCameraAndroid, "Flip camera", onFlipCamera)
         }

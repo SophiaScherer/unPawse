@@ -2,13 +2,13 @@ package com.example.unpawse.ui.navigation
 
 import android.net.Uri
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Equalizer
-import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.AutoAwesomeMosaic
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Settings
@@ -120,9 +120,10 @@ enum class TopLevelDestination(
     GALLERY(
         route = Routes.GALLERY,
         label = "Gallery",
-        // Material Icons has no AutoAwesomeMosaic; GridView is the closest match to the mockup glyph.
-        selectedIcon = Icons.Filled.GridView,
-        unselectedIcon = Icons.Outlined.GridView,
+        // The mockup's glyph. GridView's filled and outlined forms are identical, so the tab never
+        // showed selection.
+        selectedIcon = Icons.Filled.AutoAwesomeMosaic,
+        unselectedIcon = Icons.Outlined.AutoAwesomeMosaic,
     ),
     SETTINGS(
         route = Routes.SETTINGS,
