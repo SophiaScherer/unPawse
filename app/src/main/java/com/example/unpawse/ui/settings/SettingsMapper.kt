@@ -125,6 +125,7 @@ internal fun toSettingsUiState(
     overlayAccessGranted: Boolean,
     notificationsGranted: Boolean,
     versionLabel: String,
+    dataTransfer: DataTransfer? = null,
 ): SettingsUiState = SettingsUiState(
     userName = userName,
     dailyLimitLabel = dailyLimitSummary(monitoredApps),
@@ -142,4 +143,5 @@ internal fun toSettingsUiState(
     reminderFrequency = reminderLabel(reminderMinutes),
     photosSummary = photoStorageSummary(photoCount, photoStorageBytes),
     versionLabel = versionLabel,
+    dataTransfer = dataTransfer,
 )

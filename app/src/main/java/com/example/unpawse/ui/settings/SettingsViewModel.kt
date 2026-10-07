@@ -67,8 +67,17 @@ class SettingsViewModel(
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
 
-    /** Re-entry guard for [importFrom]; see the note there. */
-    private val importing = MutableStateFlow(false)
+    /**
+     * The export or import in flight. One slot is both the re-entry guard (a double tap would
+     * otherwise run two at once over the same stores) and the busy state the rows render.
+     */
+    private val transfer = MutableStateFlow<DataTransfer?>(null)
+
+    // State this ViewModel holds itself rather than reads from a store; pre-combined so the
+    // top-level `combine` below stays within its typed arity.
+    private val screenLocal = combine(permissions, transfer) { permissionState, running ->
+        ScreenLocal(permissionState, running)
+    }
 
     // `combine` has typed overloads up to five flows, so the repository-backed scalar settings are
     // pre-combined into one holder rather than being added as top-level arguments below.
@@ -99,12 +108,13 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsValues,
         limits,
-        permissions,
+        screenLocal,
         photoStats,
         // The fifth and last top-level slot; further settings go into `settingsValues` or a holder
         // beside it, not here.
         settings.reminderMinutes,
-    ) { values, limitState, permissionState, photos, reminderMinutes ->
+    ) { values, limitState, local, photos, reminderMinutes ->
+        val permissionState = local.permissions
         toSettingsUiState(
             userName = values.userName,
             sensitivity = values.sensitivity,
@@ -120,6 +130,7 @@ class SettingsViewModel(
             overlayAccessGranted = permissionState.overlayAccess,
             notificationsGranted = permissionState.notifications,
             versionLabel = version,
+            dataTransfer = local.transfer,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -148,6 +159,8 @@ class SettingsViewModel(
         val overlayAccess: Boolean,
         val notifications: Boolean,
     )
+
+    private data class ScreenLocal(val permissions: PermissionState, val transfer: DataTransfer?)
 
     private data class PhotoStats(val count: Int, val bytes: Long)
 
@@ -180,9 +193,16 @@ class SettingsViewModel(
      * has no visible result of its own, so without the message an export is indistinguishable from
      * the dead row this replaced.
      */
-    fun exportTo(uri: Uri) = viewModelScope.launch {
-        val ok = exportRepository.exportTo(uri)
-        _messages.send(if (ok) "Data exported" else "Couldn't write the export file")
+    fun exportTo(uri: Uri) {
+        if (!transfer.compareAndSet(expect = null, update = DataTransfer.EXPORT)) return
+        viewModelScope.launch {
+            try {
+                val ok = exportRepository.exportTo(uri)
+                _messages.send(if (ok) "Data exported" else "Couldn't write the export file")
+            } finally {
+                transfer.value = null
+            }
+        }
     }
 
     /** Default filename offered by the picker. */
@@ -193,15 +213,14 @@ class SettingsViewModel(
      * Settings after a failure would take the explanation with it.
      */
     fun importFrom(uri: Uri, onFinished: () -> Unit) {
-        // A second tap while the first import is mid-wipe would race it over the same stores.
-        if (!importing.compareAndSet(expect = false, update = true)) return
+        if (!transfer.compareAndSet(expect = null, update = DataTransfer.IMPORT)) return
         viewModelScope.launch {
             try {
                 val result = importRepository.importFrom(uri)
                 _messages.send(importMessage(result))
                 if (result is ImportResult.Restored) onFinished()
             } finally {
-                importing.value = false
+                transfer.value = null
             }
         }
     }
@@ -211,6 +230,8 @@ class SettingsViewModel(
      * afterwards — the screen it returns to would otherwise be rendering data that no longer exists.
      */
     fun eraseEverything(onFinished: () -> Unit) = viewModelScope.launch {
+        // Wiping under a running import or export would hand it stores it didn't expect.
+        if (transfer.value != null) return@launch
         // Without the catch a failed transaction would crash the app; it rolled back, so retrying is safe.
         if (runCatching { resetRepository.eraseEverything() }.isFailure) {
             _messages.send("Couldn't delete your data — try again")
