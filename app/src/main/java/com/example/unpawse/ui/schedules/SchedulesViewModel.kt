@@ -39,6 +39,7 @@ class SchedulesViewModel(
 
     /** Inserts or updates, depending on whether the draft carries a saved id. */
     fun save(draft: ScheduleDraft) {
+        if (!draft.canSave) return
         viewModelScope.launch { scheduleRepository.save(draft.toWindow()) }
     }
 

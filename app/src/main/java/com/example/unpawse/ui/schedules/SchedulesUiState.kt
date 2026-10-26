@@ -14,7 +14,8 @@ data class SchedulesUiState(
     val appOptions: List<ScheduleAppOption> = emptyList(),
     val isLoading: Boolean = true,
 ) {
-    val activeCount: Int get() = windows.count { it.enabled }
+    // A window with no days never blocks, so it isn't counted as active even if switched on.
+    val activeCount: Int get() = windows.count { it.enabled && it.draft.canSave }
 
     companion object {
         /** Preview-only fixture. Never build production state from this. */
@@ -87,6 +88,9 @@ data class ScheduleDraft(
     val enabled: Boolean = true,
 ) {
     val isNew: Boolean get() = id == ScheduleRepository.NEW_WINDOW_ID
+
+    /** A window with no days can never block anything, so it isn't a schedule worth storing. */
+    val canSave: Boolean get() = daysMask != 0
 
     /** The label to save: blank input falls back to a name rather than an empty row. */
     val effectiveLabel: String get() = label.trim().ifBlank { DEFAULT_LABEL }

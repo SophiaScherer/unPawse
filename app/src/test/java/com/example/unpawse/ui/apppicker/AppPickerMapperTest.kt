@@ -279,4 +279,51 @@ class AppPickerMapperTest {
         assertEquals("45m/day", dailyAverageLabel(2_700L))
         assertEquals("2h 30m/day", dailyAverageLabel(9_000L))
     }
+
+    // --- Apps no longer on the phone ----------------------------------------------------------
+
+    @Test
+    fun `a monitored app that is no longer installed is listed so it can be removed`() {
+        val monitored = listOf(
+            MonitoredApp("com.instagram.android", "Instagram", 30, enabled = true),
+            MonitoredApp("com.reddit.frontpage", "Reddit", 30, enabled = true),
+            // A switched-off row still holds a limit and schedules, so it is listed too.
+            MonitoredApp("com.gone.app", "Another gone", 30, enabled = false),
+        )
+        val windows = listOf(
+            ScheduleWindow(1, "Bedtime", "com.reddit.frontpage", 22 * 60, 7 * 60, EVERY_DAY_MASK, true),
+            ScheduleWindow(2, "Everything", null, 22 * 60, 7 * 60, EVERY_DAY_MASK, true),
+        )
+
+        val missing = missingApps(installed, monitored, searchQuery = "", scheduleWindows = windows)
+
+        assertEquals(listOf("Another gone", "Reddit"), missing.map { it.label })
+        // Only the window scoped to it goes with it; a global one is not counted.
+        assertEquals(1, missing.single { it.label == "Reddit" }.scheduleCount)
+        assertTrue(toAppLimitItems(installed, monitored, searchQuery = "").none { it.packageName == "com.reddit.frontpage" })
+    }
+
+    @Test
+    fun `the search narrows the missing apps too`() {
+        val monitored = listOf(MonitoredApp("com.reddit.frontpage", "Reddit", 30, enabled = true))
+
+        assertTrue(missingApps(installed, monitored, searchQuery = "insta").isEmpty())
+        assertEquals(1, missingApps(installed, monitored, searchQuery = "red").size)
+    }
+
+    @Test
+    fun `the remove confirmation names what goes with the app`() {
+        assertEquals(
+            "unPawse will forget Reddit's limit. Its past screen time stays in your stats.",
+            removeMissingMessage(MissingApp("r", "Reddit", scheduleCount = 0)),
+        )
+        assertEquals(
+            "unPawse will forget Reddit's limit and its schedule. Its past screen time stays in your stats.",
+            removeMissingMessage(MissingApp("r", "Reddit", scheduleCount = 1)),
+        )
+        assertEquals(
+            "unPawse will forget Reddit's limit and its 2 schedules. Its past screen time stays in your stats.",
+            removeMissingMessage(MissingApp("r", "Reddit", scheduleCount = 2)),
+        )
+    }
 }

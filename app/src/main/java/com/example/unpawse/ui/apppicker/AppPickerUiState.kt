@@ -15,6 +15,8 @@ data class AppPickerUiState(
     val sort: AppSort = AppSort.ALPHABETICAL,
     /** False only when usage access is missing, which is what blanks every row's average. */
     val usageAccessGranted: Boolean = true,
+    /** Limited apps the device no longer offers; without a row here they could never be removed. */
+    val notInstalled: List<MissingApp> = emptyList(),
 ) {
     val monitoredCount: Int get() = apps.count { it.monitored }
 
@@ -127,3 +129,6 @@ const val MAX_LIMIT_MINUTES = 480
  */
 fun adjustLimit(current: Int, deltaSteps: Int): Int =
     steppedValue(current, deltaSteps, LIMIT_STEP_MINUTES, MIN_LIMIT_MINUTES, MAX_LIMIT_MINUTES)
+
+/** A monitored app that is no longer installed (or no longer launchable), plus what removing it takes with it. */
+data class MissingApp(val packageName: String, val label: String, val scheduleCount: Int)

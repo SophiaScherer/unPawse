@@ -3,6 +3,7 @@ package com.example.unpawse.ui.apppicker
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +58,7 @@ fun CategoryControl(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable { showPicker = true }
             .padding(horizontal = 12.dp, vertical = 8.dp),

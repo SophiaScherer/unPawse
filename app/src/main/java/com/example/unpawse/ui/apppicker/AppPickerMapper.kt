@@ -4,6 +4,7 @@ import com.example.unpawse.data.apps.InstalledApp
 import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.MonitoredApp
+import com.example.unpawse.ui.format.countLabel
 import com.example.unpawse.ui.format.formatMinutes
 
 /**
@@ -52,6 +53,42 @@ internal fun toAppLimitItems(
         }
 
     return items.sortedWith(sort.comparator)
+}
+
+/**
+ * Monitored rows whose app the device no longer offers. The picker is built from the installed list,
+ * so without this an uninstalled app vanished from the only screen that could switch it off while
+ * still counting toward every total.
+ */
+internal fun missingApps(
+    installed: List<InstalledApp>,
+    monitored: List<MonitoredApp>,
+    searchQuery: String,
+    scheduleWindows: List<ScheduleWindow> = emptyList(),
+): List<MissingApp> {
+    val installedPackages = installed.mapTo(HashSet()) { it.packageName }
+    val query = searchQuery.trim()
+    return monitored
+        .filter { it.packageName !in installedPackages }
+        .filter { query.isEmpty() || it.appLabel.contains(query, ignoreCase = true) }
+        .map { row ->
+            MissingApp(
+                packageName = row.packageName,
+                label = row.appLabel,
+                scheduleCount = scheduleWindows.count { it.packageName == row.packageName },
+            )
+        }
+        .sortedBy { it.label.lowercase() }
+}
+
+/** Spells out what removing a missing app takes with it, so the confirm is never a surprise. */
+internal fun removeMissingMessage(app: MissingApp): String {
+    val schedules = when (app.scheduleCount) {
+        0 -> ""
+        1 -> " and its schedule"
+        else -> " and its ${countLabel(app.scheduleCount, "schedule")}"
+    }
+    return "unPawse will forget ${app.label}'s limit$schedules. Its past screen time stays in your stats."
 }
 
 /**
