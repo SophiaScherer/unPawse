@@ -173,13 +173,6 @@ fun ScheduleEditorSheet(
                 daysMask = draft.daysMask,
                 onMaskChange = { draft = draft.copy(daysMask = it) },
             )
-            if (!draft.canSave) {
-                Text(
-                    text = "Pick at least one day.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
 
             SectionLabel(text = "Applies to", uppercase = true)
             ScopeField(
@@ -194,7 +187,6 @@ fun ScheduleEditorSheet(
                     onSave(draft)
                     onDismiss()
                 },
-                enabled = draft.canSave,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(50),
             ) {
