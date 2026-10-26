@@ -81,7 +81,7 @@ fun StatsScreen(
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
         item { ScreenHeader(
-                title = "unPawse",
+                title = "Stats",
                 avatarInitial = state.avatarInitial,
                 avatarId = state.avatarId,
             ) }

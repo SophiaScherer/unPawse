@@ -20,8 +20,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.FlipCameraAndroid
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.AutoAwesomeMosaic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -66,7 +65,6 @@ fun CameraScreen(
     background: @Composable () -> Unit = { CameraViewfinderBackdrop() },
     onClose: () -> Unit = {},
     onToggleFlash: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
     onOpenGallery: () -> Unit = {},
     onCapture: () -> Unit = {},
     onFlipCamera: () -> Unit = {},
@@ -83,12 +81,10 @@ fun CameraScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TranslucentCircleButton(Icons.Filled.Close, "Close", onClose)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                val flashIcon = if (state.flashOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff
-                TranslucentCircleButton(flashIcon, "Flash", onToggleFlash)
-                TranslucentCircleButton(Icons.Filled.Settings, "Settings", onOpenSettings)
-            }
+            // No gear: it opened the app's Settings tab, not camera settings, and the bar already has one.
+            TranslucentCircleButton(Icons.Filled.Close, "Close camera", onClose)
+            val flashIcon = if (state.flashOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff
+            TranslucentCircleButton(flashIcon, "Flash", onToggleFlash)
         }
 
         // Hint pill.
@@ -123,7 +119,7 @@ fun CameraScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TranslucentCircleButton(Icons.Outlined.GridView, "Gallery", onOpenGallery)
+            TranslucentCircleButton(Icons.Outlined.AutoAwesomeMosaic, "Gallery", onOpenGallery)
             ShutterButton(onCapture)
             TranslucentCircleButton(Icons.Filled.FlipCameraAndroid, "Flip camera", onFlipCamera)
         }

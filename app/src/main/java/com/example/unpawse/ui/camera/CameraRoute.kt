@@ -34,7 +34,6 @@ import com.example.unpawse.appContainer
 fun CameraRoute(
     onClose: () -> Unit,
     onOpenGallery: () -> Unit,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -75,7 +74,6 @@ fun CameraRoute(
             background = { CameraPreview(controller, modifier = Modifier.fillMaxSize()) },
             onClose = onClose,
             onToggleFlash = viewModel::onToggleFlash,
-            onOpenSettings = onOpenSettings,
             onOpenGallery = onOpenGallery,
             onFlipCamera = viewModel::onFlipCamera,
             onCapture = { viewModel.onShutter { controller.captureImage(context) } },

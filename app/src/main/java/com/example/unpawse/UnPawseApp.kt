@@ -1,5 +1,6 @@
 package com.example.unpawse
 
+import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -13,20 +14,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.unpawse.service.UsageMonitorController
-import com.example.unpawse.ui.navigation.Routes
-import com.example.unpawse.ui.navigation.TopLevelDestination
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.example.unpawse.ui.navigation.UnPawseBottomBar
 import com.example.unpawse.ui.navigation.UnPawseNavHost
 import com.example.unpawse.ui.navigation.navigateToTab
+import com.example.unpawse.ui.navigation.openDeepLink
+import com.example.unpawse.ui.navigation.owningTab
+import com.example.unpawse.ui.navigation.showsBottomBar
 import com.example.unpawse.ui.navigation.startDestinationFor
+import com.example.unpawse.ui.theme.ThemeMode
 import com.example.unpawse.ui.theme.UnPawseTheme
 import com.example.unpawse.ui.theme.isDark
 import com.example.unpawse.ui.theme.overrideFor
@@ -36,11 +41,11 @@ import com.example.unpawse.ui.theme.themeModeFrom
  * Root composable: owns the theme, the persisted dark-mode override, and the app scaffold
  * (bottom navigation + nav host).
  *
- * [initialRoute] lets a launch intent deep-link somewhere other than Home (the block overlay uses
- * it to open the camera); null keeps the normal Home start.
+ * [deepLink] is a route a launch or new intent asked for (the block overlay's "Open Camera"); it is
+ * navigated to once and then reported through [onDeepLinkHandled]. Null keeps the normal start.
  */
 @Composable
-fun UnPawseApp(initialRoute: String? = null) {
+fun UnPawseApp(deepLink: String? = null, onDeepLinkHandled: () -> Unit = {}) {
     // Dark mode is a persisted override: null = follow the system, an explicit value = user choice.
     // Stored in DataStore via the SettingsRepository so it survives process death.
     val context = LocalContext.current
@@ -65,7 +70,7 @@ fun UnPawseApp(initialRoute: String? = null) {
     // the tour had just performed.
     var startDestination by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(settings) {
-        startDestination = startDestinationFor(settings.onboardingComplete.first(), initialRoute)
+        startDestination = startDestinationFor(settings.onboardingComplete.first(), deepLink)
     }
 
     UnPawseTheme(darkTheme = darkMode) {
@@ -78,46 +83,56 @@ fun UnPawseApp(initialRoute: String? = null) {
         }
 
         val navController = rememberNavController()
-        val backStackEntry by navController.currentBackStackEntryAsState()
-        val currentRoute = backStackEntry?.destination?.route
 
-        // Honour a deep-link once per launch intent; keyed so a recomposition doesn't re-navigate.
-        // A top-level destination (e.g. the block's "Open Camera" → Camera tab) must go through the
-        // same tab semantics as the bottom bar: a plain navigate() would push it *onto* Home, and the
-        // bottom bar's saveState/restoreState would then save that pushed entry under Home's slot —
-        // leaving a later "Home" tap restoring the deep-linked screen instead of Home.
-        // A deep link always starts the graph on Home (see startDestinationFor), so this never
-        // pushes on top of the tour.
-        LaunchedEffect(initialRoute) {
-            if (initialRoute == null) return@LaunchedEffect
-            val tab = TopLevelDestination.entries.firstOrNull { it.route == initialRoute }
-            if (tab != null) navController.navigateToTab(tab) else navController.navigate(initialRoute)
+        // Cleared once handled, so neither a recomposition nor a later rotation navigates again.
+        LaunchedEffect(deepLink) {
+            val route = deepLink ?: return@LaunchedEffect
+            navController.openDeepLink(route)
+            onDeepLinkHandled()
         }
 
-        // The Block Overlay, the photo viewer and the first-run tour are full-screen takeovers — no bottom bar.
-        val showBottomBar = currentRoute != Routes.BLOCK &&
-            currentRoute != Routes.CAPTURE_VIEWER &&
-            currentRoute != Routes.ONBOARDING
-
-        Scaffold(
-            bottomBar = {
-                if (showBottomBar) {
-                    UnPawseBottomBar(
-                        currentRoute = currentRoute,
-                        onNavigate = navController::navigateToTab,
-                    )
-                }
+        UnPawseScaffold(
+            navController = navController,
+            startDestination = start,
+            themeMode = themeMode,
+            onThemeModeChange = { mode ->
+                scope.launch { settings.setDarkModeOverride(overrideFor(mode)) }
             },
-        ) { innerPadding ->
-            UnPawseNavHost(
-                navController = navController,
-                themeMode = themeMode,
-                onThemeModeChange = { mode ->
-                    scope.launch { settings.setDarkModeOverride(overrideFor(mode)) }
-                },
-                modifier = Modifier.padding(innerPadding),
-                startDestination = start,
-            )
-        }
+        )
+    }
+}
+
+/**
+ * The bottom bar and the nav graph, split out so navigation tests can drive them with their own
+ * controller.
+ */
+@Composable
+fun UnPawseScaffold(
+    navController: NavHostController,
+    startDestination: String,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+) {
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    Scaffold(
+        bottomBar = {
+            if (showsBottomBar(currentRoute, landscape)) {
+                UnPawseBottomBar(
+                    selectedTab = owningTab(currentRoute),
+                    onNavigate = navController::navigateToTab,
+                )
+            }
+        },
+    ) { innerPadding ->
+        UnPawseNavHost(
+            navController = navController,
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
+            modifier = Modifier.padding(innerPadding),
+            startDestination = startDestination,
+        )
     }
 }

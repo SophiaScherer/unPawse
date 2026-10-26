@@ -19,9 +19,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
- * Top-of-screen header. Two content variants from the mockup:
+ * Header for the top-level tabs. Two content variants:
  *  - Home: an avatar + a two-line greeting ("Welcome back," / name).
- *  - Stats/Gallery: an avatar + a single brand title ("unPawse").
+ *  - Stats/Gallery/Settings: an avatar + the tab's name, so the screen says where the user is.
  * A trailing paw icon is the shared brand signature.
  */
 @Composable
