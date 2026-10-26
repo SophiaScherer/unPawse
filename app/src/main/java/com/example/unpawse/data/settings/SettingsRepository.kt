@@ -126,20 +126,22 @@ class SettingsRepository(context: Context) {
     }
 
     /**
-     * Writes an imported settings block. `minConfidence` is derived from [sensitivity] and has no
+     * Replaces every preference with an imported settings block. `minConfidence` is derived from [sensitivity] and has no
      * key of its own; `focusEndMillis` is deliberately not restored — it's a live session, and a
      * stale end time would resurrect a focus block the user never started.
      */
-    suspend fun applyImported(settings: ExportSettings) {
-        setUserName(settings.userName)
-        setDarkModeOverride(overrideFor(themeModeNamed(settings.themeMode)))
-        setSensitivity(settings.sensitivity)
-        setEarnedMinutesPerCat(settings.earnedMinutesPerCat)
-        setRetentionDays(settings.retentionDays)
-        setDailySummary(settings.dailySummaryEnabled)
-        setWarningMinutes(settings.warningMinutes)
-        setReminderMinutes(settings.reminderMinutes)
-        setUsageScope(usageScopeNamed(settings.usageScope))
+    suspend fun applyImported(settings: ExportSettings) = edit { prefs ->
+        // One edit that clears first: a failure leaves the old preferences rather than a mix.
+        prefs.clear()
+        prefs[Keys.USER_NAME] = settings.userName
+        overrideFor(themeModeNamed(settings.themeMode))?.let { prefs[Keys.DARK_MODE_OVERRIDE] = it }
+        prefs[Keys.SENSITIVITY] = settings.sensitivity
+        prefs[Keys.EARNED_MINUTES_PER_CAT] = settings.earnedMinutesPerCat
+        prefs[Keys.RETENTION_DAYS] = settings.retentionDays
+        prefs[Keys.DAILY_SUMMARY] = settings.dailySummaryEnabled
+        prefs[Keys.WARNING_MINUTES] = settings.warningMinutes
+        prefs[Keys.REMINDER_MINUTES] = settings.reminderMinutes
+        prefs[Keys.USAGE_SCOPE] = usageScopeNamed(settings.usageScope).name
     }
 
     private object Keys {

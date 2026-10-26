@@ -11,6 +11,9 @@ import com.example.unpawse.ui.theme.ThemeMode
  * as `sample().copy(...)`, which shipped `@Preview` mockup copy as the source of truth — against the
  * project rule that `sample()` is preview-only.
  */
+/** A long-running write of the user's data. One at a time: each would race the other's stores. */
+enum class DataTransfer { EXPORT, IMPORT }
+
 data class SettingsUiState(
     /** The user's display name; blank means "not set yet" (the UI shows a fallback). */
     val userName: String = "",
@@ -45,6 +48,9 @@ data class SettingsUiState(
 
     /** Always supplied by the mapper from `BuildConfig`; blank only in a bare test fixture. */
     val versionLabel: String = "",
+
+    /** The export or import running right now, if any; its row shows progress and the rest wait. */
+    val dataTransfer: DataTransfer? = null,
 ) {
     companion object {
         /** Preview-only fixture. Never build production state from this — see the class KDoc. */

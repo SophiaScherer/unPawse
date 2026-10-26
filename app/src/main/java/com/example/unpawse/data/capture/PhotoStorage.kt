@@ -22,9 +22,24 @@ class PhotoStorage(private val baseDir: File) {
 
     /** Persists [bytes] as a new JPEG and returns its absolute path. */
     suspend fun save(bytes: ByteArray): String = withContext(Dispatchers.IO) {
-        val file = File(dir, "${UUID.randomUUID()}.jpg")
-        file.outputStream().use { it.write(bytes) }
-        file.absolutePath
+        val path = newPath()
+        File(path).outputStream().use { it.write(bytes) }
+        path
+    }
+
+    /** A fresh, unused path for a JPEG, without writing anything there yet. */
+    fun newPath(): String = File(dir, "${UUID.randomUUID()}.jpg").absolutePath
+
+    /**
+     * Moves an already-written file to [path] (from [newPath]), for an import's staged photos.
+     * Falls back to a copy when a rename can't cross volumes. False if neither worked.
+     */
+    suspend fun moveIn(source: File, path: String): Boolean = withContext(Dispatchers.IO) {
+        val target = File(path)
+        source.renameTo(target) || runCatching {
+            source.copyTo(target, overwrite = true)
+            source.delete()
+        }.isSuccess
     }
 
     /** Best-effort delete; missing files are ignored. */

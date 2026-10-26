@@ -18,6 +18,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,10 +40,15 @@ class ResetRepositoryTest {
 
     private val usageDao = FakeUsageDao()
     private val captureDao = FakeCaptureDao()
+    private val scheduleDao = FakeScheduleDao()
+    private val unlockDao = FakeUnlockDao()
+    private val transactor = FakeTransactor(
+        listOf(captureDao::checkpoint, usageDao::checkpoint, scheduleDao::checkpoint, unlockDao::checkpoint),
+    )
     private val storage by lazy { PhotoStorage(tmp.root) }
     private val usage = UsageRepository(usageDao, today = { LocalDate.of(2026, 7, 27) })
-    private val schedules = ScheduleRepository(FakeScheduleDao())
-    private val unlocks = UnlockRepository(FakeUnlockDao(), today = { LocalDate.of(2026, 7, 27) })
+    private val schedules = ScheduleRepository(scheduleDao)
+    private val unlocks = UnlockRepository(unlockDao, today = { LocalDate.of(2026, 7, 27) })
     private val captures by lazy { CaptureRepository(captureDao, storage) }
     private val focusSession = FocusSession()
     private val blockSession = BlockSession()
@@ -57,6 +63,7 @@ class ResetRepositoryTest {
             unlocks = unlocks,
             focusSession = focusSession,
             blockSession = blockSession,
+            transactor = transactor,
             clearSettings = { settingsCleared = true },
         )
     }
@@ -160,6 +167,25 @@ class ResetRepositoryTest {
 
         assertTrue("the seeded capture was a favourite", captureDao.all().isEmpty())
         assertFalse(File(photoPath).exists())
+    }
+
+    /** Nothing irreversible runs until the row deletes have committed. */
+    @Test
+    fun `a failed commit leaves everything in place`() = runBlocking {
+        val photoPath = seedEverything()
+        transactor.failCommit = true
+
+        assertThrows(IllegalStateException::class.java) { runBlocking { reset.eraseEverything() } }
+
+        assertEquals(listOf("com.ig"), usage.monitoredApps().map { it.packageName })
+        assertEquals(1, usage.allUsage().size)
+        assertEquals(listOf("cat-1"), captureDao.all().map { it.id })
+        assertTrue("capture JPEG", File(photoPath).exists())
+        assertEquals(1, schedules.allWindows().size)
+        assertEquals(3, unlocks.allUnlocks().single().unlockCount)
+        assertTrue("focus session", focusSession.isActive())
+        assertEquals("com.ig", blockSession.armed.value?.packageName)
+        assertFalse("preferences", settingsCleared)
     }
 
     @Test

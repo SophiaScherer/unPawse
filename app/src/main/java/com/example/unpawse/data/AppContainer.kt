@@ -1,6 +1,7 @@
 package com.example.unpawse.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.example.unpawse.BuildConfig
 import com.example.unpawse.data.apps.DeviceUsageProvider
 import com.example.unpawse.data.apps.InstalledAppsProvider
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Application-scoped dependency graph. Owns the single instances of the database, repositories, and
@@ -144,6 +146,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val database by lazy { CaptureDatabase.getInstance(appContext) }
 
+    private val transactor = Transactor { block -> database.withTransaction { block() } }
+
     override val captureRepository: CaptureRepository by lazy {
         CaptureRepository(database.captureDao(), PhotoStorage(appContext))
     }
@@ -198,8 +202,12 @@ class DefaultAppContainer(context: Context) : AppContainer {
             schedules = scheduleRepository,
             captures = captureRepository,
             reset = resetRepository,
+            transactor = transactor,
             applySettings = settingsRepository::applyImported,
             openDocument = appContext.contentResolver::openInputStream,
+            // Same volume as filesDir, so placing a photo is a rename. Not cacheDir: it is setgid, and a
+            // file renamed out of it keeps the cache group, so quota accounting counts the photo as cache.
+            stagingDir = File(appContext.noBackupFilesDir, "import-staging"),
         )
     }
 
@@ -211,6 +219,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             unlocks = unlockRepository,
             focusSession = focusSession,
             blockSession = blockSession,
+            transactor = transactor,
             clearSettings = settingsRepository::clearAll,
         )
     }

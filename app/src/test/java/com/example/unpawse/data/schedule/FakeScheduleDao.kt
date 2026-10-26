@@ -20,6 +20,12 @@ internal class FakeScheduleDao : ScheduleDao {
     private fun ordered(rows: Collection<ScheduleWindowEntity>) =
         rows.sortedWith(compareBy({ it.startMinuteOfDay }, { it.id }))
 
+    /** Test helper for [com.example.unpawse.data.FakeTransactor]: returns a rollback. */
+    fun checkpoint(): () -> Unit {
+        val saved = windows.toMap()
+        return { windows.clear(); windows.putAll(saved) }
+    }
+
     override fun observeWindows(): Flow<List<ScheduleWindowEntity>> = flowOf(ordered(windows.values))
 
     override fun observeWindowsFor(packageName: String): Flow<List<ScheduleWindowEntity>> =

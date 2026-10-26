@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -354,17 +355,30 @@ fun SettingsScreen(
                     leadingIcon = Icons.Filled.PhotoLibrary,
                     onClick = { onRowClick(SettingsRowIds.MANAGE_PHOTOS) }, trailing = { Chevron() },
                 )
+                val transfer = state.dataTransfer
                 SettingsRow(
                     title = "Export data",
-                    subtitle = "Save your settings, limits, history and photos to a file",
+                    subtitle = if (transfer == DataTransfer.EXPORT) {
+                        "Exporting your data…"
+                    } else {
+                        "Save your settings, limits, history and photos to a file"
+                    },
                     leadingIcon = Icons.Filled.Download,
-                    onClick = { onRowClick(SettingsRowIds.EXPORT) }, trailing = { Chevron() },
+                    enabled = transfer == null || transfer == DataTransfer.EXPORT,
+                    onClick = { onRowClick(SettingsRowIds.EXPORT) }.takeIf { transfer == null },
+                    trailing = { TransferTrailing(running = transfer == DataTransfer.EXPORT) },
                 )
                 SettingsRow(
                     title = "Import data",
-                    subtitle = "Restore from an unPawse export — replaces everything",
+                    subtitle = if (transfer == DataTransfer.IMPORT) {
+                        "Importing — keep unPawse open"
+                    } else {
+                        "Restore from an unPawse export — replaces everything"
+                    },
                     leadingIcon = Icons.Filled.Upload,
-                    onClick = { showImportDialog = true }, trailing = { Chevron() },
+                    enabled = transfer == null || transfer == DataTransfer.IMPORT,
+                    onClick = { showImportDialog = true }.takeIf { transfer == null },
+                    trailing = { TransferTrailing(running = transfer == DataTransfer.IMPORT) },
                 )
                 SettingsRow(
                     title = "Delete all data",
@@ -373,6 +387,7 @@ fun SettingsScreen(
                     iconTint = MaterialTheme.colorScheme.error,
                     iconBackground = MaterialTheme.colorScheme.errorContainer,
                     titleColor = MaterialTheme.colorScheme.error,
+                    enabled = state.dataTransfer == null,
                     onClick = { showEraseDialog = true },
                 )
             }
@@ -467,4 +482,14 @@ private fun SettingsScreenPreview() {
 @Composable
 private fun SettingsScreenDarkPreview() {
     UnPawseTheme(darkTheme = true) { SettingsScreenPreviewContent(startMode = ThemeMode.DARK) }
+}
+
+/** A spinner in place of the chevron while the row's write runs, since there's no screen to open. */
+@Composable
+private fun TransferTrailing(running: Boolean) {
+    if (running) {
+        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+    } else {
+        Chevron()
+    }
 }
