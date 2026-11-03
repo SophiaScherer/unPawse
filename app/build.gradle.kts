@@ -24,9 +24,14 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            // R8 shrinks the release APK; the library consumer rules (Room, ML Kit, CameraX,
+            // WorkManager, DataStore) cover the reflection this app relies on.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
     compileOptions {
