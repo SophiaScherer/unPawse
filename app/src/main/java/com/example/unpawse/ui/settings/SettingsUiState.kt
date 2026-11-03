@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.settings
 
+import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.ui.theme.ThemeMode
 
@@ -14,6 +15,8 @@ import com.example.unpawse.ui.theme.ThemeMode
 data class SettingsUiState(
     /** The user's display name; blank means "not set yet" (the UI shows a fallback). */
     val userName: String = "",
+    /** The chosen cat for the header; [AVATAR_NONE] falls back to the name's initial. */
+    val avatarId: Int = AVATAR_NONE,
     /** Derived total of the enabled per-app limits, e.g. "4h 15m across 5 apps". */
     val dailyLimitLabel: String = "No limits set yet",
     val appLimitsSummary: String = "No apps limited yet",

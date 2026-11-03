@@ -1,5 +1,7 @@
 package com.example.unpawse.ui.home
 
+import com.example.unpawse.data.settings.AVATAR_NONE
+import com.example.unpawse.data.settings.CatAvatar
 import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
@@ -152,6 +154,17 @@ class HomeMapperTest {
 
         assertEquals("sophia", state.userName)
         assertEquals('S', state.avatarInitial)
+    }
+
+    @Test
+    fun `the chosen cat reaches the header, and no choice means initials`() {
+        val chosen = toHomeUiState(
+            emptyList(), emptyList(), emptyList(), "sophia", ProtectionStatus.ACTIVE,
+            today, zone, morning, avatarId = CatAvatar.TABBY.id,
+        )
+
+        assertEquals(CatAvatar.TABBY.id, chosen.avatarId)
+        assertEquals(AVATAR_NONE, map(apps = emptyList()).avatarId)
     }
 
     @Test

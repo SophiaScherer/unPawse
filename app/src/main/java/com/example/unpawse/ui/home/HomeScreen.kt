@@ -102,6 +102,7 @@ fun HomeScreen(
         item {
             ScreenHeader(
                 avatarInitial = state.avatarInitial,
+                avatarId = state.avatarId,
                 greeting = state.greeting,
                 title = state.userName,
             )

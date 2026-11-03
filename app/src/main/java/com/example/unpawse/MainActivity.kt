@@ -12,8 +12,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         // The block overlay's "Open Camera" launches us with CLEAR_TOP, so onCreate always sees the
-        // fresh intent and no onNewIntent plumbing is needed.
-        val initialRoute = if (intent?.getBooleanExtra(EXTRA_OPEN_CAMERA, false) == true) {
+        // fresh intent and no onNewIntent plumbing is needed. Only on a fresh start, though: a
+        // recreation (rotation, process restore) still carries the old intent and would re-apply it.
+        val openCamera = savedInstanceState == null &&
+            intent?.getBooleanExtra(EXTRA_OPEN_CAMERA, false) == true
+        val initialRoute = if (openCamera) {
             Routes.CAMERA
         } else {
             null

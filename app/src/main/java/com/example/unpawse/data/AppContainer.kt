@@ -199,6 +199,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             captures = captureRepository,
             reset = resetRepository,
             applySettings = settingsRepository::applyImported,
+            markOnboarded = { settingsRepository.setOnboardingComplete(true) },
             openDocument = appContext.contentResolver::openInputStream,
         )
     }

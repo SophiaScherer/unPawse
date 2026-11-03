@@ -1,6 +1,8 @@
 package com.example.unpawse.ui.stats
 
 import com.example.unpawse.data.capture.Capture
+import com.example.unpawse.data.settings.AVATAR_NONE
+import com.example.unpawse.data.settings.CatAvatar
 import com.example.unpawse.data.unlocks.DailyUnlocks
 import com.example.unpawse.data.usage.AppCategory
 import com.example.unpawse.data.usage.DailyUsage
@@ -70,6 +72,24 @@ class StatsMapperTest {
 
     private fun unlocks(daysAgo: Long, count: Int) =
         DailyUnlocks(today.minusDays(daysAgo).toString(), count)
+
+    @Test
+    fun `the chosen cat reaches the header, and no choice means initials`() {
+        val chosen = toStatsUiState(
+            monitoredApps = emptyList(),
+            recentUsage = emptyList(),
+            captures = emptyList(),
+            userName = "Sophia",
+            avatarId = CatAvatar.GINGER.id,
+            today = today,
+            zone = zone,
+        )
+        val unchosen = toStatsUiState(emptyList(), emptyList(), emptyList(), today = today, zone = zone)
+
+        assertEquals(CatAvatar.GINGER.id, chosen.avatarId)
+        assertEquals('S', chosen.avatarInitial)
+        assertEquals(AVATAR_NONE, unchosen.avatarId)
+    }
 
     @Test
     fun `daily total sums todays usage across apps`() {

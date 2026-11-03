@@ -1,6 +1,7 @@
 package com.example.unpawse.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,12 +9,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.LightMode
@@ -21,6 +25,7 @@ import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material.icons.filled.Timer
@@ -48,17 +53,20 @@ import androidx.compose.ui.unit.dp
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.service.REMINDER_OFF
 import com.example.unpawse.service.UsageTracker
+import com.example.unpawse.data.settings.catAvatarForId
+import com.example.unpawse.ui.components.AvatarPicker
 import com.example.unpawse.ui.components.BackHeader
 import com.example.unpawse.ui.components.Chevron
 import com.example.unpawse.ui.components.ConfirmDialog
-import com.example.unpawse.ui.components.InitialsAvatar
 import com.example.unpawse.ui.components.OptionPickerDialog
+import com.example.unpawse.ui.components.ProfileAvatar
 import com.example.unpawse.ui.components.SectionLabel
 import com.example.unpawse.ui.components.SettingsGroup
 import com.example.unpawse.ui.components.SettingsRow
 import com.example.unpawse.ui.theme.unPawseColors
 import com.example.unpawse.ui.components.ValueText
 import com.example.unpawse.ui.format.avatarInitialFor
+import com.example.unpawse.ui.format.capDisplayName
 import com.example.unpawse.ui.navigation.SettingsRowIds
 import com.example.unpawse.ui.theme.Dimens
 import com.example.unpawse.ui.theme.ThemeMode
@@ -77,6 +85,7 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit = {},
     onEraseEverything: () -> Unit = {},
     onNameChange: (String) -> Unit = {},
+    onAvatarChange: (Int) -> Unit = {},
     onRowClick: (String) -> Unit = {},
 ) {
     // Ephemeral UI state for the dialogs; the values themselves are persisted via the callbacks.
@@ -89,6 +98,16 @@ fun SettingsScreen(
                 showNameDialog = false
             },
             onDismiss = { showNameDialog = false },
+        )
+    }
+
+    var showAvatarDialog by remember { mutableStateOf(false) }
+    if (showAvatarDialog) {
+        AvatarPickerDialog(
+            selectedId = state.avatarId,
+            initial = avatarInitialFor(state.userName),
+            onAvatarSelected = onAvatarChange,
+            onDismiss = { showAvatarDialog = false },
         )
     }
 
@@ -185,7 +204,7 @@ fun SettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(Dimens.StackGap),
     ) {
-        item { SettingsHeader(state.userName, onBack) }
+        item { SettingsHeader(state.userName, state.avatarId, onBack) }
 
         item {
             SectionLabel(text = "Profile", uppercase = true)
@@ -197,6 +216,17 @@ fun SettingsScreen(
                     iconTint = MaterialTheme.colorScheme.primary,
                     iconBackground = MaterialTheme.colorScheme.primaryContainer,
                     onClick = { showNameDialog = true },
+                    trailing = { Chevron() },
+                )
+                // The tour was the only way to change the cat; replaying nine steps to swap a
+                // picture is not a settings screen.
+                SettingsRow(
+                    title = "Profile picture",
+                    subtitle = catAvatarForId(state.avatarId)?.label ?: "None — your initial is shown",
+                    leadingIcon = Icons.Filled.Face,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    iconBackground = MaterialTheme.colorScheme.primaryContainer,
+                    onClick = { showAvatarDialog = true },
                     trailing = { Chevron() },
                 )
             }
@@ -399,17 +429,55 @@ fun SettingsScreen(
                     onClick = { onRowClick(SettingsRowIds.PRIVACY_POLICY) },
                     trailing = { Chevron() },
                 )
+                // The tour is where the two special permissions get explained before they're asked
+                // for, so it stays reachable — it is the only place that pitch exists.
+                SettingsRow(
+                    title = "Replay the intro",
+                    subtitle = "The welcome tour, the three-step loop and the permission walkthrough",
+                    leadingIcon = Icons.Filled.Replay,
+                    iconTint = MaterialTheme.colorScheme.tertiary,
+                    iconBackground = MaterialTheme.colorScheme.tertiaryContainer,
+                    onClick = { onRowClick(SettingsRowIds.REPLAY_ONBOARDING) },
+                    trailing = { Chevron() },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SettingsHeader(userName: String, onBack: () -> Unit) {
+private fun SettingsHeader(userName: String, avatarId: Int, onBack: () -> Unit) {
     BackHeader(
         title = "Settings",
         onBack = onBack,
-        trailing = { InitialsAvatar(initial = avatarInitialFor(userName), size = 40.dp) },
+        trailing = {
+            ProfileAvatar(avatarId = avatarId, initial = avatarInitialFor(userName), size = 40.dp)
+        },
+    )
+}
+
+/** The tour's picker in a dialog; a choice is stored on the tap, so the only button is Done. */
+@Composable
+private fun AvatarPickerDialog(
+    selectedId: Int,
+    initial: Char,
+    onAvatarSelected: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Profile picture") },
+        text = {
+            // Scrolls so the nine options still fit a short screen at a large font scale.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                AvatarPicker(
+                    selectedId = selectedId,
+                    initial = initial,
+                    onAvatarSelected = onAvatarSelected,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
 }
 
@@ -427,7 +495,7 @@ private fun NameEditDialog(
         text = {
             OutlinedTextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = { text = capDisplayName(it) },
                 singleLine = true,
                 label = { Text("Name") },
             )

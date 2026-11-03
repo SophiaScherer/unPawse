@@ -4,6 +4,7 @@ import com.example.unpawse.data.capture.Capture
 import com.example.unpawse.data.capture.STREAK_CELEBRATION_DAYS
 import com.example.unpawse.data.capture.currentStreakDays
 import com.example.unpawse.data.capture.toLocalDate
+import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.data.usage.DailyUsage
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.dailyBudget
@@ -65,6 +66,7 @@ internal fun toHomeUiState(
     today: LocalDate = LocalDate.now(),
     zone: ZoneId = ZoneId.systemDefault(),
     time: LocalTime = LocalTime.now(zone),
+    avatarId: Int = AVATAR_NONE,
 ): HomeUiState {
     val displayName = displayNameOf(userName)
     // Without usage access nothing accrues, so every usage figure below is a claim the app can't
@@ -98,6 +100,7 @@ internal fun toHomeUiState(
         greeting = greetingFor(time),
         userName = displayName,
         avatarInitial = avatarInitialFor(userName),
+        avatarId = avatarId,
         screenTimeUsedLabel = if (measuring) formatSeconds(usedSeconds) else NO_DATA,
         progressFraction = if (measuring) budget?.usedFraction ?: 0f else 0f,
         // Keyed on there being no budget at all, never on the figure reaching zero: a capped app that

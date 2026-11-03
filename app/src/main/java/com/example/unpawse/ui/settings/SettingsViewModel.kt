@@ -17,6 +17,7 @@ import com.example.unpawse.data.export.ImportResult
 import com.example.unpawse.data.schedule.ScheduleRepository
 import com.example.unpawse.data.schedule.ScheduleWindow
 import com.example.unpawse.data.settings.SettingsRepository
+import com.example.unpawse.data.settings.UserProfile
 import com.example.unpawse.data.usage.MonitoredApp
 import com.example.unpawse.data.usage.UsageRepository
 import com.example.unpawse.service.Notifications
@@ -75,11 +76,11 @@ class SettingsViewModel(
     private val settingsValues = combine(
         settings.sensitivity,
         settings.dailySummaryEnabled,
-        settings.userName,
+        settings.profile,
         settings.earnedMinutesPerCat,
         settings.warningMinutes,
-    ) { sensitivity, dailySummary, userName, earnedMinutes, warningMinutes ->
-        SettingsValues(sensitivity, dailySummary, userName, earnedMinutes, warningMinutes)
+    ) { sensitivity, dailySummary, profile, earnedMinutes, warningMinutes ->
+        SettingsValues(sensitivity, dailySummary, profile, earnedMinutes, warningMinutes)
     }
 
     // The photo row's subtitle needs both a count and a measured size; pre-combined like the
@@ -106,7 +107,8 @@ class SettingsViewModel(
         settings.reminderMinutes,
     ) { values, limitState, permissionState, photos, reminderMinutes ->
         toSettingsUiState(
-            userName = values.userName,
+            userName = values.profile.name,
+            avatarId = values.profile.avatarId,
             sensitivity = values.sensitivity,
             dailySummaryEnabled = values.dailySummary,
             earnedMinutesPerCat = values.earnedMinutesPerCat,
@@ -159,7 +161,7 @@ class SettingsViewModel(
     private data class SettingsValues(
         val sensitivity: Float,
         val dailySummary: Boolean,
-        val userName: String,
+        val profile: UserProfile,
         val earnedMinutesPerCat: Int,
         val warningMinutes: Int,
     )
@@ -218,6 +220,9 @@ class SettingsViewModel(
 
     /** Trimmed so trailing spaces don't produce a blank-looking name that still counts as "set". */
     fun setUserName(value: String) = viewModelScope.launch { settings.setUserName(value.trim()) }
+
+    /** Persisted on the tap, as in the tour: seeing the header change is the confirmation. */
+    fun setAvatarId(id: Int) = viewModelScope.launch { settings.setAvatarId(id) }
 
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L

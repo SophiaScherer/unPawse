@@ -1,5 +1,6 @@
 package com.example.unpawse.ui.home
 
+import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.ui.format.DEFAULT_AVATAR_INITIAL
 import com.example.unpawse.ui.format.DEFAULT_DISPLAY_NAME
 import com.example.unpawse.ui.format.NO_DATA
@@ -14,6 +15,8 @@ data class HomeUiState(
     val greeting: String,
     val userName: String,
     val avatarInitial: Char,
+    /** The chosen cat; [AVATAR_NONE] shows [avatarInitial] instead. */
+    val avatarId: Int = AVATAR_NONE,
     val screenTimeUsedLabel: String,
     val progressFraction: Float,
     val remainingLabel: String,

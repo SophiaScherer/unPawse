@@ -44,6 +44,7 @@ class ExportSnapshotTest {
             dailySummaryEnabled = false,
             warningMinutes = 5,
             reminderMinutes = 30,
+            avatarId = 3,
         ),
         monitoredApps = monitoredApps,
         schedules = schedules,
@@ -68,6 +69,7 @@ class ExportSnapshotTest {
         val settings = json().getJSONObject("settings")
 
         assertEquals("Sophia", settings.getString("userName"))
+        assertEquals(3, settings.getInt("avatarId"))
         assertEquals("SYSTEM", settings.getString("themeMode"))
         assertEquals(0.5, settings.getDouble("sensitivity"), 0.0001)
         assertEquals(0.7, settings.getDouble("minConfidence"), 0.0001)

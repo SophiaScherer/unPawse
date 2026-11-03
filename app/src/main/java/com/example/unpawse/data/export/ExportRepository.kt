@@ -63,6 +63,7 @@ class ExportRepository(
                 warningMinutes = settings.warningMinutes.first(),
                 reminderMinutes = settings.reminderMinutes.first(),
                 usageScope = settings.usageScope.first().name,
+                avatarId = settings.avatarId.first(),
             ),
             monitoredApps = usage.monitoredApps().map(MonitoredApp::toExport),
             schedules = schedules.allWindows().map(ScheduleWindow::toExport),

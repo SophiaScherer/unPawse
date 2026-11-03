@@ -44,6 +44,7 @@ class ImportRepositoryTest {
     private val unlocks = UnlockRepository(unlockDao)
 
     private var settingsCleared = false
+    private var onboarded = true
     private var appliedSettings: ExportSettings? = null
 
     private val reset by lazy {
@@ -54,7 +55,10 @@ class ImportRepositoryTest {
             unlocks = unlocks,
             focusSession = FocusSession(),
             blockSession = BlockSession(),
-            clearSettings = { settingsCleared = true },
+            clearSettings = {
+                settingsCleared = true
+                onboarded = false
+            },
         )
     }
 
@@ -66,6 +70,7 @@ class ImportRepositoryTest {
             captures = captures,
             reset = reset,
             applySettings = { appliedSettings = it },
+            markOnboarded = { onboarded = true },
             // Every case here drives the InputStream overload directly; the uri path is device-only.
             openDocument = { null },
         )
@@ -157,6 +162,20 @@ class ImportRepositoryTest {
         assertNull(usage.monitoredApps().find { it.packageName == "com.old" })
         assertEquals(listOf("Bedtime"), schedules.allWindows().map { it.label })
         assertEquals(listOf("abc"), captures.observeCaptures().first().map { it.id })
+    }
+
+    /** The wipe clears every preference, the tour flag included; an imported user has seen it. */
+    @Test
+    fun `an import does not send the user back through onboarding`() = runBlocking {
+        repo.importFrom(ByteArrayInputStream(bundle()))
+        assertTrue(settingsCleared)
+        assertTrue(onboarded)
+
+        onboarded = true
+        settingsCleared = false
+        repo.importFrom(ByteArrayInputStream(buildExportJson(snapshot).toByteArray()))
+        assertTrue(settingsCleared)
+        assertTrue(onboarded)
     }
 
     /** No photo means a permanently broken gallery tile, so the row is skipped and counted. */

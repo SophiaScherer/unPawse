@@ -1,6 +1,7 @@
 package com.example.unpawse.data.export
 
 import com.example.unpawse.data.capture.CaptureRetention
+import com.example.unpawse.data.settings.AVATAR_NONE
 import com.example.unpawse.data.settings.SettingsRepository
 import com.example.unpawse.data.usage.AppCategory
 import org.json.JSONArray
@@ -20,8 +21,10 @@ import org.json.JSONObject
  *   documents, which read as 0 — "unknown shape" — and fall back to a default ratio.
  * v8 added `settings.usageScope`, which apps the Stats figures count. Absent in older documents and
  *   falls back to `TRACKED`, which is what every build before this one showed.
+ * v9 added `settings.avatarId`, the chosen cat. Absent in older documents and reads as `AVATAR_NONE`,
+ *   the initials avatar every build before this one showed.
  */
-const val EXPORT_FORMAT_VERSION = 8
+const val EXPORT_FORMAT_VERSION = 9
 
 /**
  * Everything unPawse holds about you, in one plain structure.
@@ -54,6 +57,8 @@ data class ExportSettings(
     val reminderMinutes: Int = SettingsRepository.DEFAULT_REMINDER_MINUTES,
     /** Which apps the Stats figures count, as a `UsageScope` name. */
     val usageScope: String = SettingsRepository.DEFAULT_USAGE_SCOPE.name,
+    /** The profile picture's id; see `AVATAR_NONE` for how the id space is carved up. */
+    val avatarId: Int = AVATAR_NONE,
 )
 
 data class ExportMonitoredApp(
@@ -202,6 +207,7 @@ private fun JSONObject.toExportSettings() = ExportSettings(
     warningMinutes = optInt("warningMinutes", SettingsRepository.DEFAULT_WARNING_MINUTES),
     reminderMinutes = optInt("reminderMinutes", SettingsRepository.DEFAULT_REMINDER_MINUTES),
     usageScope = optString("usageScope", SettingsRepository.DEFAULT_USAGE_SCOPE.name),
+    avatarId = optInt("avatarId", AVATAR_NONE),
 )
 
 private fun JSONObject.toMonitoredApp(): ExportMonitoredApp? {
@@ -275,6 +281,7 @@ private fun ExportSettings.toJson() = JSONObject()
     .put("warningMinutes", warningMinutes)
     .put("reminderMinutes", reminderMinutes)
     .put("usageScope", usageScope)
+    .put("avatarId", avatarId)
 
 private fun ExportMonitoredApp.toJson() = JSONObject()
     .put("packageName", packageName)
